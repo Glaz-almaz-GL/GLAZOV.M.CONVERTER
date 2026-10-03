@@ -17,6 +17,9 @@ internal sealed class FfmpegAudioEngine : IConversionEngine
     public string ToolName => "ffmpeg";
 
     /// <inheritdoc />
+    public bool SupportsOperations => false;
+
+    /// <inheritdoc />
     public IReadOnlyList<(FileFormat From, FileFormat To)> Pairs { get; } =
         [.. Supported.SelectMany(from => Supported.Select(to => (from, to)))];
 

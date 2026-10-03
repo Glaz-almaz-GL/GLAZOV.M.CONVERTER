@@ -315,9 +315,13 @@ public sealed class SingleConversionTests : IDisposable
 
         public bool WaitForCancel { get; init; }
 
+        public bool Operations { get; init; }
+
         public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public string ToolName { get; } = toolName;
+
+        public bool SupportsOperations => Operations;
 
         public IReadOnlyList<(FileFormat From, FileFormat To)> Pairs { get; } = [(FileFormat.Mp3, FileFormat.Wav)];
 

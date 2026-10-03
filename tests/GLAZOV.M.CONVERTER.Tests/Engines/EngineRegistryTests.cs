@@ -66,6 +66,8 @@ public class EngineRegistryTests
     {
         public string ToolName { get; } = toolName;
 
+        public bool SupportsOperations => false;
+
         public IReadOnlyList<(FileFormat From, FileFormat To)> Pairs { get; } = [(FileFormat.Mp3, FileFormat.Wav)];
 
         public bool CanConvert(FileFormat from, FileFormat to)

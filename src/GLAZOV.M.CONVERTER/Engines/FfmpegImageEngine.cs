@@ -25,6 +25,9 @@ internal sealed class FfmpegImageEngine : IConversionEngine
     public string ToolName => "ffmpeg";
 
     /// <inheritdoc />
+    public bool SupportsOperations => true;
+
+    /// <inheritdoc />
     public IReadOnlyList<(FileFormat From, FileFormat To)> Pairs { get; } =
         [.. Inputs.SelectMany(from => Outputs.Select(to => (from, to)))];
 
@@ -50,7 +53,12 @@ internal sealed class FfmpegImageEngine : IConversionEngine
                 await request.Input.CopyToAsync(input, cancellationToken).ConfigureAwait(false);
             }
 
-            IReadOnlyList<string> args = FfmpegImageArguments.Build(request.To, request.Options?.Image?.Quality, inputPath, outputPath);
+            IReadOnlyList<string> args = FfmpegImageArguments.Build(
+                request.To,
+                request.Options?.Image?.Quality,
+                inputPath,
+                outputPath,
+                FfmpegImageArguments.Filters(request.Options?.Operations));
             ToolResult result = await ToolRunner.RunAsync(new ToolInvocation(request.Tool.Path!, args), cancellationToken).ConfigureAwait(false);
             if (result.ExitCode != 0)
             {

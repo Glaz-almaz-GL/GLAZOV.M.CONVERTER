@@ -313,6 +313,8 @@ public sealed class BatchConversionTests : IDisposable
 
         public string ToolName => "faketool";
 
+        public bool SupportsOperations => false;
+
         public IReadOnlyList<(FileFormat From, FileFormat To)> Pairs { get; } = [(FileFormat.Mp3, FileFormat.Wav)];
 
         public bool CanConvert(FileFormat from, FileFormat to)

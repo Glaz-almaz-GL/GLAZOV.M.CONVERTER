@@ -1,4 +1,5 @@
 using System.Globalization;
+using GLAZOV.M.CONVERTER.Converting;
 using GLAZOV.M.CONVERTER.Data;
 
 namespace GLAZOV.M.CONVERTER.Engines;
@@ -88,6 +89,34 @@ internal static class FfmpegImageArguments
 
         args.AddRange(["-f", muxer, "-y", outputPath]);
         return args;
+    }
+
+    /// <summary>
+    /// Переводит действия в цепочку фильтров FFmpeg по порядку действий: поворот вправо — <c>transpose=1</c>,
+    /// масштаб в процентах — <c>scale</c> с округлением вниз и размером не меньше одного пикселя.
+    /// </summary>
+    /// <param name="operations">Действия по порядку; пусто или <c>null</c> — без фильтров.</param>
+    internal static IReadOnlyList<string> Filters(IEnumerable<Operation>? operations)
+    {
+        List<string> filters = [];
+        foreach (Operation operation in operations ?? [])
+        {
+            if (operation.Name == Operation.RotateRight.Name)
+            {
+                filters.Add("transpose=1");
+            }
+            else if (operation.Name == "ScalePercent" && operation.Percent is int percent)
+            {
+                string p = percent.ToString(CultureInfo.InvariantCulture);
+                filters.Add($"scale=w='max(1,trunc(iw*{p}/100))':h='max(1,trunc(ih*{p}/100))'");
+            }
+            else
+            {
+                throw new ArgumentException($"Действие «{operation.Name}» движок изображений не умеет.", nameof(operations));
+            }
+        }
+
+        return filters;
     }
 
     // Шкала качества JPEG у FFmpeg обратная: 2 — лучшее, 31 — худшее. Переводим 1–100 в 31…2.

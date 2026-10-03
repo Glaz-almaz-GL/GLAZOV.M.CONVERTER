@@ -82,7 +82,7 @@ internal sealed class SingleConversion
     private IConversionEngine ChooseEngine(FileFormat from, FileFormat to, ConversionOptions? options)
     {
         IConversionEngine engine = _registry.Find(from, to) ?? throw Failures.UnsupportedConversion(from, to);
-        if (options is { Operations.Count: > 0 })
+        if (options is { Operations.Count: > 0 } && !engine.SupportsOperations)
         {
             throw Failures.UnsupportedOperations(from, to);
         }

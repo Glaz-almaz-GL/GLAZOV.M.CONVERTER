@@ -135,6 +135,8 @@ public sealed class ConverterCapabilitiesTests : IDisposable
     {
         public string ToolName { get; } = toolName;
 
+        public bool SupportsOperations => false;
+
         public IReadOnlyList<(FileFormat From, FileFormat To)> Pairs { get; } = pairs;
 
         public bool CanConvert(FileFormat from, FileFormat to)

@@ -14,6 +14,12 @@ internal interface IConversionEngine
     string ToolName { get; }
 
     /// <summary>
+    /// Умеет ли движок действия над изображением (поворот, масштаб) из <see cref="Converting.ConversionOptions.Operations"/>.
+    /// Движок, не умеющий их, получает отказ до запуска работы.
+    /// </summary>
+    bool SupportsOperations { get; }
+
+    /// <summary>
     /// Все пары «из какого формата в какой», которые умеет движок (для каталога возможностей).
     /// </summary>
     IReadOnlyList<(FileFormat From, FileFormat To)> Pairs { get; }
