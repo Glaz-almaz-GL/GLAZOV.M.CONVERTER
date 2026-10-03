@@ -1,11 +1,5 @@
-using System.Reflection;
-using GLAZOV.M.CONVERTER.Batch;
-using GLAZOV.M.CONVERTER.Capabilities;
 using GLAZOV.M.CONVERTER.Converting;
-using GLAZOV.M.CONVERTER.Data;
-using GLAZOV.M.CONVERTER.Detection;
-using GLAZOV.M.CONVERTER.Errors;
-using GLAZOV.M.CONVERTER.Settings;
+using System.Reflection;
 
 namespace GLAZOV.M.CONVERTER.Tests.Contract;
 
@@ -34,7 +28,7 @@ public class PublicSurfaceTests
         ["ConverterSettings"] = ["MaxParallelTasks", "OverwriteExisting", "TempFolder", "ToolPaths"],
         ["FileType"] = ["Extension", "MimeType", "Mp3", "Name", "Ogg", "Unknown", "Wav"],
         ["FileTypeDetector"] = ["DetectAsync"],
-        ["Format"] = ["Jpeg", "Mp3", "Ogg", "Wav"],
+        ["Format"] = ["Create", "Extension", "Jpeg", "MimeType", "Mp3", "Name", "Ogg", "Wav"],
         ["Operation"] = ["RotateRight", "ScalePercent"],
         ["Source"] = ["File", "Folder", "Stream"],
         ["Target"] = ["File", "Folder", "Memory", "Stream"],
@@ -56,12 +50,12 @@ public class PublicSurfaceTests
         Type type = typeof(Converter).Assembly.GetExportedTypes().Single(t => t.Name == typeName);
         const BindingFlags flags = BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly;
 
-        var actual = type.GetMembers(flags)
+        string[] actual = type.GetMembers(flags)
             .Where(m => !(m is MethodBase method && method.IsSpecialName && m.Name != ".ctor"))
             .Where(m => m.Name != ".ctor" || type == typeof(Converter))
             .Select(m => m.Name)
             .Where(n => !(type.IsEnum && n == "value__"))
-            .Where(n => n != "ToString")
+            .Where(n => n is not ("ToString" or "Equals" or "GetHashCode"))
             .Distinct()
             .Order()
             .ToArray();

@@ -46,7 +46,7 @@ internal static class Failures
         new(
             ConversionStage.Preparation,
             ConversionFailureReason.UnsupportedConversion,
-            $"Конвертация {from.Name} → {to.ToString().ToUpperInvariant()} не поддерживается.");
+            $"Конвертация {from.Name} → {to.Name} не поддерживается.");
 
     /// <summary>
     /// Нужная внешняя программа не найдена.

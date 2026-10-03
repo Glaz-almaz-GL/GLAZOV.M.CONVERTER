@@ -216,14 +216,17 @@ public sealed class OutputSinkTests : IDisposable
             await OutputSink.OpenAsync(Target.Stream(readOnly, Format.Mp3), "in.ogg", Settings()));
     }
 
-    [Theory]
-    [InlineData(Format.Mp3, "mp3")]
-    [InlineData(Format.Wav, "wav")]
-    [InlineData(Format.Ogg, "ogg")]
-    [InlineData(Format.Jpeg, "jpg")]
-    public void FileExtension_PerFormat(Format format, string expected)
+    [Fact]
+    public async Task Folder_CustomFormat_NameUsesItsOwnExtension()
     {
-        Assert.Equal(expected, format.FileExtension());
+        Format flac = Format.Create("FLAC", "audio/flac", "flac");
+        string folder = Path.Combine(_folder, "flac-out");
+
+        await using OutputSink sink = await OutputSink.OpenAsync(Target.Folder(folder, flac), "песня.wav", Settings());
+        await sink.Stream.WriteAsync(_payload);
+        SinkResult result = await sink.CommitAsync();
+
+        Assert.Equal(Path.Combine(folder, "песня.flac"), result.OutputPath);
     }
 
     private sealed class NonSeekableWriteStream : Stream
