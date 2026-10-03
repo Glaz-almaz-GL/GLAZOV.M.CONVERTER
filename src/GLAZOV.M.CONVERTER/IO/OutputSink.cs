@@ -11,13 +11,13 @@ namespace GLAZOV.M.CONVERTER.IO;
 internal sealed class OutputSink : IAsyncDisposable
 {
     private readonly Target _target;
-    private readonly ConverterSettings _settings;
+    private readonly ConverterSettingsSnapshot _settings;
     private readonly string? _finalPath;
     private readonly string? _tempPath;
     private readonly bool _ownsStream;
     private bool _finished;
 
-    private OutputSink(Target target, ConverterSettings settings, string? finalPath, string? tempPath, Stream stream, bool ownsStream)
+    private OutputSink(Target target, ConverterSettingsSnapshot settings, string? finalPath, string? tempPath, Stream stream, bool ownsStream)
     {
         _target = target;
         _settings = settings;
@@ -38,7 +38,7 @@ internal sealed class OutputSink : IAsyncDisposable
     internal bool IsSeekable => Stream.CanSeek;
 
     /// <summary>
-    /// Открывает приёмник. Существующий файл при <see cref="ConverterSettings.OverwriteExisting"/> = <c>false</c>
+    /// Открывает приёмник. Существующий файл при <see cref="ConverterSettingsSnapshot.OverwriteExisting"/> = <c>false</c>
     /// отвергается сразу, до начала работы.
     /// </summary>
     /// <param name="target">Куда класть результат и в каком формате.</param>
@@ -49,7 +49,7 @@ internal sealed class OutputSink : IAsyncDisposable
     internal static ValueTask<OutputSink> OpenAsync(
         Target target,
         string inputName,
-        ConverterSettings settings,
+        ConverterSettingsSnapshot settings,
         bool requireSeekable = false,
         CancellationToken cancellationToken = default)
     {
@@ -165,7 +165,7 @@ internal sealed class OutputSink : IAsyncDisposable
         return AbortAsync();
     }
 
-    private static OutputSink OpenFile(Target target, ConverterSettings settings, string finalPath)
+    private static OutputSink OpenFile(Target target, ConverterSettingsSnapshot settings, string finalPath)
     {
         if (!settings.OverwriteExisting && File.Exists(finalPath))
         {
@@ -181,7 +181,7 @@ internal sealed class OutputSink : IAsyncDisposable
         return new OutputSink(target, settings, finalPath, tempPath, stream, ownsStream: true);
     }
 
-    private static OutputSink OpenStream(Target target, ConverterSettings settings, bool requireSeekable)
+    private static OutputSink OpenStream(Target target, ConverterSettingsSnapshot settings, bool requireSeekable)
     {
         Stream output = target.OutputStream!;
         if (!output.CanWrite)
@@ -203,7 +203,7 @@ internal sealed class OutputSink : IAsyncDisposable
         return new OutputSink(target, settings, null, tempPath, temp, ownsStream: true);
     }
 
-    private static OutputSink GetFolderSink(Target target, ConverterSettings settings, string inputName)
+    private static OutputSink GetFolderSink(Target target, ConverterSettingsSnapshot settings, string inputName)
     {
         string fileName = Path.GetFileNameWithoutExtension(inputName);
         string extension = target.Format.FileExtension();

@@ -123,7 +123,7 @@ public class ScenarioShapeTests
         Assert.Equal("C:/tools/ffmpeg/bin/ffmpeg.exe", settings.ToolPaths["ffmpeg"]);
         Assert.Equal(Environment.ProcessorCount, new ConverterSettings().MaxParallelTasks);
         Assert.False(new ConverterSettings().OverwriteExisting);
-        Assert.NotNull(new Converter(settings));
+        // Создание Converter с этим объектом отвергнет несуществующую папку (проверка настроек) — это проверяется в тестах настроек.
     }
 
     [Fact]

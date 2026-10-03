@@ -13,20 +13,32 @@ public sealed class OutputSinkTests : IDisposable
     private readonly string _folder = Path.Combine(Path.GetTempPath(), "convtests-" + Guid.NewGuid().ToString("N"));
     private readonly byte[] _payload = [1, 2, 3, 4, 5, 6, 7, 8];
 
-    public OutputSinkTests() => Directory.CreateDirectory(_folder);
+    public OutputSinkTests()
+    {
+        Directory.CreateDirectory(_folder);
+    }
 
-    public void Dispose() => Directory.Delete(_folder, recursive: true);
+    public void Dispose()
+    {
+        Directory.Delete(_folder, recursive: true);
+    }
 
-    private ConverterSettings Settings(bool overwrite = false) =>
-        new() { OverwriteExisting = overwrite, TempFolder = Path.Combine(_folder, "tmp") };
+    private ConverterSettingsSnapshot Settings(bool overwrite = false)
+    {
+        string temp = Path.Combine(_folder, "tmp");
+        Directory.CreateDirectory(temp);
+        return ConverterSettingsSnapshot.Create(new ConverterSettings { OverwriteExisting = overwrite, TempFolder = temp });
+    }
 
-    private string[] Leftovers() =>
-        Directory.GetFiles(_folder, "*.tmp", SearchOption.AllDirectories);
+    private string[] Leftovers()
+    {
+        return Directory.GetFiles(_folder, "*.tmp", SearchOption.AllDirectories);
+    }
 
     [Fact]
     public async Task File_WrittenViaTempAndRenamedOnCommit()
     {
-        var path = Path.Combine(_folder, "out", "a.mp3");
+        string path = Path.Combine(_folder, "out", "a.mp3");
 
         await using var sink = await OutputSink.OpenAsync(Target.File(path, Format.Mp3), "in.ogg", Settings());
         await sink.Stream.WriteAsync(_payload);
@@ -41,7 +53,7 @@ public sealed class OutputSinkTests : IDisposable
     [Fact]
     public async Task Folder_NameIsInputNameWithFormatExtension()
     {
-        var folder = Path.Combine(_folder, "ready");
+        string folder = Path.Combine(_folder, "ready");
 
         await using var sink = await OutputSink.OpenAsync(Target.Folder(folder, Format.Wav), "song.ogg", Settings());
         await sink.Stream.WriteAsync(_payload);
@@ -54,7 +66,7 @@ public sealed class OutputSinkTests : IDisposable
     [Fact]
     public async Task ExistingFile_WithoutOverwrite_IsFileExistsBeforeAnyWork()
     {
-        var path = Path.Combine(_folder, "exists.mp3");
+        string path = Path.Combine(_folder, "exists.mp3");
         await File.WriteAllBytesAsync(path, [9]);
 
         var ex = await Assert.ThrowsAsync<ConversionException>(async () =>
@@ -69,7 +81,7 @@ public sealed class OutputSinkTests : IDisposable
     [Fact]
     public async Task ExistingFile_WithOverwrite_IsReplaced()
     {
-        var path = Path.Combine(_folder, "exists.mp3");
+        string path = Path.Combine(_folder, "exists.mp3");
         await File.WriteAllBytesAsync(path, [9]);
 
         await using var sink = await OutputSink.OpenAsync(Target.File(path, Format.Mp3), "in.ogg", Settings(overwrite: true));
@@ -82,7 +94,7 @@ public sealed class OutputSinkTests : IDisposable
     [Fact]
     public async Task FileAppearingDuringWork_WithoutOverwrite_IsFileExistsOnCommit_AndNothingIsLeft()
     {
-        var path = Path.Combine(_folder, "race.mp3");
+        string path = Path.Combine(_folder, "race.mp3");
         var sink = await OutputSink.OpenAsync(Target.File(path, Format.Mp3), "in.ogg", Settings());
         await sink.Stream.WriteAsync(_payload);
         await File.WriteAllBytesAsync(path, [7]);
@@ -97,7 +109,7 @@ public sealed class OutputSinkTests : IDisposable
     [Fact]
     public async Task Abort_RemovesTempFile_AndLeavesNoResult()
     {
-        var path = Path.Combine(_folder, "aborted.mp3");
+        string path = Path.Combine(_folder, "aborted.mp3");
         var sink = await OutputSink.OpenAsync(Target.File(path, Format.Mp3), "in.ogg", Settings());
         await sink.Stream.WriteAsync(_payload);
         Assert.Single(Leftovers());
@@ -111,7 +123,7 @@ public sealed class OutputSinkTests : IDisposable
     [Fact]
     public async Task DisposeWithoutCommit_IsAbort()
     {
-        var path = Path.Combine(_folder, "forgotten.mp3");
+        string path = Path.Combine(_folder, "forgotten.mp3");
         await using (var sink = await OutputSink.OpenAsync(Target.File(path, Format.Mp3), "in.ogg", Settings()))
         {
             await sink.Stream.WriteAsync(_payload);
@@ -189,7 +201,7 @@ public sealed class OutputSinkTests : IDisposable
     public async Task Cancelled_BeforeOpen_ThrowsOperationCanceled()
     {
         using var cts = new CancellationTokenSource();
-        cts.Cancel();
+        await cts.CancelAsync();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
             await OutputSink.OpenAsync(Target.Memory(Format.Mp3), "in.ogg", Settings(), cancellationToken: cts.Token));
@@ -234,16 +246,28 @@ public sealed class OutputSinkTests : IDisposable
             set => throw new NotSupportedException();
         }
 
-        public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            throw new NotSupportedException();
+        }
 
         public override void Flush()
         {
         }
 
-        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override long Seek(long offset, SeekOrigin origin)
+        {
+            throw new NotSupportedException();
+        }
 
-        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void SetLength(long value)
+        {
+            throw new NotSupportedException();
+        }
 
-        public override void Write(byte[] buffer, int offset, int count) => _written.Write(buffer, offset, count);
+        public override void Write(byte[] buffer, int offset, int count)
+        {
+            _written.Write(buffer, offset, count);
+        }
     }
 }

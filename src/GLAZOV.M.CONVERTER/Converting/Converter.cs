@@ -27,7 +27,7 @@ public sealed class Converter
     public Converter(ConverterSettings settings)
     {
         ArgumentNullException.ThrowIfNull(settings);
-        Settings = settings;
+        Settings = ConverterSettingsSnapshot.Create(settings);
         Capabilities = new ConverterCapabilities();
     }
 
@@ -36,7 +36,7 @@ public sealed class Converter
     /// </summary>
     public ConverterCapabilities Capabilities { get; }
 
-    internal ConverterSettings Settings { get; }
+    internal ConverterSettingsSnapshot Settings { get; }
 
     /// <summary>
     /// Конвертирует один вход в один результат. При ошибке бросает <see cref="ConversionException"/>.
