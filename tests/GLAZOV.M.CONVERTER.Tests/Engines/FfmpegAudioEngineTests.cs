@@ -63,8 +63,8 @@ public sealed class FfmpegAudioEngineTests : IDisposable
 
     public static IEnumerable<object[]> Pairs()
     {
-        string[] samples = ["sample-id3.mp3", "sample.wav", "sample-vorbis.ogg", "sample-opus.ogg"];
-        string[] targets = ["MP3", "WAV", "OGG"];
+        string[] samples = ["sample-id3.mp3", "sample.wav", "sample-vorbis.ogg", "sample-opus.ogg", "sample.flac", "sample.m4a"];
+        string[] targets = ["MP3", "WAV", "OGG", "FLAC", "M4A"];
         foreach (string sample in samples)
         {
             foreach (string target in targets)
@@ -82,6 +82,8 @@ public sealed class FfmpegAudioEngineTests : IDisposable
         {
             "MP3" => FileFormat.Mp3,
             "WAV" => FileFormat.Wav,
+            "FLAC" => FileFormat.Flac,
+            "M4A" => FileFormat.M4a,
             _ => FileFormat.Ogg,
         };
 
@@ -120,6 +122,40 @@ public sealed class FfmpegAudioEngineTests : IDisposable
 
         string head = System.Text.Encoding.ASCII.GetString(result, 0, Math.Min(result.Length, 1000));
         Assert.True(head.Contains("Xing") || head.Contains("Info"), "В начале MP3 нет заголовка Xing/Info.");
+    }
+
+    [ExternalFact]
+    public async Task Flac_IsLossless_WavThroughFlacComesBackWithTheSameAudioData()
+    {
+        byte[] wav = Sample("sample.wav");
+
+        byte[] flac = await Convert(wav, FileFormat.Flac);
+        byte[] back = await Convert(flac, FileFormat.Wav);
+
+        // Заголовки WAV могут отличаться служебными полями; данные звука (после заголовка из 44 байт) должны совпасть побайтно.
+        Assert.Same(FileFormat.Flac, SignatureMatcher.Match(flac));
+        Assert.Equal(wav.AsSpan(44).ToArray(), back.AsSpan(44).ToArray());
+    }
+
+    [ExternalFact]
+    public async Task M4a_IsAnMp4WithTheAudioBrand_AndReadsBack()
+    {
+        byte[] m4a = await Convert(Sample("sample.wav"), FileFormat.M4a);
+
+        Assert.Same(FileFormat.M4a, SignatureMatcher.Match(m4a));
+        Assert.Equal("ftyp", System.Text.Encoding.ASCII.GetString(m4a, 4, 4));
+        await AssertDecodes(m4a);
+    }
+
+    [ExternalFact]
+    public async Task M4a_DefaultBitrateIsReplacedByTheSetting()
+    {
+        byte[] wav = Sample("sample.wav");
+
+        byte[] low = await Convert(wav, FileFormat.M4a, new AudioOptions { Bitrate = 24_000 });
+        byte[] high = await Convert(wav, FileFormat.M4a, new AudioOptions { Bitrate = 256_000 });
+
+        Assert.True(low.Length < high.Length, $"24 кбит/с дал {low.Length} байт, 256 кбит/с — {high.Length}");
     }
 
     [ExternalFact]
@@ -171,9 +207,9 @@ public sealed class FfmpegAudioEngineTests : IDisposable
     }
 
     [Fact]
-    public void Pairs_AreNine_AndCanConvertMatchesThem()
+    public void Pairs_AreTwentyFive_AndCanConvertMatchesThem()
     {
-        Assert.Equal(9, _engine.Pairs.Count);
+        Assert.Equal(25, _engine.Pairs.Count);
         Assert.All(_engine.Pairs, p => Assert.True(_engine.CanConvert(p.From, p.To)));
         Assert.False(_engine.CanConvert(FileFormat.Mp3, FileFormat.Jpeg));
         Assert.False(_engine.CanConvert(FileFormat.Unknown, FileFormat.Mp3));

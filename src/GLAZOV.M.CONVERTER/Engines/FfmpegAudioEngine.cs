@@ -5,13 +5,13 @@ using GLAZOV.M.CONVERTER.Tooling;
 namespace GLAZOV.M.CONVERTER.Engines;
 
 /// <summary>
-/// Звук между MP3, WAV и OGG через FFmpeg. OGG идёт каналами (вход — стандартный ввод, выход — стандартный вывод);
-/// MP3 и WAV пишутся во временный файл, потому что FFmpeg после записи возвращается в начало выхода: в WAV правит размеры заголовка, в MP3 пишет служебный заголовок с длительностью (Xing/Info) — канал этого не даёт, и у MP3 без него длительность определяется неверно.
+/// Звук между MP3, WAV, OGG, FLAC и M4A через FFmpeg. OGG идёт каналами (вход — стандартный ввод, выход — стандартный вывод);
+/// Остальные форматы пишутся во временный файл, потому что FFmpeg после записи возвращается в начало выхода: в WAV правит размеры заголовка, в MP3 пишет служебный заголовок с длительностью (Xing/Info), во FLAC — число отсчётов и контрольную сумму, в M4A переносит индекс (faststart) — канал этого не даёт.
 /// Результат OGG — Vorbis; вход Opus принимается.
 /// </summary>
 internal sealed class FfmpegAudioEngine : IConversionEngine
 {
-    private static readonly FileFormat[] Supported = [FileFormat.Mp3, FileFormat.Wav, FileFormat.Ogg];
+    private static readonly FileFormat[] Supported = [FileFormat.Mp3, FileFormat.Wav, FileFormat.Ogg, FileFormat.Flac, FileFormat.M4a];
 
     /// <inheritdoc />
     public string ToolName => "ffmpeg";
@@ -31,7 +31,7 @@ internal sealed class FfmpegAudioEngine : IConversionEngine
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        bool needsTempFile = request.To.Equals(FileFormat.Wav) || request.To.Equals(FileFormat.Mp3);
+        bool needsTempFile = !request.To.Equals(FileFormat.Ogg);
         string? tempPath = needsTempFile
             ? Path.Combine(request.TempFolder, $"convert-{Guid.NewGuid():N}.{request.To.Extension}")
             : null;

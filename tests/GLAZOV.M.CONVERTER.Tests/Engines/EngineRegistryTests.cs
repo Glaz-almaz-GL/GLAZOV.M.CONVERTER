@@ -8,10 +8,10 @@ namespace GLAZOV.M.CONVERTER.Tests.Engines;
 /// </summary>
 public class EngineRegistryTests
 {
-    private static readonly FileFormat[] Audio = [FileFormat.Mp3, FileFormat.Wav, FileFormat.Ogg];
+    private static readonly FileFormat[] Audio = [FileFormat.Mp3, FileFormat.Wav, FileFormat.Ogg, FileFormat.Flac, FileFormat.M4a];
 
     [Fact]
-    public void Default_FindsAnEngineForAllNineAudioPairs()
+    public void Default_FindsAnEngineForAllTwentyFiveAudioPairs()
     {
         EngineRegistry registry = EngineRegistry.CreateDefault();
 
@@ -31,7 +31,7 @@ public class EngineRegistryTests
     [InlineData(4, 1)]
     public void Default_DoesNotFind_ImagesUnknownAndForeign(int fromIndex, int toIndex)
     {
-        FileFormat[] all = [FileFormat.Jpeg, FileFormat.Mp3, FileFormat.Wav, FileFormat.Unknown, FileFormat.Create("FLAC", "audio/flac", "flac")];
+        FileFormat[] all = [FileFormat.Jpeg, FileFormat.Mp3, FileFormat.Wav, FileFormat.Unknown, FileFormat.Create("DEMO", "application/x-demo", "demo")];
         FileFormat from = all[fromIndex];
         FileFormat to = all[toIndex];
 
@@ -42,12 +42,12 @@ public class EngineRegistryTests
     }
 
     [Fact]
-    public void Pairs_ListNinePairsWithToolName_InStableOrder()
+    public void Pairs_ListTwentyFivePairsWithToolName_InStableOrder()
     {
         IReadOnlyList<(FileFormat From, FileFormat To, string ToolName)> first = EngineRegistry.CreateDefault().Pairs();
         IReadOnlyList<(FileFormat From, FileFormat To, string ToolName)> second = EngineRegistry.CreateDefault().Pairs();
 
-        Assert.Equal(9, first.Count);
+        Assert.Equal(25, first.Count);
         Assert.All(first, p => Assert.Equal("ffmpeg", p.ToolName));
         Assert.Equal(first, second);
         Assert.Equal(first.Select(p => (p.From, p.To)).Distinct().Count(), first.Count);

@@ -109,13 +109,13 @@ public sealed class ConverterCapabilitiesTests : IDisposable
     }
 
     [Fact]
-    public void RealConverter_ListsNineAudioPairs_AndKnowsFfmpeg()
+    public void RealConverter_ListsTwentyFiveAudioPairs_AndKnowsFfmpeg()
     {
         ConverterCapabilities caps = new Converter().Capabilities;
 
         IReadOnlyList<Conversion> all = caps.All;
 
-        Assert.Equal(9, all.Count);
+        Assert.Equal(25, all.Count);
         Assert.True(caps.CanConvert(FileFormat.Ogg, FileFormat.Mp3));
         Assert.False(caps.CanConvert(FileFormat.Ogg, FileFormat.Jpeg));
         Assert.Equal("ffmpeg", caps.Tool("ffmpeg").Name);

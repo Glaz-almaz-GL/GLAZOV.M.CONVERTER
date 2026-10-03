@@ -133,4 +133,38 @@ public class FfmpegAudioArgumentsTests
         Assert.Throws<ArgumentException>(() => FfmpegAudioArguments.Build(FileFormat.Mp3, null, " "));
         Assert.Contains("pipe:1", Joined(FfmpegAudioArguments.Build(FileFormat.Mp3, null, "pipe:1")));
     }
+
+    [Fact]
+    public void Flac_UsesTheFlacCodecAndCompressionLevel_IgnoresBitrate()
+    {
+        IReadOnlyList<string> args = FfmpegAudioArguments.Build(FileFormat.Flac, new AudioOptions { Bitrate = 128_000, SampleRate = 48_000 }, "x");
+
+        Assert.Equal("flac", ValueAfter(args, "-c:a"));
+        Assert.Equal("5", ValueAfter(args, "-compression_level"));
+        Assert.Equal("flac", ValueAfter(args, "-f"));
+        Assert.Equal("48000", ValueAfter(args, "-ar"));
+        Assert.DoesNotContain("-b:a", args);
+        Assert.DoesNotContain("-q:a", args);
+    }
+
+    [Fact]
+    public void M4a_UsesAacWithDefaultBitrate_IpodContainer_AndFaststart()
+    {
+        IReadOnlyList<string> args = FfmpegAudioArguments.Build(FileFormat.M4a, null, "x");
+
+        Assert.Equal("aac", ValueAfter(args, "-c:a"));
+        Assert.Equal("128000", ValueAfter(args, "-b:a"));
+        Assert.Equal("ipod", ValueAfter(args, "-f"));
+        Assert.Equal("+faststart", ValueAfter(args, "-movflags"));
+        Assert.DoesNotContain("-q:a", args);
+    }
+
+    [Fact]
+    public void M4a_BitrateFromSettings_ReplacesTheDefault()
+    {
+        IReadOnlyList<string> args = FfmpegAudioArguments.Build(FileFormat.M4a, new AudioOptions { Bitrate = 192_000 }, "x");
+
+        Assert.Equal("192000", ValueAfter(args, "-b:a"));
+        Assert.Single(args, a => a == "-b:a");
+    }
 }
