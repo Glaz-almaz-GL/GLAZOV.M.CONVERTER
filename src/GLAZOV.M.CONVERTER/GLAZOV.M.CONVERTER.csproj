@@ -5,4 +5,8 @@
     <Description>Библиотека конвертации файлов между форматами: файлы, папки и потоки.</Description>
   </PropertyGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="GLAZOV.M.CONVERTER.Tests" />
+  </ItemGroup>
+
 </Project>

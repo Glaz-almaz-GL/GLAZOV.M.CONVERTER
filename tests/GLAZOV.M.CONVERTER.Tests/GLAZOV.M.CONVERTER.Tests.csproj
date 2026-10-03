@@ -16,6 +16,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Include="Samples\*" CopyToOutputDirectory="PreserveNewest" LinkBase="Samples" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\GLAZOV.M.CONVERTER\GLAZOV.M.CONVERTER.csproj" />
   </ItemGroup>
 
