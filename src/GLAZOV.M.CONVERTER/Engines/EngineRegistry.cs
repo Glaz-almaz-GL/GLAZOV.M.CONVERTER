@@ -21,11 +21,11 @@ internal sealed class EngineRegistry
     internal IReadOnlyList<IConversionEngine> Engines => _engines;
 
     /// <summary>
-    /// Реестр первой версии: звук через FFmpeg.
+    /// Реестр по умолчанию: звук и изображения через FFmpeg.
     /// </summary>
     internal static EngineRegistry CreateDefault()
     {
-        return new EngineRegistry([new FfmpegAudioEngine()]);
+        return new EngineRegistry([new FfmpegAudioEngine(), new FfmpegImageEngine()]);
     }
 
     /// <summary>

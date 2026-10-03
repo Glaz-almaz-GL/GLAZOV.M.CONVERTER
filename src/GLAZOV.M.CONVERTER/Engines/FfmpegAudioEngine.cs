@@ -38,7 +38,7 @@ internal sealed class FfmpegAudioEngine : IConversionEngine
 
         try
         {
-            IReadOnlyList<string> args = FfmpegAudioArguments.Build(request.To, request.Audio, tempPath ?? "pipe:1");
+            IReadOnlyList<string> args = FfmpegAudioArguments.Build(request.To, request.Options?.Audio, tempPath ?? "pipe:1");
             ToolInvocation invocation = new(
                 request.Tool.Path!,
                 args,

@@ -134,7 +134,7 @@ public sealed class SingleConversionTests : IDisposable
 
         await Make(engine).ConvertAsync(Source.File(input), Target.Memory(FileFormat.Wav), new ConversionOptions { Audio = audio });
 
-        Assert.Same(audio, engine.Last!.Audio);
+        Assert.Same(audio, engine.Last!.Options!.Audio);
         Assert.Same(FileFormat.Wav, engine.Last.To);
         Assert.Equal(_tempFolder, engine.Last.TempFolder);
         Assert.Equal(_toolFile, engine.Last.Tool.Path);

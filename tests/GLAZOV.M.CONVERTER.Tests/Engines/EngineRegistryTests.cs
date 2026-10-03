@@ -24,30 +24,29 @@ public class EngineRegistryTests
         }
     }
 
-    [Theory]
-    [InlineData(0, 0)]
-    [InlineData(3, 0)]
-    [InlineData(0, 3)]
-    [InlineData(4, 1)]
-    public void Default_DoesNotFind_ImagesUnknownAndForeign(int fromIndex, int toIndex)
+    [Fact]
+    public void Default_DoesNotFind_UnknownForeignOrCrossKindPairs()
     {
-        FileFormat[] all = [FileFormat.Jpeg, FileFormat.Mp3, FileFormat.Wav, FileFormat.Unknown, FileFormat.Create("DEMO", "application/x-demo", "demo")];
-        FileFormat from = all[fromIndex];
-        FileFormat to = all[toIndex];
+        FileFormat demo = FileFormat.Create("DEMO", "application/x-demo", "demo");
+        EngineRegistry registry = EngineRegistry.CreateDefault();
 
-        // Пары вне звука первой версии: JPEG, «неизвестно» и чужой формат движок не берёт.
-        bool involvesNonAudio = !Audio.Contains(from) || !Audio.Contains(to);
-        Assert.True(involvesNonAudio);
-        Assert.Null(EngineRegistry.CreateDefault().Find(from, to));
+        Assert.Null(registry.Find(FileFormat.Unknown, FileFormat.Mp3));
+        Assert.Null(registry.Find(FileFormat.Mp3, FileFormat.Unknown));
+        Assert.Null(registry.Find(demo, FileFormat.Wav));
+        Assert.Null(registry.Find(FileFormat.Wav, demo));
+        Assert.Null(registry.Find(FileFormat.Mp3, FileFormat.Png));
+        Assert.Null(registry.Find(FileFormat.Png, FileFormat.Mp3));
+        Assert.Null(registry.Find(FileFormat.Svg, FileFormat.Png));
+        Assert.Null(registry.Find(FileFormat.Png, FileFormat.Dds));
     }
 
     [Fact]
-    public void Pairs_ListTwentyFivePairsWithToolName_InStableOrder()
+    public void Pairs_ListAllEightyOnePairsWithToolName_InStableOrder()
     {
         IReadOnlyList<(FileFormat From, FileFormat To, string ToolName)> first = EngineRegistry.CreateDefault().Pairs();
         IReadOnlyList<(FileFormat From, FileFormat To, string ToolName)> second = EngineRegistry.CreateDefault().Pairs();
 
-        Assert.Equal(25, first.Count);
+        Assert.Equal(81, first.Count);
         Assert.All(first, p => Assert.Equal("ffmpeg", p.ToolName));
         Assert.Equal(first, second);
         Assert.Equal(first.Select(p => (p.From, p.To)).Distinct().Count(), first.Count);

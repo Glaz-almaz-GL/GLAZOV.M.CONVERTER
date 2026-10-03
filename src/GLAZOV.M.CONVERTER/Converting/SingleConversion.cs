@@ -57,7 +57,7 @@ internal sealed class SingleConversion
         await using OutputSink sink = await OutputSink.OpenAsync(target, input.Name, _settings, cancellationToken: cancellationToken).ConfigureAwait(false);
 
         progress?.Report(new ConversionProgress(0));
-        EngineRequest request = new(input.Stream, sink.Stream, target.FileFormat, options?.Audio, tool, _settings.TempFolder ?? Path.GetTempPath());
+        EngineRequest request = new(input.Stream, sink.Stream, from, target.FileFormat, options, tool, _settings.TempFolder ?? Path.GetTempPath());
         await engine.ConvertAsync(request, cancellationToken).ConfigureAwait(false);
         SinkResult written = await sink.CommitAsync(cancellationToken).ConfigureAwait(false);
         progress?.Report(new ConversionProgress(100));
