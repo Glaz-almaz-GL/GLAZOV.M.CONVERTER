@@ -95,4 +95,90 @@ public class SignatureMatcherTests
             Assert.Same(FileFormat.Unknown, SignatureMatcher.Match(buffer));
         }
     }
+
+    [Theory]
+    [InlineData("sample.flac", "FLAC")]
+    [InlineData("sample.m4a", "M4A")]
+    [InlineData("sample.png", "PNG")]
+    [InlineData("sample.jpg", "JPEG")]
+    [InlineData("sample.webp", "WebP")]
+    [InlineData("sample.gif", "GIF")]
+    [InlineData("sample.bmp", "BMP")]
+    [InlineData("sample.tiff", "TIFF")]
+    [InlineData("sample.dds", "DDS")]
+    [InlineData("sample.psd", "PSD")]
+    [InlineData("sample-plain.svg", "SVG")]
+    [InlineData("sample-prolog.svg", "SVG")]
+    public void Match_NewRealFile_ReturnsItsType(string file, string expected)
+    {
+        byte[] bytes = Sample(file);
+
+        FileFormat type = SignatureMatcher.Match(bytes.AsSpan(0, Math.Min(bytes.Length, SignatureMatcher.HeadLength)));
+
+        Assert.Equal(expected, type.Name);
+    }
+
+    [Fact]
+    public void Match_Tga_HasNoSignature_SoItIsUnknown()
+    {
+        Assert.Same(FileFormat.Unknown, SignatureMatcher.Match(Sample("sample.tga")));
+    }
+
+    [Fact]
+    public void Match_XmlThatIsNotSvg_AndSvgWordInsideText_AreUnknown()
+    {
+        Assert.Same(FileFormat.Unknown, SignatureMatcher.Match(Sample("sample-notsvg.xml")));
+        Assert.Same(FileFormat.Unknown, SignatureMatcher.Match("Это письмо про формат <svg и ничего больше."u8));
+        Assert.Same(FileFormat.Unknown, SignatureMatcher.Match("<svgfoo></svgfoo>"u8));
+    }
+
+    [Fact]
+    public void Match_Mp4WithAmbiguousBrand_IsUnknownUntilVideoIsSupported()
+    {
+        byte[] isom = [0, 0, 0, 0x18, .. "ftypisom"u8.ToArray(), 0, 0, 2, 0, .. "isomiso2"u8.ToArray()];
+        byte[] mp42 = [0, 0, 0, 0x18, .. "ftypmp42"u8.ToArray(), 0, 0, 0, 0, .. "mp42isom"u8.ToArray()];
+
+        Assert.Same(FileFormat.Unknown, SignatureMatcher.Match(isom));
+        Assert.Same(FileFormat.Unknown, SignatureMatcher.Match(mp42));
+    }
+
+    [Theory]
+    [InlineData("sample.flac", 3)]
+    [InlineData("sample.m4a", 9)]
+    [InlineData("sample.png", 7)]
+    [InlineData("sample.jpg", 2)]
+    [InlineData("sample.webp", 11)]
+    [InlineData("sample.gif", 5)]
+    [InlineData("sample.bmp", 17)]
+    [InlineData("sample.tiff", 3)]
+    [InlineData("sample.dds", 79)]
+    [InlineData("sample.psd", 11)]
+    [InlineData("sample-plain.svg", 3)]
+    public void Match_NewFormatsTruncatedInsideTheSignature_AreUnknown(string file, int keep)
+    {
+        byte[] bytes = Sample(file);
+
+        Assert.Same(FileFormat.Unknown, SignatureMatcher.Match(bytes.AsSpan(0, keep)));
+    }
+
+    [Fact]
+    public void Match_BmpLookingStartWithBadFields_IsUnknown()
+    {
+        byte[] bad = Sample("sample.bmp");
+        bad[14] = 7; // размер заголовка изображения 7 — такого не бывает
+
+        Assert.Same(FileFormat.Unknown, SignatureMatcher.Match(bad));
+    }
+
+    [Fact]
+    public void Match_NewFormatsCorruptedFirstByte_AreNotRecognized()
+    {
+        foreach (string file in new[] { "sample.flac", "sample.png", "sample.jpg", "sample.gif", "sample.tiff", "sample.psd", "sample.dds", "sample.webp" })
+        {
+            byte[] bytes = Sample(file);
+            bytes[0] ^= 0x55;
+
+            Assert.Same(FileFormat.Unknown, SignatureMatcher.Match(bytes));
+        }
+    }
 }
