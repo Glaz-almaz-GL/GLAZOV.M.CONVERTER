@@ -15,6 +15,7 @@ namespace GLAZOV.M.CONVERTER.Tests.Live;
 /// Результаты читаются обратно настоящим ffprobe. Если переменная CONVERTER_RUN_KEEP указывает папку —
 /// результаты пар сохраняются туда для прослушивания. Нет FFmpeg — проверки пропускаются, а не проходят.
 /// </summary>
+[Collection("FFmpeg")]
 public sealed class AudioRunTests(AudioFixture fixture) : IClassFixture<AudioFixture>, IDisposable
 {
     private static readonly FileFormat[] Targets = [FileFormat.Mp3, FileFormat.Wav, FileFormat.Ogg];

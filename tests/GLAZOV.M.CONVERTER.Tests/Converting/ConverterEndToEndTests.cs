@@ -9,6 +9,7 @@ namespace GLAZOV.M.CONVERTER.Tests.Converting;
 /// Сквозные проверки публичного вызова на настоящем FFmpeg и настоящих файлах: файл, поток, память.
 /// Нет FFmpeg — проверки пропускаются, а не проходят.
 /// </summary>
+[Collection("FFmpeg")]
 public sealed class ConverterEndToEndTests : IDisposable
 {
     private readonly string _folder = Path.Combine(Path.GetTempPath(), "convtests-" + Guid.NewGuid().ToString("N"));

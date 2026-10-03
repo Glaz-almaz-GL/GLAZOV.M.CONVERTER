@@ -13,6 +13,7 @@ namespace GLAZOV.M.CONVERTER.Tests.Engines;
 /// Звуковой движок на настоящем FFmpeg: девять пар форматов, параметры звука, испорченный вход, чистота временной папки.
 /// Живые проверки пропускаются (не проходят!), если FFmpeg на машине нет.
 /// </summary>
+[Collection("FFmpeg")]
 public sealed class FfmpegAudioEngineTests : IDisposable
 {
     private readonly string _temp = Path.Combine(Path.GetTempPath(), "convtests-" + Guid.NewGuid().ToString("N"));
