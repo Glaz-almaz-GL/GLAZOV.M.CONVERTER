@@ -131,7 +131,7 @@ internal sealed class OutputSink : IAsyncDisposable
         catch (IOException) when (!_settings.OverwriteExisting && File.Exists(_finalPath))
         {
             // Файл появился, пока шла работа: перезапись запрещена.
-            throw FileExists(_finalPath!);
+            throw Failures.FileExists(_finalPath!);
         }
 
         return new SinkResult(_finalPath, null, null);
@@ -169,7 +169,7 @@ internal sealed class OutputSink : IAsyncDisposable
     {
         if (!settings.OverwriteExisting && File.Exists(finalPath))
         {
-            throw FileExists(finalPath);
+            throw Failures.FileExists(finalPath);
         }
 
         string directory = Path.GetDirectoryName(Path.GetFullPath(finalPath))!;
@@ -201,14 +201,6 @@ internal sealed class OutputSink : IAsyncDisposable
         string tempPath = Path.Combine(directory, $"convert-{Guid.NewGuid():N}.tmp");
         FileStream temp = new(tempPath, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None, 4096, FileOptions.Asynchronous | FileOptions.DeleteOnClose);
         return new OutputSink(target, settings, null, tempPath, temp, ownsStream: true);
-    }
-
-    private static ConversionException FileExists(string path)
-    {
-        return new(
-            ConversionStage.Preparation,
-            ConversionFailureReason.FileExists,
-            $"Файл «{Path.GetFileName(path)}» уже существует; разрешите перезапись настройкой OverwriteExisting.");
     }
 
     private static OutputSink GetFolderSink(Target target, ConverterSettings settings, string inputName)

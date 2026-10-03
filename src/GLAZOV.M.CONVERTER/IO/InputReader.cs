@@ -54,7 +54,7 @@ internal static class InputReader
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            throw Unreadable(path, ex);
+            throw Failures.InputUnreadable(path, ex);
         }
     }
 
@@ -73,26 +73,14 @@ internal static class InputReader
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException or ArgumentException)
         {
-            throw Unreadable(Path.GetFileName(path), ex);
+            throw Failures.InputUnreadable(Path.GetFileName(path), ex);
         }
     }
 
     private static InputHandle OpenStream(Stream stream)
     {
         return !stream.CanRead
-            ? throw new ConversionException(
-                ConversionStage.Preparation,
-                ConversionFailureReason.InputUnreadable,
-                $"Вход «{StreamName}» не читается: поток не поддерживает чтение.")
+            ? throw Failures.InputUnreadable(StreamName, "поток не поддерживает чтение.")
             : new InputHandle(StreamName, stream, ownsInner: false);
-    }
-
-    private static ConversionException Unreadable(string name, Exception inner)
-    {
-        return new(
-            ConversionStage.Preparation,
-            ConversionFailureReason.InputUnreadable,
-            $"Не удалось прочитать вход «{name}»: {inner.Message}",
-            innerException: inner);
     }
 }
