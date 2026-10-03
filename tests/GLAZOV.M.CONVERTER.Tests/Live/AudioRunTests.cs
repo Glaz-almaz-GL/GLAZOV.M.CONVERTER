@@ -192,7 +192,7 @@ public sealed class AudioRunTests(AudioFixture fixture) : IClassFixture<AudioFix
         string target = Out("отмена");
         Converter converter = new(new ConverterSettings { MaxParallelTasks = 2 });
         using CancellationTokenSource cts = new();
-        IProgress<BatchProgress> progress = new Inline(p =>
+        IProgress<BatchProgress> progress = new InlineProgress<BatchProgress>(p =>
         {
             if (p.Completed >= 3)
             {
@@ -226,108 +226,5 @@ public sealed class AudioRunTests(AudioFixture fixture) : IClassFixture<AudioFix
         Assert.Equal("broken.mp3", failed.SourceName);
         Assert.Equal(ConversionFailureReason.TypeNotConfirmed, failed.Reason);
         Assert.Single(report.FailedSources());
-    }
-
-    // Считает, сколько процессов FFmpeg одновременно работает, опрашивая систему каждые несколько миллисекунд.
-    private sealed class PeakWatcher : IDisposable
-    {
-        private readonly CancellationTokenSource _stop = new();
-        private readonly Task _loop;
-        private int _peak;
-
-        public PeakWatcher()
-        {
-            _loop = Task.Run(async () =>
-            {
-                while (!_stop.IsCancellationRequested)
-                {
-                    Process[] now = Process.GetProcessesByName("ffmpeg");
-                    int count = now.Length;
-                    foreach (Process process in now)
-                    {
-                        process.Dispose();
-                    }
-
-                    int seen;
-                    while (count > (seen = Volatile.Read(ref _peak)))
-                    {
-                        Interlocked.CompareExchange(ref _peak, count, seen);
-                    }
-
-                    await Task.Delay(3);
-                }
-            });
-        }
-
-        public int Peak => Volatile.Read(ref _peak);
-
-        public void Dispose()
-        {
-            _stop.Cancel();
-            _loop.Wait();
-            _stop.Dispose();
-        }
-    }
-
-    private sealed class Inline(Action<BatchProgress> action) : IProgress<BatchProgress>
-    {
-        public void Report(BatchProgress value)
-        {
-            action(value);
-        }
-    }
-
-    // Файл, который читается только вперёд: проверяет работу с потоками без перемотки.
-    private sealed class NonSeekableFile(string path) : Stream
-    {
-        private readonly FileStream _inner = File.OpenRead(path);
-
-        public override bool CanRead => true;
-
-        public override bool CanSeek => false;
-
-        public override bool CanWrite => false;
-
-        public override long Length => throw new NotSupportedException();
-
-        public override long Position
-        {
-            get => throw new NotSupportedException();
-            set => throw new NotSupportedException();
-        }
-
-        public override int Read(byte[] buffer, int offset, int count)
-        {
-            return _inner.Read(buffer, offset, count);
-        }
-
-        public override void Flush()
-        {
-        }
-
-        public override long Seek(long offset, SeekOrigin origin)
-        {
-            throw new NotSupportedException();
-        }
-
-        public override void SetLength(long value)
-        {
-            throw new NotSupportedException();
-        }
-
-        public override void Write(byte[] buffer, int offset, int count)
-        {
-            throw new NotSupportedException();
-        }
-
-        protected override void Dispose(bool disposing)
-        {
-            if (disposing)
-            {
-                _inner.Dispose();
-            }
-
-            base.Dispose(disposing);
-        }
     }
 }
