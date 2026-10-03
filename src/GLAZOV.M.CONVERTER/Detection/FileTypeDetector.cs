@@ -1,5 +1,6 @@
 using GLAZOV.M.CONVERTER.Data;
-using GLAZOV.M.CONVERTER.Internal;
+using GLAZOV.M.CONVERTER.Errors;
+using GLAZOV.M.CONVERTER.IO;
 
 namespace GLAZOV.M.CONVERTER.Detection;
 
@@ -10,12 +11,49 @@ public static class FileTypeDetector
 {
     /// <summary>
     /// Определяет тип без конвертации; тот же код библиотека вызывает перед каждой конвертацией.
+    /// Поток, умеющий искать, после определения возвращается на исходную позицию.
+    /// Поток, который нельзя перематывать, не принимается: прочитанные байты были бы потеряны.
     /// </summary>
     /// <param name="source">Файл или поток.</param>
     /// <param name="cancellationToken">Отмена.</param>
-    public static Task<FileFormat> DetectAsync(Source source, CancellationToken cancellationToken = default)
+    /// <exception cref="ArgumentException">Папка вместо файла или поток без перемотки.</exception>
+    /// <exception cref="ConversionException">Вход не удалось прочитать (этап «определение типа»).</exception>
+    public static async Task<FileFormat> DetectAsync(Source source, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(source);
-        return Task.FromException<FileFormat>(Stub.NotYet("FileTypeDetector.DetectAsync"));
+        if (source.Kind == SourceKind.Folder)
+        {
+            throw new ArgumentException("Тип определяется у файла или потока, а не у папки.", nameof(source));
+        }
+
+        if (source.Kind == SourceKind.Stream && !source.InputStream!.CanSeek)
+        {
+            throw new ArgumentException(
+                "Поток нельзя перематывать: определение типа прочитало бы его начало без возврата. Передайте поток с перемоткой или файл.",
+                nameof(source));
+        }
+
+        try
+        {
+            await using InputHandle handle = await InputReader.OpenAsync(source, cancellationToken).ConfigureAwait(false);
+            return await DetectAsync(handle, cancellationToken).ConfigureAwait(false);
+        }
+        catch (ConversionException ex) when (ex.Stage != ConversionStage.Detection)
+        {
+            // Вход не открылся: для вызывающего это сбой на этапе определения типа.
+            throw new ConversionException(ConversionStage.Detection, ex.Reason, ex.Message, innerException: ex);
+        }
+    }
+
+    /// <summary>
+    /// Определяет тип по уже открытому входу — его начало остаётся читаемым для конвертации.
+    /// </summary>
+    /// <param name="handle">Открытый вход.</param>
+    /// <param name="cancellationToken">Отмена.</param>
+    internal static async Task<FileFormat> DetectAsync(InputHandle handle, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(handle);
+        ReadOnlyMemory<byte> head = await handle.HeadAsync(SignatureMatcher.HeadLength, cancellationToken).ConfigureAwait(false);
+        return SignatureMatcher.Match(head.Span);
     }
 }

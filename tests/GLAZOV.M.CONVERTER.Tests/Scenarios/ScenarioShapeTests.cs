@@ -80,13 +80,9 @@ public class ScenarioShapeTests
     }
 
     [Fact]
-    public async Task DetectAndCapabilities_ShapeCompilesAndStubsThrow()
+    public void Capabilities_ShapeCompilesAndStubsThrow()
     {
         var converter = new Converter();
-        using MemoryStream input = new();
-
-        await Assert.ThrowsAsync<NotImplementedException>(() => FileTypeDetector.DetectAsync(Source.File("загадка.dat")));
-        await Assert.ThrowsAsync<NotImplementedException>(() => FileTypeDetector.DetectAsync(Source.Stream(input)));
 
         var caps = converter.Capabilities;
         Assert.Throws<NotImplementedException>(() => caps.CanConvert(FileFormat.Ogg, FileFormat.Mp3));
