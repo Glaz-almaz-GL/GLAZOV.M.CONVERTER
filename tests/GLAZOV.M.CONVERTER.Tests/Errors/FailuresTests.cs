@@ -115,7 +115,28 @@ public class FailuresTests
         Assert.Equal(ConversionStage.Preparation, ex.Stage);
         Assert.Equal(ConversionFailureReason.InputUnreadable, ex.Reason);
         Assert.Same(inner, ex.InnerException);
-        Assert.Equal("Не удалось прочитать вход «a.wav»: занято", ex.Message);
+        Assert.Equal("Не удалось прочитать вход «a.wav»: файл занят другой программой или недоступен.", ex.Message);
+    }
+
+    [Fact]
+    public void InputUnreadable_NeverShowsTheFullPathOfTheSystemMessage()
+    {
+        string secret = Path.Combine("C:", "Users", "Секрет", "музыка", "a.mp3");
+
+        foreach (Exception inner in new Exception[]
+        {
+            new FileNotFoundException($"Could not find file '{secret}'.", secret),
+            new DirectoryNotFoundException($"Could not find a part of the path '{secret}'."),
+            new UnauthorizedAccessException($"Access to the path '{secret}' is denied."),
+            new IOException($"The process cannot access the file '{secret}' because it is being used."),
+        })
+        {
+            ConversionException ex = Failures.InputUnreadable("a.mp3", inner);
+
+            Assert.DoesNotContain("Секрет", ex.Message);
+            Assert.DoesNotContain("Users", ex.Message);
+            Assert.Same(inner, ex.InnerException);
+        }
     }
 
     [Fact]

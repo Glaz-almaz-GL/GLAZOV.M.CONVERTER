@@ -128,8 +128,24 @@ internal static class Failures
         new(
             ConversionStage.Preparation,
             ConversionFailureReason.InputUnreadable,
-            $"Не удалось прочитать вход «{inputName}»: {inner.Message}",
+            $"Не удалось прочитать вход «{inputName}»: {Describe(inner)}.",
             innerException: inner);
+
+    // Сообщение системы содержит полный путь (его нельзя показывать, правило «только имя файла»): причина называется своими словами,
+    // а само исключение остаётся во внутренней части ошибки.
+    private static string Describe(Exception error)
+    {
+        return error switch
+        {
+            FileNotFoundException => "файл не найден",
+            DirectoryNotFoundException => "папка не найдена",
+            UnauthorizedAccessException => "нет доступа",
+            PathTooLongException => "слишком длинный путь",
+            IOException => "файл занят другой программой или недоступен",
+            NotSupportedException or ArgumentException => "недопустимый путь",
+            _ => "ошибка чтения",
+        };
+    }
 
     /// <summary>
     /// Вход не читается по названной причине (не из исключения).
