@@ -147,6 +147,49 @@ public class ScenarioShapeTests
     }
 
     [Fact]
+    public void ImageOptions_DefaultToNotSetAndRejectOutOfRange()
+    {
+        ImageOptions image = new();
+        Assert.Null(image.Quality);
+        Assert.Null(new ConversionOptions().Image);
+
+        foreach (int ok in new[] { 1, 50, 85, 100 })
+        {
+            image.Quality = ok;
+            Assert.Equal(ok, image.Quality);
+        }
+
+        image.Quality = null;
+        Assert.Null(image.Quality);
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => image.Quality = 0);
+        Assert.Throws<ArgumentOutOfRangeException>(() => image.Quality = 101);
+        Assert.Throws<ArgumentOutOfRangeException>(() => image.Quality = -5);
+    }
+
+    [Fact]
+    public void NewFormatsAndImageOptions_ShapeCompilesAsInTheSketch()
+    {
+        var converter = new Converter();
+
+        Func<Task<ConversionResult>>[] calls =
+        [
+            () => converter.ConvertAsync(Source.File("песня.flac"), Target.File("песня.m4a", FileFormat.M4a)),
+            () => converter.ConvertAsync(Source.File("фото.png"), Target.File("фото.jpg", FileFormat.Jpeg)),
+            () => converter.ConvertAsync(
+                Source.File("фото.png"),
+                Target.File("фото-75.jpg", FileFormat.Jpeg),
+                new ConversionOptions
+                {
+                    Operations = { Operation.RotateRight, Operation.ScalePercent(75) },
+                    Image = new ImageOptions { Quality = 85 },
+                }),
+        ];
+
+        Assert.All(calls, Assert.NotNull);
+    }
+
+    [Fact]
     public void ErrorHandling_ShapeCompiles()
     {
         // Форма обработки ошибки одиночного вызова: поля читаются так, как в эталоне.
