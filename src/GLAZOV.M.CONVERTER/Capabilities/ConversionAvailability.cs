@@ -1,4 +1,4 @@
-namespace GLAZOV.M.CONVERTER;
+namespace GLAZOV.M.CONVERTER.Capabilities;
 
 /// <summary>
 /// Можно ли выполнить конвертацию прямо сейчас.

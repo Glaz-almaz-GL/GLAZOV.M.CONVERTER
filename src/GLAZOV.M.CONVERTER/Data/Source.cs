@@ -1,11 +1,11 @@
-namespace GLAZOV.M.CONVERTER;
+namespace GLAZOV.M.CONVERTER.Data;
 
 /// <summary>
 /// Откуда берутся данные: файл, поток или папка с файлами.
 /// </summary>
 public sealed class Source
 {
-    private Source(SourceKind kind, string? path, System.IO.Stream? stream, string pattern, bool recursive)
+    private Source(SourceKind kind, string? path, Stream? stream, string pattern, bool recursive)
     {
         Kind = kind;
         Path = path;
@@ -18,7 +18,7 @@ public sealed class Source
 
     internal string? Path { get; }
 
-    internal System.IO.Stream? InputStream { get; }
+    internal Stream? InputStream { get; }
 
     internal string Pattern { get; }
 
@@ -56,11 +56,4 @@ public sealed class Source
         ArgumentException.ThrowIfNullOrWhiteSpace(pattern);
         return new Source(SourceKind.Folder, path, null, pattern, recursive);
     }
-}
-
-internal enum SourceKind
-{
-    File,
-    Stream,
-    Folder,
 }

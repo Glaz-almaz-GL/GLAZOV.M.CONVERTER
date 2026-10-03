@@ -1,4 +1,6 @@
-namespace GLAZOV.M.CONVERTER;
+using GLAZOV.M.CONVERTER.Converting;
+
+namespace GLAZOV.M.CONVERTER.Settings;
 
 /// <summary>
 /// Настройки библиотеки. Передаются в конструктор <see cref="Converter"/> и после этого не меняют его поведения;

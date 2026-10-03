@@ -1,4 +1,4 @@
-namespace GLAZOV.M.CONVERTER;
+namespace GLAZOV.M.CONVERTER.Data;
 
 /// <summary>
 /// Формат результата конвертации. Задаётся всегда явно, по имени файла не определяется.

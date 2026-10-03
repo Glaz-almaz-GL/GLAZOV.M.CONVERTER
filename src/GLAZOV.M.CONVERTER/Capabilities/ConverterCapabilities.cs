@@ -1,4 +1,8 @@
-namespace GLAZOV.M.CONVERTER;
+using GLAZOV.M.CONVERTER.Data;
+using GLAZOV.M.CONVERTER.Detection;
+using GLAZOV.M.CONVERTER.Internal;
+
+namespace GLAZOV.M.CONVERTER.Capabilities;
 
 /// <summary>
 /// Что библиотека поддерживает сейчас и какие внешние программы найдены.

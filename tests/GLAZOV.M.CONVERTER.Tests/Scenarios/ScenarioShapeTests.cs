@@ -1,6 +1,12 @@
-using GLAZOV.M.CONVERTER;
+using GLAZOV.M.CONVERTER.Batch;
+using GLAZOV.M.CONVERTER.Capabilities;
+using GLAZOV.M.CONVERTER.Converting;
+using GLAZOV.M.CONVERTER.Data;
+using GLAZOV.M.CONVERTER.Detection;
+using GLAZOV.M.CONVERTER.Errors;
+using GLAZOV.M.CONVERTER.Settings;
 
-namespace GLAZOV.M.CONVERTER.Tests;
+namespace GLAZOV.M.CONVERTER.Tests.Scenarios;
 
 /// <summary>
 /// Форма вызовов из принятого эталона использования: каждый сценарий записан так, как его пишет разработчик.
@@ -12,9 +18,9 @@ public class ScenarioShapeTests
     public async Task OneFileStreamAndMemory_ShapeCompilesAndStubsThrow()
     {
         var converter = new Converter();
-        using var input = new MemoryStream();
-        using var output = new MemoryStream();
-        var token = CancellationToken.None;
+        using MemoryStream input = new();
+        using MemoryStream output = new();
+        CancellationToken token = CancellationToken.None;
 
         await Assert.ThrowsAsync<NotImplementedException>(() =>
             converter.ConvertAsync(Source.File("песня.ogg"), Target.File("песня.mp3", Format.Mp3)));
@@ -40,7 +46,7 @@ public class ScenarioShapeTests
     public async Task BatchAndReport_ShapeCompilesAndStubsThrow()
     {
         var converter = new Converter();
-        var token = CancellationToken.None;
+        CancellationToken token = CancellationToken.None;
 
         await Assert.ThrowsAsync<NotImplementedException>(() =>
             converter.ConvertBatchAsync(
@@ -56,8 +62,8 @@ public class ScenarioShapeTests
         // Форма отчёта: поля читаются так, как в эталоне (в тест не попадает выполнение — отчёта пока никто не создаёт).
         Func<BatchReport, string> describe = report =>
         {
-            var line = $"{report.Succeeded} из {report.Total}; отменено: {report.Canceled}; ошибок: {report.Failed}";
-            foreach (var item in report.Items.Where(i => !i.Succeeded))
+            string line = $"{report.Succeeded} из {report.Total}; отменено: {report.Canceled}; ошибок: {report.Failed}";
+            foreach (BatchItemResult? item in report.Items.Where(i => !i.Succeeded))
             {
                 line += $"{item.SourceName}: {item.Stage} — {item.Reason} — {item.Message} — {item.OutputPath}";
             }
@@ -72,7 +78,7 @@ public class ScenarioShapeTests
     public async Task DetectAndCapabilities_ShapeCompilesAndStubsThrow()
     {
         var converter = new Converter();
-        using var input = new MemoryStream();
+        using MemoryStream input = new();
 
         await Assert.ThrowsAsync<NotImplementedException>(() => FileTypeDetector.DetectAsync(Source.File("загадка.dat")));
         await Assert.ThrowsAsync<NotImplementedException>(() => FileTypeDetector.DetectAsync(Source.Stream(input)));

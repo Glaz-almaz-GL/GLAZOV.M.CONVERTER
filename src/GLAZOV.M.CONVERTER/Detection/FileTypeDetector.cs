@@ -1,4 +1,7 @@
-namespace GLAZOV.M.CONVERTER;
+using GLAZOV.M.CONVERTER.Data;
+using GLAZOV.M.CONVERTER.Internal;
+
+namespace GLAZOV.M.CONVERTER.Detection;
 
 /// <summary>
 /// Определение типа файла или потока по начальным байтам. Расширение имени не учитывается.

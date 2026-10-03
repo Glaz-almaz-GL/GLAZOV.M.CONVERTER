@@ -1,4 +1,4 @@
-namespace GLAZOV.M.CONVERTER;
+namespace GLAZOV.M.CONVERTER.Capabilities;
 
 /// <summary>
 /// Состояние внешней программы: найдена ли, где лежит, что поставить, если нет.

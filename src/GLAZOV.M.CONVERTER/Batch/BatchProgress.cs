@@ -1,4 +1,4 @@
-namespace GLAZOV.M.CONVERTER;
+namespace GLAZOV.M.CONVERTER.Batch;
 
 /// <summary>
 /// Ход пакетной конвертации.

@@ -1,4 +1,4 @@
-namespace GLAZOV.M.CONVERTER;
+namespace GLAZOV.M.CONVERTER.Errors;
 
 /// <summary>
 /// Ошибка одиночной конвертации: этап, причина и понятное сообщение. Отмена ошибкой не считается.

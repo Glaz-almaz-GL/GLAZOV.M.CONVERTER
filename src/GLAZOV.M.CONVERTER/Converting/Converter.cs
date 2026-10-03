@@ -1,4 +1,11 @@
-namespace GLAZOV.M.CONVERTER;
+using GLAZOV.M.CONVERTER.Batch;
+using GLAZOV.M.CONVERTER.Capabilities;
+using GLAZOV.M.CONVERTER.Data;
+using GLAZOV.M.CONVERTER.Errors;
+using GLAZOV.M.CONVERTER.Internal;
+using GLAZOV.M.CONVERTER.Settings;
+
+namespace GLAZOV.M.CONVERTER.Converting;
 
 /// <summary>
 /// Главный тип библиотеки: конвертация файлов, потоков и папок между форматами.

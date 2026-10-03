@@ -1,4 +1,6 @@
-namespace GLAZOV.M.CONVERTER;
+using GLAZOV.M.CONVERTER.Errors;
+
+namespace GLAZOV.M.CONVERTER.Batch;
 
 /// <summary>
 /// Итог по одному входу пакета.

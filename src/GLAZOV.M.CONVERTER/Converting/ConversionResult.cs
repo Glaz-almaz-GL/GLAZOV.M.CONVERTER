@@ -1,4 +1,7 @@
-namespace GLAZOV.M.CONVERTER;
+using GLAZOV.M.CONVERTER.Data;
+using GLAZOV.M.CONVERTER.Detection;
+
+namespace GLAZOV.M.CONVERTER.Converting;
 
 /// <summary>
 /// Итог одиночной конвертации.

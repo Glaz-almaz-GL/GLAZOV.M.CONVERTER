@@ -1,11 +1,17 @@
-namespace GLAZOV.M.CONVERTER;
+using GLAZOV.M.CONVERTER.Data;
+using GLAZOV.M.CONVERTER.Internal;
+
+namespace GLAZOV.M.CONVERTER.Batch;
 
 /// <summary>
 /// Отчёт по пакету: что получилось, что нет и почему.
 /// </summary>
 public sealed class BatchReport
 {
-    internal BatchReport(IReadOnlyList<BatchItemResult> items) => Items = items;
+    internal BatchReport(IReadOnlyList<BatchItemResult> items)
+    {
+        Items = items;
+    }
 
     /// <summary>
     /// Сколько входов было всего.
@@ -35,5 +41,8 @@ public sealed class BatchReport
     /// <summary>
     /// Входы, завершившиеся ошибкой, — чтобы повторить только их.
     /// </summary>
-    public IReadOnlyList<Source> FailedSources() => throw Stub.NotYet("BatchReport.FailedSources");
+    public IReadOnlyList<Source> FailedSources()
+    {
+        throw Stub.NotYet("BatchReport.FailedSources");
+    }
 }

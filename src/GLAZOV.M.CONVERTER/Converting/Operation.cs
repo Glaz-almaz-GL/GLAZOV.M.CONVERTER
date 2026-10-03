@@ -1,4 +1,4 @@
-namespace GLAZOV.M.CONVERTER;
+namespace GLAZOV.M.CONVERTER.Converting;
 
 /// <summary>
 /// Действие над изображением, выполняемое в том же вызове конвертации (следующие версии).

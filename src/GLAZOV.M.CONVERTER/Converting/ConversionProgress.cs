@@ -1,11 +1,14 @@
-namespace GLAZOV.M.CONVERTER;
+namespace GLAZOV.M.CONVERTER.Converting;
 
 /// <summary>
 /// Ход одной конвертации.
 /// </summary>
 public sealed class ConversionProgress
 {
-    internal ConversionProgress(double percent) => Percent = percent;
+    internal ConversionProgress(double percent)
+    {
+        Percent = percent;
+    }
 
     /// <summary>
     /// Выполнено, процентов (0–100).

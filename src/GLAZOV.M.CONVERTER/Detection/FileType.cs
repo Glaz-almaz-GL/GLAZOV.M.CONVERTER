@@ -1,4 +1,4 @@
-namespace GLAZOV.M.CONVERTER;
+namespace GLAZOV.M.CONVERTER.Detection;
 
 /// <summary>
 /// Тип файла или потока, подтверждённый по начальным байтам.
@@ -48,5 +48,8 @@ public sealed class FileType
     public string Extension { get; }
 
     /// <inheritdoc />
-    public override string ToString() => Name;
+    public override string ToString()
+    {
+        return Name;
+    }
 }

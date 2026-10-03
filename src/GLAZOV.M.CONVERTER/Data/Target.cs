@@ -1,4 +1,6 @@
-namespace GLAZOV.M.CONVERTER;
+using GLAZOV.M.CONVERTER.Converting;
+
+namespace GLAZOV.M.CONVERTER.Data;
 
 /// <summary>
 /// Куда кладётся результат: файл, поток, память или папка. Формат задаётся всегда явно.
@@ -47,7 +49,10 @@ public sealed class Target
     /// Результат остаётся в памяти и возвращается в <see cref="ConversionResult"/>.
     /// </summary>
     /// <param name="format">Формат результата.</param>
-    public static Target Memory(Format format) => new(TargetKind.Memory, null, null, format);
+    public static Target Memory(Format format)
+    {
+        return new(TargetKind.Memory, null, null, format);
+    }
 
     /// <summary>
     /// Папка для результатов пакета.

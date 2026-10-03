@@ -1,7 +1,13 @@
 using System.Reflection;
-using GLAZOV.M.CONVERTER;
+using GLAZOV.M.CONVERTER.Batch;
+using GLAZOV.M.CONVERTER.Capabilities;
+using GLAZOV.M.CONVERTER.Converting;
+using GLAZOV.M.CONVERTER.Data;
+using GLAZOV.M.CONVERTER.Detection;
+using GLAZOV.M.CONVERTER.Errors;
+using GLAZOV.M.CONVERTER.Settings;
 
-namespace GLAZOV.M.CONVERTER.Tests;
+namespace GLAZOV.M.CONVERTER.Tests.Contract;
 
 /// <summary>
 /// Публичная поверхность библиотеки равна принятому эталону: ни одного лишнего типа и члена (приёмка контракта).
@@ -37,7 +43,7 @@ public class PublicSurfaceTests
     [Fact]
     public void ExportedTypes_AreExactlyTheSketchTypes()
     {
-        var actual = typeof(Converter).Assembly.GetExportedTypes().Select(t => t.Name).Order().ToArray();
+        string[] actual = typeof(Converter).Assembly.GetExportedTypes().Select(t => t.Name).Order().ToArray();
 
         Assert.Equal(Expected.Keys.Order().ToArray(), actual);
     }
@@ -46,7 +52,7 @@ public class PublicSurfaceTests
     [MemberData(nameof(TypeNames))]
     public void PublicMembers_AreExactlyTheSketchMembers(string typeName)
     {
-        var type = typeof(Converter).Assembly.GetExportedTypes().Single(t => t.Name == typeName);
+        Type type = typeof(Converter).Assembly.GetExportedTypes().Single(t => t.Name == typeName);
         const BindingFlags flags = BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly;
 
         var actual = type.GetMembers(flags)
@@ -62,5 +68,8 @@ public class PublicSurfaceTests
         Assert.Equal(Expected[typeName].Order().ToArray(), actual);
     }
 
-    public static IEnumerable<object[]> TypeNames() => Expected.Keys.Select(k => new object[] { k });
+    public static IEnumerable<object[]> TypeNames()
+    {
+        return Expected.Keys.Select(k => new object[] { k });
+    }
 }

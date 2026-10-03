@@ -1,4 +1,6 @@
-namespace GLAZOV.M.CONVERTER;
+using GLAZOV.M.CONVERTER.Capabilities;
+
+namespace GLAZOV.M.CONVERTER.Errors;
 
 /// <summary>
 /// Этап, на котором произошла ошибка.

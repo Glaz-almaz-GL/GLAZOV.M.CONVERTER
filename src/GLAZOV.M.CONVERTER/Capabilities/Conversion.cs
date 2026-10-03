@@ -1,4 +1,7 @@
-namespace GLAZOV.M.CONVERTER;
+using GLAZOV.M.CONVERTER.Data;
+using GLAZOV.M.CONVERTER.Detection;
+
+namespace GLAZOV.M.CONVERTER.Capabilities;
 
 /// <summary>
 /// Одна поддерживаемая конвертация: из какого типа в какой формат и можно ли её выполнить сейчас.
