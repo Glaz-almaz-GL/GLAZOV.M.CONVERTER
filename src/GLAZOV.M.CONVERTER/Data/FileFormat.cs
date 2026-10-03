@@ -5,9 +5,9 @@ namespace GLAZOV.M.CONVERTER.Data;
 /// Тип расширяем: готовые значения — <see cref="Mp3"/>, <see cref="Wav"/>, <see cref="Ogg"/>, <see cref="Jpeg"/>,
 /// свой формат создаётся через <see cref="Create"/>.
 /// </summary>
-public sealed class Format : IEquatable<Format>
+public sealed class FileFormat : IEquatable<FileFormat>
 {
-    private Format(string name, string mimeType, string extension)
+    private FileFormat(string name, string mimeType, string extension)
     {
         Name = name;
         MimeType = mimeType;
@@ -17,27 +17,27 @@ public sealed class Format : IEquatable<Format>
     /// <summary>
     /// MP3.
     /// </summary>
-    public static Format Mp3 { get; } = new("MP3", "audio/mpeg", "mp3");
+    public static FileFormat Mp3 { get; } = new("MP3", "audio/mpeg", "mp3");
 
     /// <summary>
     /// WAV.
     /// </summary>
-    public static Format Wav { get; } = new("WAV", "audio/wav", "wav");
+    public static FileFormat Wav { get; } = new("WAV", "audio/wav", "wav");
 
     /// <summary>
     /// OGG (Vorbis и Opus).
     /// </summary>
-    public static Format Ogg { get; } = new("OGG", "audio/ogg", "ogg");
+    public static FileFormat Ogg { get; } = new("OGG", "audio/ogg", "ogg");
 
     /// <summary>
     /// JPEG (изображения — следующие версии).
     /// </summary>
-    public static Format Jpeg { get; } = new("JPEG", "image/jpeg", "jpg");
+    public static FileFormat Jpeg { get; } = new("JPEG", "image/jpeg", "jpg");
 
     /// <summary>
     /// Тип не распознан: результат определения типа по начальным байтам. Целью конвертации быть не может.
     /// </summary>
-    public static Format Unknown { get; } = new("Unknown", "application/octet-stream", string.Empty);
+    public static FileFormat Unknown { get; } = new("Unknown", "application/octet-stream", string.Empty);
 
     /// <summary>
     /// Короткое имя формата.
@@ -60,7 +60,7 @@ public sealed class Format : IEquatable<Format>
     /// <param name="name">Короткое имя, например «FLAC».</param>
     /// <param name="mimeType">MIME-тип, например «audio/flac».</param>
     /// <param name="extension">Расширение имени файла; ведущая точка допускается и отбрасывается.</param>
-    public static Format Create(string name, string mimeType, string extension)
+    public static FileFormat Create(string name, string mimeType, string extension)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentException.ThrowIfNullOrWhiteSpace(mimeType);
@@ -74,11 +74,11 @@ public sealed class Format : IEquatable<Format>
                 nameof(extension));
         }
 
-        return new Format(name.Trim(), mimeType.Trim(), normalized);
+        return new FileFormat(name.Trim(), mimeType.Trim(), normalized);
     }
 
     /// <inheritdoc />
-    public bool Equals(Format? other)
+    public bool Equals(FileFormat? other)
     {
         return other is not null
             && string.Equals(Name, other.Name, StringComparison.OrdinalIgnoreCase)
@@ -89,7 +89,7 @@ public sealed class Format : IEquatable<Format>
     /// <inheritdoc />
     public override bool Equals(object? obj)
     {
-        return Equals(obj as Format);
+        return Equals(obj as FileFormat);
     }
 
     /// <inheritdoc />

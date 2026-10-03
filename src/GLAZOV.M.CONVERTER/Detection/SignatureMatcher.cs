@@ -22,25 +22,25 @@ internal static class SignatureMatcher
     /// <summary>
     /// Определяет тип по началу данных.
     /// </summary>
-    /// <param name="head">Начальные байты входа; пустой и короткий буфер — не ошибка, а <see cref="Format.Unknown"/>.</param>
-    internal static Format Match(ReadOnlySpan<byte> head)
+    /// <param name="head">Начальные байты входа; пустой и короткий буфер — не ошибка, а <see cref="FileFormat.Unknown"/>.</param>
+    internal static FileFormat Match(ReadOnlySpan<byte> head)
     {
         if (IsOgg(head))
         {
-            return Format.Ogg;
+            return FileFormat.Ogg;
         }
 
         if (IsWav(head))
         {
-            return Format.Wav;
+            return FileFormat.Wav;
         }
 
         if (IsMp3(head))
         {
-            return Format.Mp3;
+            return FileFormat.Mp3;
         }
 
-        return Format.Unknown;
+        return FileFormat.Unknown;
     }
 
     // Страница OGG начинается с «OggS» и нулевой версии формата потока.

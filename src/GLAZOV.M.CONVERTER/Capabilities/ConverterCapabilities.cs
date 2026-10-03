@@ -23,7 +23,7 @@ public sealed class ConverterCapabilities
     /// </summary>
     /// <param name="from">Тип входа.</param>
     /// <param name="to">Формат результата.</param>
-    public bool CanConvert(Format from, Format to)
+    public bool CanConvert(FileFormat from, FileFormat to)
     {
         ArgumentNullException.ThrowIfNull(from);
         throw Stub.NotYet("ConverterCapabilities.CanConvert");

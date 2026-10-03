@@ -10,8 +10,8 @@ public sealed class ConversionResult
 {
     internal ConversionResult(
         bool succeeded,
-        Format sourceType,
-        Format targetFormat,
+        FileFormat sourceType,
+        FileFormat targetFormat,
         TimeSpan duration,
         string? outputPath,
         byte[]? bytes,
@@ -34,12 +34,12 @@ public sealed class ConversionResult
     /// <summary>
     /// Подтверждённый тип входа.
     /// </summary>
-    public Format SourceType { get; }
+    public FileFormat SourceType { get; }
 
     /// <summary>
     /// Формат результата.
     /// </summary>
-    public Format TargetFormat { get; }
+    public FileFormat TargetFormat { get; }
 
     /// <summary>
     /// Сколько заняла конвертация.

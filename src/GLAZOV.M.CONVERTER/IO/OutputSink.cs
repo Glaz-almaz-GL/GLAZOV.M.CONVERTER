@@ -206,7 +206,7 @@ internal sealed class OutputSink : IAsyncDisposable
     private static OutputSink GetFolderSink(Target target, ConverterSettingsSnapshot settings, string inputName)
     {
         string fileName = Path.GetFileNameWithoutExtension(inputName);
-        string extension = target.Format.Extension;
+        string extension = target.FileFormat.Extension;
         string fullPath = Path.Combine(target.Path!, $"{fileName}.{extension}");
 
         return OpenFile(target, settings, fullPath);

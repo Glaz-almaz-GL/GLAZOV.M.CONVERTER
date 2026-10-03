@@ -23,25 +23,25 @@ public class ScenarioShapeTests
         CancellationToken token = CancellationToken.None;
 
         await Assert.ThrowsAsync<NotImplementedException>(() =>
-            converter.ConvertAsync(Source.File("песня.ogg"), Target.File("песня.mp3", Format.Mp3)));
+            converter.ConvertAsync(Source.File("песня.ogg"), Target.File("песня.mp3", FileFormat.Mp3)));
         await Assert.ThrowsAsync<NotImplementedException>(() =>
-            converter.ConvertAsync(Source.Stream(input), Target.Stream(output, Format.Wav)));
+            converter.ConvertAsync(Source.Stream(input), Target.Stream(output, FileFormat.Wav)));
         await Assert.ThrowsAsync<NotImplementedException>(() =>
-            converter.ConvertAsync(Source.File("песня.ogg"), Target.Memory(Format.Mp3)));
+            converter.ConvertAsync(Source.File("песня.ogg"), Target.Memory(FileFormat.Mp3)));
         await Assert.ThrowsAsync<NotImplementedException>(() =>
             converter.ConvertAsync(
                 Source.File("фото.png"),
-                Target.File("фото.jpg", Format.Jpeg),
+                Target.File("фото.jpg", FileFormat.Jpeg),
                 new ConversionOptions { Operations = { Operation.RotateRight, Operation.ScalePercent(75) } }));
         await Assert.ThrowsAsync<NotImplementedException>(() =>
             converter.ConvertAsync(
                 Source.File("песня.wav"),
-                Target.File("песня.mp3", Format.Mp3),
+                Target.File("песня.mp3", FileFormat.Mp3),
                 new ConversionOptions { Audio = new AudioOptions { Bitrate = 192_000, SampleRate = 44_100, Channels = 2 } }));
         await Assert.ThrowsAsync<NotImplementedException>(() =>
             converter.ConvertAsync(
                 Source.File("песня.ogg"),
-                Target.File("песня.mp3", Format.Mp3),
+                Target.File("песня.mp3", FileFormat.Mp3),
                 options: null,
                 progress: new Progress<ConversionProgress>(p => _ = p.Percent),
                 cancellationToken: token));
@@ -56,13 +56,13 @@ public class ScenarioShapeTests
         await Assert.ThrowsAsync<NotImplementedException>(() =>
             converter.ConvertBatchAsync(
                 Source.Folder("музыка", pattern: "*.ogg", recursive: true),
-                Target.Folder("готово", Format.Mp3),
+                Target.Folder("готово", FileFormat.Mp3),
                 progress: new Progress<BatchProgress>(p => _ = (p.Completed, p.Total, p.CurrentName)),
                 cancellationToken: token));
         await Assert.ThrowsAsync<NotImplementedException>(() =>
             converter.ConvertBatchAsync(
                 new[] { Source.File("a.ogg"), Source.File("b.wav") },
-                Target.Folder("готово", Format.Mp3)));
+                Target.Folder("готово", FileFormat.Mp3)));
 
         // Форма отчёта: поля читаются так, как в эталоне (в тест не попадает выполнение — отчёта пока никто не создаёт).
         Func<BatchReport, string> describe = report =>
@@ -89,7 +89,7 @@ public class ScenarioShapeTests
         await Assert.ThrowsAsync<NotImplementedException>(() => FileTypeDetector.DetectAsync(Source.Stream(input)));
 
         var caps = converter.Capabilities;
-        Assert.Throws<NotImplementedException>(() => caps.CanConvert(Format.Ogg, Format.Mp3));
+        Assert.Throws<NotImplementedException>(() => caps.CanConvert(FileFormat.Ogg, FileFormat.Mp3));
         Assert.Throws<NotImplementedException>(() => caps.All);
         Assert.Throws<NotImplementedException>(() => caps.Tool("ffmpeg"));
 
@@ -102,10 +102,10 @@ public class ScenarioShapeTests
     [Fact]
     public void FileTypeNames_CarryNameMimeAndExtension()
     {
-        Assert.Equal("OGG", Format.Ogg.Name);
-        Assert.Equal("audio/ogg", Format.Ogg.MimeType);
-        Assert.Equal("ogg", Format.Ogg.Extension);
-        Assert.Equal(string.Empty, Format.Unknown.Extension);
+        Assert.Equal("OGG", FileFormat.Ogg.Name);
+        Assert.Equal("audio/ogg", FileFormat.Ogg.MimeType);
+        Assert.Equal("ogg", FileFormat.Ogg.Extension);
+        Assert.Equal(string.Empty, FileFormat.Unknown.Extension);
     }
 
     [Fact]
