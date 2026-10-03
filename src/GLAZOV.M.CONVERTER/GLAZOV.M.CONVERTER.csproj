@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>GLAZOV.M.CONVERTER</RootNamespace>
+    <Description>Библиотека конвертации файлов между форматами: файлы, папки и потоки.</Description>
+  </PropertyGroup>
+
+</Project>

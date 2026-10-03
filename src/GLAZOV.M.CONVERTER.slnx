@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="../tests/GLAZOV.M.CONVERTER.Tests/GLAZOV.M.CONVERTER.Tests.csproj" />
+  <Project Path="GLAZOV.M.CONVERTER/GLAZOV.M.CONVERTER.csproj" />
+</Solution>
