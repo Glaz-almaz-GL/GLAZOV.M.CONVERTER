@@ -71,36 +71,3 @@ internal static class WorkQueue
         }
     }
 }
-
-/// <summary>
-/// Одна задача очереди: имя для отчёта и действие.
-/// </summary>
-/// <typeparam name="T">Тип значения результата.</typeparam>
-/// <param name="Name">Имя задачи (имя входа).</param>
-/// <param name="Run">Действие; получает токен отмены очереди.</param>
-internal sealed record WorkItem<T>(string Name, Func<CancellationToken, Task<T>> Run);
-
-/// <summary>
-/// Итог одной задачи очереди.
-/// </summary>
-/// <typeparam name="T">Тип значения результата.</typeparam>
-/// <param name="Name">Имя задачи.</param>
-/// <param name="Outcome">Выполнена, не удалась или отменена.</param>
-/// <param name="Value">Значение, если выполнена.</param>
-/// <param name="Error">Исключение, если не удалась.</param>
-internal sealed record WorkResult<T>(string Name, WorkOutcome Outcome, T? Value, Exception? Error);
-
-/// <summary>
-/// Чем кончилась задача очереди.
-/// </summary>
-internal enum WorkOutcome
-{
-    /// <summary>Выполнена.</summary>
-    Completed,
-
-    /// <summary>Не удалась: исключение сохранено в результате.</summary>
-    Failed,
-
-    /// <summary>Отменена: не запускалась или прервана токеном.</summary>
-    Canceled,
-}

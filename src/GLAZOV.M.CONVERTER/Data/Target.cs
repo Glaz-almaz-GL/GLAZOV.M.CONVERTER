@@ -7,7 +7,7 @@ namespace GLAZOV.M.CONVERTER.Data;
 /// </summary>
 public sealed class Target
 {
-    private Target(TargetKind kind, string? path, System.IO.Stream? stream, Format format)
+    private Target(TargetKind kind, string? path, Stream? stream, Format format)
     {
         Kind = kind;
         Path = path;
@@ -19,7 +19,7 @@ public sealed class Target
 
     internal string? Path { get; }
 
-    internal System.IO.Stream? OutputStream { get; }
+    internal Stream? OutputStream { get; }
 
     internal Format Format { get; }
 
@@ -39,7 +39,7 @@ public sealed class Target
     /// </summary>
     /// <param name="stream">Поток, в который пишется результат.</param>
     /// <param name="format">Формат результата.</param>
-    public static Target Stream(System.IO.Stream stream, Format format)
+    public static Target Stream(Stream stream, Format format)
     {
         ArgumentNullException.ThrowIfNull(stream);
         return new Target(TargetKind.Stream, null, stream, format);
@@ -64,12 +64,4 @@ public sealed class Target
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         return new Target(TargetKind.Folder, path, null, format);
     }
-}
-
-internal enum TargetKind
-{
-    File,
-    Stream,
-    Memory,
-    Folder,
 }

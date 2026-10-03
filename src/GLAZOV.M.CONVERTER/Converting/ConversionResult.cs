@@ -15,7 +15,7 @@ public sealed class ConversionResult
         TimeSpan duration,
         string? outputPath,
         byte[]? bytes,
-        System.IO.Stream? stream)
+        Stream? stream)
     {
         Succeeded = succeeded;
         SourceType = sourceType;
@@ -59,5 +59,5 @@ public sealed class ConversionResult
     /// <summary>
     /// Читаемый поток с результатом, если он оставлен в памяти.
     /// </summary>
-    public System.IO.Stream? Stream { get; }
+    public Stream? Stream { get; }
 }

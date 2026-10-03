@@ -24,15 +24,12 @@ internal static class InputReader
         ArgumentNullException.ThrowIfNull(source);
         cancellationToken.ThrowIfCancellationRequested();
 
-        switch (source.Kind)
+        return source.Kind switch
         {
-            case SourceKind.File:
-                return ValueTask.FromResult(OpenFile(source.Path!));
-            case SourceKind.Stream:
-                return ValueTask.FromResult(OpenStream(source.InputStream!));
-            default:
-                throw new ArgumentException("Папку нельзя открыть как один вход: для пакета используйте пакетную конвертацию.", nameof(source));
-        }
+            SourceKind.File => ValueTask.FromResult(OpenFile(source.Path!)),
+            SourceKind.Stream => ValueTask.FromResult(OpenStream(source.InputStream!)),
+            _ => throw new ArgumentException("Папку нельзя открыть как один вход: для пакета используйте пакетную конвертацию.", nameof(source)),
+        };
     }
 
     /// <summary>
@@ -47,14 +44,13 @@ internal static class InputReader
             throw new ArgumentException("Ожидалась папка (Source.Folder).", nameof(folder));
         }
 
-        var path = folder.Path!;
+        string path = folder.Path!;
         try
         {
-            var option = folder.Recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
-            return Directory.EnumerateFiles(path, folder.Pattern, option)
+            SearchOption option = folder.Recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
+            return [.. Directory.EnumerateFiles(path, folder.Pattern, option)
                 .Order(StringComparer.Ordinal)
-                .Select(Source.File)
-                .ToList();
+                .Select(Source.File)];
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -83,21 +79,20 @@ internal static class InputReader
 
     private static InputHandle OpenStream(Stream stream)
     {
-        if (!stream.CanRead)
-        {
-            throw new ConversionException(
+        return !stream.CanRead
+            ? throw new ConversionException(
                 ConversionStage.Preparation,
                 ConversionFailureReason.InputUnreadable,
-                $"Вход «{StreamName}» не читается: поток не поддерживает чтение.");
-        }
-
-        return new InputHandle(StreamName, stream, ownsInner: false);
+                $"Вход «{StreamName}» не читается: поток не поддерживает чтение.")
+            : new InputHandle(StreamName, stream, ownsInner: false);
     }
 
-    private static ConversionException Unreadable(string name, Exception inner) =>
-        new(
+    private static ConversionException Unreadable(string name, Exception inner)
+    {
+        return new(
             ConversionStage.Preparation,
             ConversionFailureReason.InputUnreadable,
             $"Не удалось прочитать вход «{name}»: {inner.Message}",
             innerException: inner);
+    }
 }

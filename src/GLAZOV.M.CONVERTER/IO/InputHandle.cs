@@ -55,10 +55,10 @@ internal sealed class InputHandle : IAsyncDisposable
     // Поток умеет искать: читаем и возвращаем позицию, где она была.
     private async ValueTask<ReadOnlyMemory<byte>> HeadFromSeekableAsync(int count, CancellationToken cancellationToken)
     {
-        var head = new byte[count];
+        byte[] head = new byte[count];
         try
         {
-            var total = await FillAsync(_inner, head, cancellationToken).ConfigureAwait(false);
+            int total = await FillAsync(_inner, head, cancellationToken).ConfigureAwait(false);
             return head.AsMemory(0, total);
         }
         finally
@@ -91,10 +91,10 @@ internal sealed class InputHandle : IAsyncDisposable
     // Читает, пока не заполнит буфер или не кончится вход; возвращает, сколько прочитано.
     private static async ValueTask<int> FillAsync(Stream stream, Memory<byte> destination, CancellationToken cancellationToken)
     {
-        var total = 0;
+        int total = 0;
         while (total < destination.Length)
         {
-            var read = await stream.ReadAsync(destination[total..], cancellationToken).ConfigureAwait(false);
+            int read = await stream.ReadAsync(destination[total..], cancellationToken).ConfigureAwait(false);
             if (read == 0)
             {
                 break;
@@ -121,7 +121,7 @@ internal sealed class InputHandle : IAsyncDisposable
         _readStarted = true;
         if (!_canRewind && _replayOffset < _bufferLength)
         {
-            var count = Math.Min(destination.Length, _bufferLength - _replayOffset);
+            int count = Math.Min(destination.Length, _bufferLength - _replayOffset);
             _buffer.AsSpan(_replayOffset, count).CopyTo(destination);
             _replayOffset += count;
             return count;
@@ -135,7 +135,7 @@ internal sealed class InputHandle : IAsyncDisposable
         _readStarted = true;
         if (!_canRewind && _replayOffset < _bufferLength)
         {
-            var count = Math.Min(destination.Length, _bufferLength - _replayOffset);
+            int count = Math.Min(destination.Length, _bufferLength - _replayOffset);
             _buffer.AsMemory(_replayOffset, count).CopyTo(destination);
             _replayOffset += count;
             return ValueTask.FromResult(count);
@@ -163,24 +163,43 @@ internal sealed class InputHandle : IAsyncDisposable
             set => throw new NotSupportedException();
         }
 
-        public override int Read(byte[] buffer, int offset, int count) => owner.ReadCore(buffer.AsSpan(offset, count));
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            return owner.ReadCore(buffer.AsSpan(offset, count));
+        }
 
-        public override int Read(Span<byte> buffer) => owner.ReadCore(buffer);
+        public override int Read(Span<byte> buffer)
+        {
+            return owner.ReadCore(buffer);
+        }
 
-        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) =>
-            owner.ReadCoreAsync(buffer, cancellationToken);
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            return owner.ReadCoreAsync(buffer, cancellationToken);
+        }
 
-        public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken) =>
-            owner.ReadCoreAsync(buffer.AsMemory(offset, count), cancellationToken).AsTask();
+        public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+        {
+            return owner.ReadCoreAsync(buffer.AsMemory(offset, count), cancellationToken).AsTask();
+        }
 
         public override void Flush()
         {
         }
 
-        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override long Seek(long offset, SeekOrigin origin)
+        {
+            throw new NotSupportedException();
+        }
 
-        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void SetLength(long value)
+        {
+            throw new NotSupportedException();
+        }
 
-        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count)
+        {
+            throw new NotSupportedException();
+        }
     }
 }

@@ -38,7 +38,7 @@ public sealed class Source
     /// Поток с данными файла целиком.
     /// </summary>
     /// <param name="stream">Читаемый поток.</param>
-    public static Source Stream(System.IO.Stream stream)
+    public static Source Stream(Stream stream)
     {
         ArgumentNullException.ThrowIfNull(stream);
         return new Source(SourceKind.Stream, null, stream, "*", false);

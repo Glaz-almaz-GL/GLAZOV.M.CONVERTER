@@ -14,7 +14,6 @@ internal sealed class OutputSink : IAsyncDisposable
     private readonly ConverterSettings _settings;
     private readonly string? _finalPath;
     private readonly string? _tempPath;
-    private readonly Stream _stream;
     private readonly bool _ownsStream;
     private bool _finished;
 
@@ -24,19 +23,19 @@ internal sealed class OutputSink : IAsyncDisposable
         _settings = settings;
         _finalPath = finalPath;
         _tempPath = tempPath;
-        _stream = stream;
+        Stream = stream;
         _ownsStream = ownsStream;
     }
 
     /// <summary>
     /// Поток, в который пишет движок.
     /// </summary>
-    internal Stream Stream => _stream;
+    internal Stream Stream { get; }
 
     /// <summary>
     /// Умеет ли <see cref="Stream"/> перематываться (нужно форматам, которые правят заголовок после записи, например WAV).
     /// </summary>
-    internal bool IsSeekable => _stream.CanSeek;
+    internal bool IsSeekable => Stream.CanSeek;
 
     /// <summary>
     /// Открывает приёмник. Существующий файл при <see cref="ConverterSettings.OverwriteExisting"/> = <c>false</c>
@@ -59,18 +58,13 @@ internal sealed class OutputSink : IAsyncDisposable
         ArgumentNullException.ThrowIfNull(settings);
         cancellationToken.ThrowIfCancellationRequested();
 
-        switch (target.Kind)
+        return ValueTask.FromResult<OutputSink>(target.Kind switch
         {
-            case TargetKind.File:
-                return ValueTask.FromResult(OpenFile(target, settings, target.Path!));
-            case TargetKind.Folder:
-                var name = Path.GetFileNameWithoutExtension(inputName) + "." + target.Format.FileExtension();
-                return ValueTask.FromResult(OpenFile(target, settings, Path.Combine(target.Path!, name)));
-            case TargetKind.Memory:
-                return ValueTask.FromResult(new OutputSink(target, settings, null, null, new MemoryStream(), ownsStream: true));
-            default:
-                return ValueTask.FromResult(OpenStream(target, settings, requireSeekable));
-        }
+            TargetKind.File => OpenFile(target, settings, target.Path!),
+            TargetKind.Folder => GetFolderSink(target, settings, inputName),
+            TargetKind.Memory => new(target, settings, null, null, new MemoryStream(), ownsStream: true),
+            _ => OpenStream(target, settings, requireSeekable)
+        });
     }
 
     /// <summary>
@@ -86,9 +80,9 @@ internal sealed class OutputSink : IAsyncDisposable
 
         try
         {
-            await _stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+            await Stream.FlushAsync(cancellationToken).ConfigureAwait(false);
 
-            var result = _target.Kind switch
+            SinkResult result = _target.Kind switch
             {
                 TargetKind.Memory => await CommitMemoryAsync().ConfigureAwait(false),
                 TargetKind.Stream => await CommitStreamAsync(cancellationToken).ConfigureAwait(false),
@@ -107,8 +101,8 @@ internal sealed class OutputSink : IAsyncDisposable
 
     private async ValueTask<SinkResult> CommitMemoryAsync()
     {
-        var bytes = ((MemoryStream)_stream).ToArray();
-        await _stream.DisposeAsync().ConfigureAwait(false);
+        byte[] bytes = ((MemoryStream)Stream).ToArray();
+        await Stream.DisposeAsync().ConfigureAwait(false);
         return new SinkResult(null, bytes, new MemoryStream(bytes, writable: false));
     }
 
@@ -117,10 +111,10 @@ internal sealed class OutputSink : IAsyncDisposable
     {
         if (_tempPath is not null)
         {
-            _stream.Position = 0;
-            await _stream.CopyToAsync(_target.OutputStream!, cancellationToken).ConfigureAwait(false);
+            Stream.Position = 0;
+            await Stream.CopyToAsync(_target.OutputStream!, cancellationToken).ConfigureAwait(false);
             await _target.OutputStream!.FlushAsync(cancellationToken).ConfigureAwait(false);
-            await _stream.DisposeAsync().ConfigureAwait(false);
+            await Stream.DisposeAsync().ConfigureAwait(false);
             File.Delete(_tempPath);
         }
 
@@ -129,7 +123,7 @@ internal sealed class OutputSink : IAsyncDisposable
 
     private async ValueTask<SinkResult> CommitFileAsync()
     {
-        await _stream.DisposeAsync().ConfigureAwait(false);
+        await Stream.DisposeAsync().ConfigureAwait(false);
         try
         {
             File.Move(_tempPath!, _finalPath!, overwrite: _settings.OverwriteExisting);
@@ -156,7 +150,7 @@ internal sealed class OutputSink : IAsyncDisposable
         _finished = true;
         if (_ownsStream)
         {
-            await _stream.DisposeAsync().ConfigureAwait(false);
+            await Stream.DisposeAsync().ConfigureAwait(false);
         }
 
         if (_tempPath is not null && File.Exists(_tempPath))
@@ -166,7 +160,10 @@ internal sealed class OutputSink : IAsyncDisposable
     }
 
     /// <inheritdoc />
-    public ValueTask DisposeAsync() => AbortAsync();
+    public ValueTask DisposeAsync()
+    {
+        return AbortAsync();
+    }
 
     private static OutputSink OpenFile(Target target, ConverterSettings settings, string finalPath)
     {
@@ -175,18 +172,18 @@ internal sealed class OutputSink : IAsyncDisposable
             throw FileExists(finalPath);
         }
 
-        var directory = Path.GetDirectoryName(Path.GetFullPath(finalPath))!;
+        string directory = Path.GetDirectoryName(Path.GetFullPath(finalPath))!;
         Directory.CreateDirectory(directory);
 
         // Временный файл рядом с результатом: переименование внутри одной папки атомарно.
-        var tempPath = Path.Combine(directory, $".{Path.GetFileName(finalPath)}.{Guid.NewGuid():N}.tmp");
-        var stream = new FileStream(tempPath, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None, 4096, FileOptions.Asynchronous);
+        string tempPath = Path.Combine(directory, $".{Path.GetFileName(finalPath)}.{Guid.NewGuid():N}.tmp");
+        FileStream stream = new(tempPath, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None, 4096, FileOptions.Asynchronous);
         return new OutputSink(target, settings, finalPath, tempPath, stream, ownsStream: true);
     }
 
     private static OutputSink OpenStream(Target target, ConverterSettings settings, bool requireSeekable)
     {
-        var output = target.OutputStream!;
+        Stream output = target.OutputStream!;
         if (!output.CanWrite)
         {
             throw new ArgumentException("Поток результата не поддерживает запись.", nameof(target));
@@ -199,24 +196,27 @@ internal sealed class OutputSink : IAsyncDisposable
 
         // Движку нужен перематываемый вывод, а чужой поток может его не дать: пишем во временный файл
         // и при завершении переливаем в поток.
-        var directory = settings.TempFolder ?? Path.GetTempPath();
+        string directory = settings.TempFolder ?? Path.GetTempPath();
         Directory.CreateDirectory(directory);
-        var tempPath = Path.Combine(directory, $"convert-{Guid.NewGuid():N}.tmp");
-        var temp = new FileStream(tempPath, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None, 4096, FileOptions.Asynchronous | FileOptions.DeleteOnClose);
+        string tempPath = Path.Combine(directory, $"convert-{Guid.NewGuid():N}.tmp");
+        FileStream temp = new(tempPath, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None, 4096, FileOptions.Asynchronous | FileOptions.DeleteOnClose);
         return new OutputSink(target, settings, null, tempPath, temp, ownsStream: true);
     }
 
-    private static ConversionException FileExists(string path) =>
-        new(
+    private static ConversionException FileExists(string path)
+    {
+        return new(
             ConversionStage.Preparation,
             ConversionFailureReason.FileExists,
             $"Файл «{Path.GetFileName(path)}» уже существует; разрешите перезапись настройкой OverwriteExisting.");
-}
+    }
 
-/// <summary>
-/// Итог записи: путь к файлу, либо байты и читаемый поток из памяти, либо ничего (записано в чужой поток).
-/// </summary>
-/// <param name="OutputPath">Путь к файлу результата.</param>
-/// <param name="Bytes">Данные результата в памяти.</param>
-/// <param name="Stream">Читаемый поток с результатом в памяти.</param>
-internal sealed record SinkResult(string? OutputPath, byte[]? Bytes, Stream? Stream);
+    private static OutputSink GetFolderSink(Target target, ConverterSettings settings, string inputName)
+    {
+        string fileName = Path.GetFileNameWithoutExtension(inputName);
+        string extension = target.Format.FileExtension();
+        string fullPath = Path.Combine(target.Path!, $"{fileName}.{extension}");
+
+        return OpenFile(target, settings, fullPath);
+    }
+}
