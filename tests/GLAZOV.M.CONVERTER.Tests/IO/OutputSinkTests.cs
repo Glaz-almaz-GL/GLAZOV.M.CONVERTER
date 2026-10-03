@@ -1,0 +1,249 @@
+using GLAZOV.M.CONVERTER.Data;
+using GLAZOV.M.CONVERTER.Errors;
+using GLAZOV.M.CONVERTER.IO;
+using GLAZOV.M.CONVERTER.Settings;
+
+namespace GLAZOV.M.CONVERTER.Tests.IO;
+
+/// <summary>
+/// Запись результата: файл, папка, поток, память; политика перезаписи и чистота временных файлов.
+/// </summary>
+public sealed class OutputSinkTests : IDisposable
+{
+    private readonly string _folder = Path.Combine(Path.GetTempPath(), "convtests-" + Guid.NewGuid().ToString("N"));
+    private readonly byte[] _payload = [1, 2, 3, 4, 5, 6, 7, 8];
+
+    public OutputSinkTests() => Directory.CreateDirectory(_folder);
+
+    public void Dispose() => Directory.Delete(_folder, recursive: true);
+
+    private ConverterSettings Settings(bool overwrite = false) =>
+        new() { OverwriteExisting = overwrite, TempFolder = Path.Combine(_folder, "tmp") };
+
+    private string[] Leftovers() =>
+        Directory.GetFiles(_folder, "*.tmp", SearchOption.AllDirectories);
+
+    [Fact]
+    public async Task File_WrittenViaTempAndRenamedOnCommit()
+    {
+        var path = Path.Combine(_folder, "out", "a.mp3");
+
+        await using var sink = await OutputSink.OpenAsync(Target.File(path, Format.Mp3), "in.ogg", Settings());
+        await sink.Stream.WriteAsync(_payload);
+        Assert.False(File.Exists(path));
+        var result = await sink.CommitAsync();
+
+        Assert.Equal(path, result.OutputPath);
+        Assert.Equal(_payload, await File.ReadAllBytesAsync(path));
+        Assert.Empty(Leftovers());
+    }
+
+    [Fact]
+    public async Task Folder_NameIsInputNameWithFormatExtension()
+    {
+        var folder = Path.Combine(_folder, "ready");
+
+        await using var sink = await OutputSink.OpenAsync(Target.Folder(folder, Format.Wav), "song.ogg", Settings());
+        await sink.Stream.WriteAsync(_payload);
+        var result = await sink.CommitAsync();
+
+        Assert.Equal(Path.Combine(folder, "song.wav"), result.OutputPath);
+        Assert.True(File.Exists(result.OutputPath));
+    }
+
+    [Fact]
+    public async Task ExistingFile_WithoutOverwrite_IsFileExistsBeforeAnyWork()
+    {
+        var path = Path.Combine(_folder, "exists.mp3");
+        await File.WriteAllBytesAsync(path, [9]);
+
+        var ex = await Assert.ThrowsAsync<ConversionException>(async () =>
+            await OutputSink.OpenAsync(Target.File(path, Format.Mp3), "in.ogg", Settings()));
+
+        Assert.Equal(ConversionStage.Preparation, ex.Stage);
+        Assert.Equal(ConversionFailureReason.FileExists, ex.Reason);
+        Assert.Equal(new byte[] { 9 }, await File.ReadAllBytesAsync(path));
+        Assert.Empty(Leftovers());
+    }
+
+    [Fact]
+    public async Task ExistingFile_WithOverwrite_IsReplaced()
+    {
+        var path = Path.Combine(_folder, "exists.mp3");
+        await File.WriteAllBytesAsync(path, [9]);
+
+        await using var sink = await OutputSink.OpenAsync(Target.File(path, Format.Mp3), "in.ogg", Settings(overwrite: true));
+        await sink.Stream.WriteAsync(_payload);
+        await sink.CommitAsync();
+
+        Assert.Equal(_payload, await File.ReadAllBytesAsync(path));
+    }
+
+    [Fact]
+    public async Task FileAppearingDuringWork_WithoutOverwrite_IsFileExistsOnCommit_AndNothingIsLeft()
+    {
+        var path = Path.Combine(_folder, "race.mp3");
+        var sink = await OutputSink.OpenAsync(Target.File(path, Format.Mp3), "in.ogg", Settings());
+        await sink.Stream.WriteAsync(_payload);
+        await File.WriteAllBytesAsync(path, [7]);
+
+        var ex = await Assert.ThrowsAsync<ConversionException>(async () => await sink.CommitAsync());
+
+        Assert.Equal(ConversionFailureReason.FileExists, ex.Reason);
+        Assert.Equal(new byte[] { 7 }, await File.ReadAllBytesAsync(path));
+        Assert.Empty(Leftovers());
+    }
+
+    [Fact]
+    public async Task Abort_RemovesTempFile_AndLeavesNoResult()
+    {
+        var path = Path.Combine(_folder, "aborted.mp3");
+        var sink = await OutputSink.OpenAsync(Target.File(path, Format.Mp3), "in.ogg", Settings());
+        await sink.Stream.WriteAsync(_payload);
+        Assert.Single(Leftovers());
+
+        await sink.AbortAsync();
+
+        Assert.False(File.Exists(path));
+        Assert.Empty(Leftovers());
+    }
+
+    [Fact]
+    public async Task DisposeWithoutCommit_IsAbort()
+    {
+        var path = Path.Combine(_folder, "forgotten.mp3");
+        await using (var sink = await OutputSink.OpenAsync(Target.File(path, Format.Mp3), "in.ogg", Settings()))
+        {
+            await sink.Stream.WriteAsync(_payload);
+        }
+
+        Assert.False(File.Exists(path));
+        Assert.Empty(Leftovers());
+    }
+
+    [Fact]
+    public async Task Memory_AfterCommit_GivesBytesAndReadableStream()
+    {
+        await using var sink = await OutputSink.OpenAsync(Target.Memory(Format.Mp3), "in.ogg", Settings());
+        await sink.Stream.WriteAsync(_payload);
+
+        var result = await sink.CommitAsync();
+
+        Assert.Null(result.OutputPath);
+        Assert.Equal(_payload, result.Bytes);
+        Assert.NotNull(result.Stream);
+        Assert.Equal(0, result.Stream.Position);
+        Assert.Equal(_payload.Length, result.Stream.Length);
+    }
+
+    [Fact]
+    public async Task Stream_WithoutSeekRequirement_WritesDirectlyAndDoesNotCloseIt()
+    {
+        var destination = new MemoryStream();
+
+        await using (var sink = await OutputSink.OpenAsync(Target.Stream(destination, Format.Ogg), "in.wav", Settings()))
+        {
+            Assert.Same(destination, sink.Stream);
+            await sink.Stream.WriteAsync(_payload);
+            var result = await sink.CommitAsync();
+            Assert.Null(result.OutputPath);
+        }
+
+        Assert.True(destination.CanWrite);
+        Assert.Equal(_payload, destination.ToArray());
+    }
+
+    [Fact]
+    public async Task Stream_WithSeekRequirement_GoesThroughTempFile_AndCopiesOnCommit()
+    {
+        var destination = new NonSeekableWriteStream();
+
+        await using (var sink = await OutputSink.OpenAsync(Target.Stream(destination, Format.Wav), "in.ogg", Settings(), requireSeekable: true))
+        {
+            Assert.True(sink.IsSeekable);
+            await sink.Stream.WriteAsync(_payload);
+            sink.Stream.Position = 2; // перемотка нужна WAV для правки заголовка
+            sink.Stream.WriteByte(99);
+            Assert.Empty(destination.Written);
+            await sink.CommitAsync();
+        }
+
+        Assert.Equal(new byte[] { 1, 2, 99, 4, 5, 6, 7, 8 }, destination.Written);
+        Assert.Empty(Leftovers());
+    }
+
+    [Fact]
+    public async Task Stream_WithSeekRequirement_Abort_WritesNothingAndLeavesNoTemp()
+    {
+        var destination = new NonSeekableWriteStream();
+        var sink = await OutputSink.OpenAsync(Target.Stream(destination, Format.Wav), "in.ogg", Settings(), requireSeekable: true);
+        await sink.Stream.WriteAsync(_payload);
+
+        await sink.AbortAsync();
+
+        Assert.Empty(destination.Written);
+        Assert.Empty(Leftovers());
+    }
+
+    [Fact]
+    public async Task Cancelled_BeforeOpen_ThrowsOperationCanceled()
+    {
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+            await OutputSink.OpenAsync(Target.Memory(Format.Mp3), "in.ogg", Settings(), cancellationToken: cts.Token));
+    }
+
+    [Fact]
+    public async Task ReadOnlyOutputStream_IsAUsageError()
+    {
+        var readOnly = new MemoryStream([], writable: false);
+
+        await Assert.ThrowsAsync<ArgumentException>(async () =>
+            await OutputSink.OpenAsync(Target.Stream(readOnly, Format.Mp3), "in.ogg", Settings()));
+    }
+
+    [Theory]
+    [InlineData(Format.Mp3, "mp3")]
+    [InlineData(Format.Wav, "wav")]
+    [InlineData(Format.Ogg, "ogg")]
+    [InlineData(Format.Jpeg, "jpg")]
+    public void FileExtension_PerFormat(Format format, string expected)
+    {
+        Assert.Equal(expected, format.FileExtension());
+    }
+
+    private sealed class NonSeekableWriteStream : Stream
+    {
+        private readonly MemoryStream _written = new();
+
+        public byte[] Written => _written.ToArray();
+
+        public override bool CanRead => false;
+
+        public override bool CanSeek => false;
+
+        public override bool CanWrite => true;
+
+        public override long Length => throw new NotSupportedException();
+
+        public override long Position
+        {
+            get => throw new NotSupportedException();
+            set => throw new NotSupportedException();
+        }
+
+        public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+        public override void Flush()
+        {
+        }
+
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+        public override void SetLength(long value) => throw new NotSupportedException();
+
+        public override void Write(byte[] buffer, int offset, int count) => _written.Write(buffer, offset, count);
+    }
+}
