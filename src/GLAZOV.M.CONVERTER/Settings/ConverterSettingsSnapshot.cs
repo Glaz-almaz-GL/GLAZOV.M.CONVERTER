@@ -1,3 +1,5 @@
+using GLAZOV.M.CONVERTER.Extensions;
+
 namespace GLAZOV.M.CONVERTER.Settings;
 
 /// <summary>
@@ -10,12 +12,14 @@ internal sealed class ConverterSettingsSnapshot
         int maxParallelTasks,
         string? tempFolder,
         IReadOnlyDictionary<string, string> toolPaths,
-        bool overwriteExisting)
+        bool overwriteExisting,
+        IReadOnlyList<IConverterExtension> extensions)
     {
         MaxParallelTasks = maxParallelTasks;
         TempFolder = tempFolder;
         ToolPaths = toolPaths;
         OverwriteExisting = overwriteExisting;
+        Extensions = extensions;
     }
 
     /// <summary>
@@ -32,6 +36,11 @@ internal sealed class ConverterSettingsSnapshot
     /// Пути к внешним программам: имя (без учёта регистра) → непустой путь.
     /// </summary>
     internal IReadOnlyDictionary<string, string> ToolPaths { get; }
+
+    /// <summary>
+    /// Подключённые расширения по порядку; имена непусты и уникальны, списки определителей и движков не пусты в смысле «не null».
+    /// </summary>
+    internal IReadOnlyList<IConverterExtension> Extensions { get; }
 
     /// <summary>
     /// Перезаписывать ли существующие файлы.
@@ -74,6 +83,45 @@ internal sealed class ConverterSettingsSnapshot
             toolPaths[name] = path;
         }
 
-        return new ConverterSettingsSnapshot(settings.MaxParallelTasks, tempFolder, toolPaths, settings.OverwriteExisting);
+        return new ConverterSettingsSnapshot(settings.MaxParallelTasks, tempFolder, toolPaths, settings.OverwriteExisting, CheckExtensions(settings.Extensions));
+    }
+
+    // Расширения проверяются при создании: чужой код с пустым именем, повтором имени или пустыми списками отвергается сразу.
+    private static IReadOnlyList<IConverterExtension> CheckExtensions(IEnumerable<IConverterExtension> extensions)
+    {
+        List<IConverterExtension> list = [];
+        HashSet<string> names = new(StringComparer.OrdinalIgnoreCase);
+        foreach (IConverterExtension extension in extensions)
+        {
+            if (extension is null)
+            {
+                throw new ArgumentException("В списке расширений (параметр Extensions) есть пустая запись.", "settings");
+            }
+
+            string name = extension.Name;
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                throw new ArgumentException($"У расширения {extension.GetType().Name} пустое имя (Name): имя обязательно.", "settings");
+            }
+
+            if (!names.Add(name))
+            {
+                throw new ArgumentException($"Расширение «{name}» подключено дважды: имена расширений уникальны.", "settings");
+            }
+
+            if (extension.Detectors is null || extension.Engines is null || extension.Detectors.Any(d => d is null) || extension.Engines.Any(e => e is null))
+            {
+                throw new ArgumentException($"У расширения «{name}» списки определителей и движков не заданы или содержат пустые записи.", "settings");
+            }
+
+            if (extension.Detectors.Any(d => d.HeadLength < 1))
+            {
+                throw new ArgumentException($"У расширения «{name}» определитель просит меньше одного байта (HeadLength).", "settings");
+            }
+
+            list.Add(extension);
+        }
+
+        return list;
     }
 }

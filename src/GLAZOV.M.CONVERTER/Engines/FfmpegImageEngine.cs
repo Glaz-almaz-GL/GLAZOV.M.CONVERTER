@@ -1,5 +1,6 @@
 using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Errors;
+using GLAZOV.M.CONVERTER.Extensions;
 using GLAZOV.M.CONVERTER.Tooling;
 
 namespace GLAZOV.M.CONVERTER.Engines;
@@ -28,8 +29,8 @@ internal sealed class FfmpegImageEngine : IConversionEngine
     public bool SupportsOperations => true;
 
     /// <inheritdoc />
-    public IReadOnlyList<(FileFormat From, FileFormat To)> Pairs { get; } =
-        [.. Inputs.SelectMany(from => Outputs.Select(to => (from, to)))];
+    public IReadOnlyList<ConversionPair> Pairs { get; } =
+        [.. Inputs.SelectMany(from => Outputs.Select(to => new ConversionPair(from, to)))];
 
     /// <inheritdoc />
     public bool CanConvert(FileFormat from, FileFormat to)
@@ -38,7 +39,7 @@ internal sealed class FfmpegImageEngine : IConversionEngine
     }
 
     /// <inheritdoc />
-    public async Task ConvertAsync(EngineRequest request, CancellationToken cancellationToken)
+    public async Task ConvertAsync(ConversionRequest request, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
 
@@ -55,11 +56,11 @@ internal sealed class FfmpegImageEngine : IConversionEngine
 
             IReadOnlyList<string> args = FfmpegImageArguments.Build(
                 request.To,
-                request.Options?.Image?.Quality,
+                request.Options.Image?.Quality,
                 inputPath,
                 outputPath,
-                FfmpegImageArguments.Filters(request.Options?.Operations));
-            ToolResult result = await ToolRunner.RunAsync(new ToolInvocation(request.Tool.Path!, args), cancellationToken).ConfigureAwait(false);
+                FfmpegImageArguments.Filters(request.Options.Operations));
+            ToolResult result = await ToolRunner.RunAsync(new ToolInvocation(request.Tool!.Path!, args), cancellationToken).ConfigureAwait(false);
             if (result.ExitCode != 0)
             {
                 throw Failures.ToolFailed(ToolName, result.ExitCode, result.ErrorOutput);

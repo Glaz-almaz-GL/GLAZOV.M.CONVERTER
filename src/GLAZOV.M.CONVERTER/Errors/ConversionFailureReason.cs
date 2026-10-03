@@ -34,4 +34,9 @@ public enum ConversionFailureReason
     /// Вход не удалось прочитать.
     /// </summary>
     InputUnreadable,
+
+    /// <summary>
+    /// Движок расширения завершился непредвиденной ошибкой (исходное исключение — во внутренней части ошибки).
+    /// </summary>
+    EngineFailed,
 }

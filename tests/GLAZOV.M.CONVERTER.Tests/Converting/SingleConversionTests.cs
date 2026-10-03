@@ -2,6 +2,7 @@ using System.Text;
 using GLAZOV.M.CONVERTER.Converting;
 using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Engines;
+using GLAZOV.M.CONVERTER.Extensions;
 using GLAZOV.M.CONVERTER.Errors;
 using GLAZOV.M.CONVERTER.Settings;
 using GLAZOV.M.CONVERTER.Tooling;
@@ -137,7 +138,7 @@ public sealed class SingleConversionTests : IDisposable
         Assert.Same(audio, engine.Last!.Options!.Audio);
         Assert.Same(FileFormat.Wav, engine.Last.To);
         Assert.Equal(_tempFolder, engine.Last.TempFolder);
-        Assert.Equal(_toolFile, engine.Last.Tool.Path);
+        Assert.Equal(_toolFile, engine.Last.Tool!.Path);
     }
 
     [Fact]
@@ -309,7 +310,7 @@ public sealed class SingleConversionTests : IDisposable
     {
         public int Calls { get; private set; }
 
-        public EngineRequest? Last { get; private set; }
+        public ConversionRequest? Last { get; private set; }
 
         public ConversionException? Fail { get; init; }
 
@@ -323,7 +324,7 @@ public sealed class SingleConversionTests : IDisposable
 
         public bool SupportsOperations => Operations;
 
-        public IReadOnlyList<(FileFormat From, FileFormat To)> Pairs { get; } = [(FileFormat.Mp3, FileFormat.Wav)];
+        public IReadOnlyList<ConversionPair> Pairs { get; } = [new(FileFormat.Mp3, FileFormat.Wav)];
 
         public static byte[] Wrap(byte[] input)
         {
@@ -335,7 +336,7 @@ public sealed class SingleConversionTests : IDisposable
             return from.Equals(FileFormat.Mp3) && to.Equals(FileFormat.Wav);
         }
 
-        public async Task ConvertAsync(EngineRequest request, CancellationToken cancellationToken)
+        public async Task ConvertAsync(ConversionRequest request, CancellationToken cancellationToken)
         {
             Calls++;
             Last = request;

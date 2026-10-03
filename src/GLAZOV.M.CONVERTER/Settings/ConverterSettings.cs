@@ -1,4 +1,5 @@
 using GLAZOV.M.CONVERTER.Converting;
+using GLAZOV.M.CONVERTER.Extensions;
 
 namespace GLAZOV.M.CONVERTER.Settings;
 
@@ -27,4 +28,10 @@ public sealed class ConverterSettings
     /// Перезаписывать ли существующие файлы. По умолчанию нет: будет ошибка «файл существует».
     /// </summary>
     public bool OverwriteExisting { get; set; }
+
+    /// <summary>
+    /// Подключаемые расширения (сторонние форматы и движки). Подключаются при создании конвертера и дальше не меняются.
+    /// Расширение выполняется в вашем процессе: подключайте только то, чему доверяете.
+    /// </summary>
+    public ICollection<IConverterExtension> Extensions { get; } = [];
 }

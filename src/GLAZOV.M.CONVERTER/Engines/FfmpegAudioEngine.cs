@@ -1,5 +1,6 @@
 using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Errors;
+using GLAZOV.M.CONVERTER.Extensions;
 using GLAZOV.M.CONVERTER.Tooling;
 
 namespace GLAZOV.M.CONVERTER.Engines;
@@ -20,8 +21,8 @@ internal sealed class FfmpegAudioEngine : IConversionEngine
     public bool SupportsOperations => false;
 
     /// <inheritdoc />
-    public IReadOnlyList<(FileFormat From, FileFormat To)> Pairs { get; } =
-        [.. Supported.SelectMany(from => Supported.Select(to => (from, to)))];
+    public IReadOnlyList<ConversionPair> Pairs { get; } =
+        [.. Supported.SelectMany(from => Supported.Select(to => new ConversionPair(from, to)))];
 
     /// <inheritdoc />
     public bool CanConvert(FileFormat from, FileFormat to)
@@ -30,7 +31,7 @@ internal sealed class FfmpegAudioEngine : IConversionEngine
     }
 
     /// <inheritdoc />
-    public async Task ConvertAsync(EngineRequest request, CancellationToken cancellationToken)
+    public async Task ConvertAsync(ConversionRequest request, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
 
@@ -41,9 +42,9 @@ internal sealed class FfmpegAudioEngine : IConversionEngine
 
         try
         {
-            IReadOnlyList<string> args = FfmpegAudioArguments.Build(request.To, request.Options?.Audio, tempPath ?? "pipe:1");
+            IReadOnlyList<string> args = FfmpegAudioArguments.Build(request.To, request.Options.Audio, tempPath ?? "pipe:1");
             ToolInvocation invocation = new(
-                request.Tool.Path!,
+                request.Tool!.Path!,
                 args,
                 StandardInput: request.Input,
                 StandardOutput: needsTempFile ? null : request.Output);

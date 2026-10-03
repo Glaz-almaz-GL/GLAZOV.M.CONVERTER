@@ -4,6 +4,7 @@ using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Detection;
 using GLAZOV.M.CONVERTER.Engines;
 using GLAZOV.M.CONVERTER.Errors;
+using GLAZOV.M.CONVERTER.Extensions;
 using GLAZOV.M.CONVERTER.IO;
 using GLAZOV.M.CONVERTER.Settings;
 using GLAZOV.M.CONVERTER.Tooling;
@@ -19,12 +20,14 @@ internal sealed class SingleConversion
     private readonly ConverterSettingsSnapshot _settings;
     private readonly EngineRegistry _registry;
     private readonly ToolLocator _locator;
+    private readonly DetectorChain _chain;
 
-    internal SingleConversion(ConverterSettingsSnapshot settings, EngineRegistry registry, ToolLocator locator)
+    internal SingleConversion(ConverterSettingsSnapshot settings, EngineRegistry registry, ToolLocator locator, DetectorChain chain)
     {
         _settings = settings;
         _registry = registry;
         _locator = locator;
+        _chain = chain;
     }
 
     /// <summary>
@@ -51,14 +54,15 @@ internal sealed class SingleConversion
         await using InputHandle input = await InputReader.OpenAsync(source, cancellationToken).ConfigureAwait(false);
 
         FileFormat from = await ConfirmTypeAsync(input, cancellationToken).ConfigureAwait(false);
-        IConversionEngine engine = ChooseEngine(from, target.FileFormat, options);
-        ToolStatus tool = LocateTool(engine);
+        ConversionOptions callOptions = options ?? new ConversionOptions();
+        IConversionEngine engine = ChooseEngine(from, target.FileFormat, callOptions);
+        ToolStatus? tool = LocateTool(engine);
 
         await using OutputSink sink = await OutputSink.OpenAsync(target, input.Name, _settings, cancellationToken: cancellationToken).ConfigureAwait(false);
 
         progress?.Report(new ConversionProgress(0));
-        EngineRequest request = new(input.Stream, sink.Stream, from, target.FileFormat, options, tool, _settings.TempFolder ?? Path.GetTempPath());
-        await engine.ConvertAsync(request, cancellationToken).ConfigureAwait(false);
+        ConversionRequest request = new(input.Stream, sink.Stream, from, target.FileFormat, callOptions, tool, _settings.TempFolder ?? Path.GetTempPath());
+        await RunEngineAsync(engine, request, cancellationToken).ConfigureAwait(false);
         SinkResult written = await sink.CommitAsync(cancellationToken).ConfigureAwait(false);
         progress?.Report(new ConversionProgress(100));
 
@@ -67,9 +71,9 @@ internal sealed class SingleConversion
     }
 
     // Тип определяется по начальным байтам; имя файла — только подсказка для сообщения, доказательством не служит.
-    private static async Task<FileFormat> ConfirmTypeAsync(InputHandle input, CancellationToken cancellationToken)
+    private async Task<FileFormat> ConfirmTypeAsync(InputHandle input, CancellationToken cancellationToken)
     {
-        FileFormat from = await FileTypeDetector.DetectAsync(input, cancellationToken).ConfigureAwait(false);
+        FileFormat from = await FileTypeDetector.DetectAsync(input, _chain, cancellationToken).ConfigureAwait(false);
         if (from.Equals(FileFormat.Unknown))
         {
             string extension = Path.GetExtension(input.Name).TrimStart('.').ToUpperInvariant();
@@ -79,10 +83,10 @@ internal sealed class SingleConversion
         return from;
     }
 
-    private IConversionEngine ChooseEngine(FileFormat from, FileFormat to, ConversionOptions? options)
+    private IConversionEngine ChooseEngine(FileFormat from, FileFormat to, ConversionOptions options)
     {
         IConversionEngine engine = _registry.Find(from, to) ?? throw Failures.UnsupportedConversion(from, to);
-        if (options is { Operations.Count: > 0 } && !engine.SupportsOperations)
+        if (options.Operations.Count > 0 && !engine.SupportsOperations)
         {
             throw Failures.UnsupportedOperations(from, to);
         }
@@ -90,9 +94,28 @@ internal sealed class SingleConversion
         return engine;
     }
 
-    private ToolStatus LocateTool(IConversionEngine engine)
+    // Программа нужна не каждому движку: расширение без внешней программы работает на своих библиотеках.
+    private ToolStatus? LocateTool(IConversionEngine engine)
     {
+        if (engine.ToolName is null)
+        {
+            return null;
+        }
+
         ToolStatus tool = _locator.Locate(engine.ToolName);
         return tool.Found ? tool : throw Failures.ToolNotFound(engine.ToolName, tool.InstallHint);
+    }
+
+    // Любое непредвиденное исключение чужого движка становится ошибкой конвертации; свои ошибки и отмена проходят как есть.
+    private static async Task RunEngineAsync(IConversionEngine engine, ConversionRequest request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await engine.ConvertAsync(request, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not (ConversionException or OperationCanceledException))
+        {
+            throw Failures.EngineFailed(engine.GetType().Name, ex);
+        }
     }
 }

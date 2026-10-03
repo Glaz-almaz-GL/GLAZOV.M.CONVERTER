@@ -30,7 +30,7 @@ public sealed class ConverterCapabilities
                 .. _registry.Pairs().Select(pair => new Conversion(
                     pair.From,
                     pair.To,
-                    _locator.Locate(pair.ToolName).Found ? ConversionAvailability.Ready : ConversionAvailability.ToolMissing)),
+                    pair.ToolName is null || _locator.Locate(pair.ToolName).Found ? ConversionAvailability.Ready : ConversionAvailability.ToolMissing)),
             ];
         }
     }
@@ -55,7 +55,7 @@ public sealed class ConverterCapabilities
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
 
-        string[] known = [.. _registry.Engines.Select(engine => engine.ToolName).Distinct(StringComparer.OrdinalIgnoreCase)];
+        string[] known = [.. _registry.Engines.Select(engine => engine.ToolName).OfType<string>().Distinct(StringComparer.OrdinalIgnoreCase)];
         if (!known.Contains(name, StringComparer.OrdinalIgnoreCase))
         {
             throw new ArgumentException($"Программа «{name}» библиотеке неизвестна. Известные: {string.Join(", ", known)}.", nameof(name));

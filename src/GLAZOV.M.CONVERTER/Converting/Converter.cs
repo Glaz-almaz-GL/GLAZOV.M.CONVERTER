@@ -1,8 +1,10 @@
 using GLAZOV.M.CONVERTER.Batch;
 using GLAZOV.M.CONVERTER.Capabilities;
 using GLAZOV.M.CONVERTER.Data;
+using GLAZOV.M.CONVERTER.Detection;
 using GLAZOV.M.CONVERTER.Engines;
 using GLAZOV.M.CONVERTER.Errors;
+using GLAZOV.M.CONVERTER.Extensions;
 using GLAZOV.M.CONVERTER.Internal;
 using GLAZOV.M.CONVERTER.Settings;
 using GLAZOV.M.CONVERTER.Tooling;
@@ -27,18 +29,24 @@ public sealed class Converter
     /// </summary>
     /// <param name="settings">Настройки; неверное значение отвергается сразу.</param>
     public Converter(ConverterSettings settings)
-        : this(settings, EngineRegistry.CreateDefault(), null)
+        : this(ConverterSettingsSnapshot.Create(settings), null, null)
     {
     }
 
     internal Converter(ConverterSettings settings, EngineRegistry registry, ToolEnvironment? environment)
+        : this(ConverterSettingsSnapshot.Create(settings), registry, environment)
     {
-        ArgumentNullException.ThrowIfNull(settings);
-        ArgumentNullException.ThrowIfNull(registry);
-        Settings = ConverterSettingsSnapshot.Create(settings);
+    }
+
+    private Converter(ConverterSettingsSnapshot settings, EngineRegistry? registry, ToolEnvironment? environment)
+    {
+        Settings = settings;
+        IConverterExtension[] extensions = [new BuiltInExtension(), .. settings.Extensions];
+        EngineRegistry engines = registry ?? new EngineRegistry(extensions.SelectMany(e => e.Engines));
+        DetectorChain chain = new(extensions.SelectMany(e => e.Detectors));
         ToolLocator locator = new(Settings, environment);
-        Capabilities = new ConverterCapabilities(registry, locator);
-        _single = new SingleConversion(Settings, registry, locator);
+        Capabilities = new ConverterCapabilities(engines, locator);
+        _single = new SingleConversion(Settings, engines, locator, chain);
         _batch = new BatchConversion(Settings, _single);
     }
 

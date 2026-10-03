@@ -2,6 +2,7 @@ using GLAZOV.M.CONVERTER.Capabilities;
 using GLAZOV.M.CONVERTER.Converting;
 using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Engines;
+using GLAZOV.M.CONVERTER.Extensions;
 using GLAZOV.M.CONVERTER.Settings;
 using GLAZOV.M.CONVERTER.Tooling;
 
@@ -137,14 +138,9 @@ public sealed class ConverterCapabilitiesTests : IDisposable
 
         public bool SupportsOperations => false;
 
-        public IReadOnlyList<(FileFormat From, FileFormat To)> Pairs { get; } = pairs;
+        public IReadOnlyList<ConversionPair> Pairs { get; } = [.. pairs.Select(p => new ConversionPair(p.From, p.To))];
 
-        public bool CanConvert(FileFormat from, FileFormat to)
-        {
-            return Pairs.Contains((from, to));
-        }
-
-        public Task ConvertAsync(EngineRequest request, CancellationToken cancellationToken)
+        public Task ConvertAsync(ConversionRequest request, CancellationToken cancellationToken)
         {
             return Task.CompletedTask;
         }

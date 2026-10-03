@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\GLAZOV.M.CONVERTER\GLAZOV.M.CONVERTER.csproj" />
+    <ProjectReference Include="..\GLAZOV.M.CONVERTER.Tests.Extension\GLAZOV.M.CONVERTER.Tests.Extension.csproj" />
   </ItemGroup>
 
 </Project>

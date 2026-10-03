@@ -1,5 +1,6 @@
 using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Engines;
+using GLAZOV.M.CONVERTER.Extensions;
 
 namespace GLAZOV.M.CONVERTER.Tests.Engines;
 
@@ -43,8 +44,8 @@ public class EngineRegistryTests
     [Fact]
     public void Pairs_ListAllEightyOnePairsWithToolName_InStableOrder()
     {
-        IReadOnlyList<(FileFormat From, FileFormat To, string ToolName)> first = EngineRegistry.CreateDefault().Pairs();
-        IReadOnlyList<(FileFormat From, FileFormat To, string ToolName)> second = EngineRegistry.CreateDefault().Pairs();
+        IReadOnlyList<(FileFormat From, FileFormat To, string? ToolName)> first = EngineRegistry.CreateDefault().Pairs();
+        IReadOnlyList<(FileFormat From, FileFormat To, string? ToolName)> second = EngineRegistry.CreateDefault().Pairs();
 
         Assert.Equal(81, first.Count);
         Assert.All(first, p => Assert.Equal("ffmpeg", p.ToolName));
@@ -68,14 +69,14 @@ public class EngineRegistryTests
 
         public bool SupportsOperations => false;
 
-        public IReadOnlyList<(FileFormat From, FileFormat To)> Pairs { get; } = [(FileFormat.Mp3, FileFormat.Wav)];
+        public IReadOnlyList<ConversionPair> Pairs { get; } = [new(FileFormat.Mp3, FileFormat.Wav)];
 
         public bool CanConvert(FileFormat from, FileFormat to)
         {
             return from.Equals(FileFormat.Mp3) && to.Equals(FileFormat.Wav);
         }
 
-        public Task ConvertAsync(EngineRequest request, CancellationToken cancellationToken)
+        public Task ConvertAsync(ConversionRequest request, CancellationToken cancellationToken)
         {
             return Task.CompletedTask;
         }

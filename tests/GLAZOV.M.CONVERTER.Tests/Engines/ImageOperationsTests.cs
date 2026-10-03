@@ -2,6 +2,7 @@ using GLAZOV.M.CONVERTER.Capabilities;
 using GLAZOV.M.CONVERTER.Converting;
 using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Engines;
+using GLAZOV.M.CONVERTER.Extensions;
 using GLAZOV.M.CONVERTER.Errors;
 using GLAZOV.M.CONVERTER.Settings;
 using GLAZOV.M.CONVERTER.Tooling;
@@ -48,7 +49,7 @@ public sealed class ImageOperationsTests : IDisposable
             options.Operations.Add(operation);
         }
 
-        await _engine.ConvertAsync(new EngineRequest(source, output, from, to, options, Ffmpeg(), _temp), CancellationToken.None);
+        await _engine.ConvertAsync(new ConversionRequest(source, output, from, to, options, Ffmpeg(), _temp), CancellationToken.None);
         return output.ToArray();
     }
 

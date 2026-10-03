@@ -4,5 +4,6 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="../tests/GLAZOV.M.CONVERTER.Tests/GLAZOV.M.CONVERTER.Tests.csproj" />
+    <Project Path="../tests/GLAZOV.M.CONVERTER.Tests.Extension/GLAZOV.M.CONVERTER.Tests.Extension.csproj" />
   </Folder>
 </Solution>

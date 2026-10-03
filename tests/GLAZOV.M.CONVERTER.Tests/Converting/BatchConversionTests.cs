@@ -3,6 +3,7 @@ using GLAZOV.M.CONVERTER.Batch;
 using GLAZOV.M.CONVERTER.Converting;
 using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Engines;
+using GLAZOV.M.CONVERTER.Extensions;
 using GLAZOV.M.CONVERTER.Errors;
 using GLAZOV.M.CONVERTER.Settings;
 
@@ -269,15 +270,17 @@ public sealed class BatchConversionTests : IDisposable
     }
 
     [Fact]
-    public async Task UnexpectedFailure_IsNotDisguisedAsAFailedInput()
+    public async Task UnexpectedEngineFailure_BecomesAnEngineFailedRecord_NotALostBatch()
     {
         PeakEngine engine = new() { Crash = new InvalidOperationException("непредвиденное") };
         Input("a.mp3");
+        Input("b.mp3");
 
-        InvalidOperationException ex = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
-            await Make(engine).ConvertBatchAsync(Source.Folder(Path.Combine(_folder, "in")), Target.Folder(OutFolder, FileFormat.Wav)));
+        BatchReport report = await Make(engine).ConvertBatchAsync(Source.Folder(Path.Combine(_folder, "in")), Target.Folder(OutFolder, FileFormat.Wav));
 
-        Assert.Equal("непредвиденное", ex.Message);
+        Assert.Equal(2, report.Failed);
+        Assert.All(report.Items, i => Assert.Equal(ConversionFailureReason.EngineFailed, i.Reason));
+        Assert.All(report.Items, i => Assert.Contains("непредвиденное", i.Message));
     }
 
     private sealed class SyncProgress(List<BatchProgress> sink) : IProgress<BatchProgress>
@@ -315,14 +318,14 @@ public sealed class BatchConversionTests : IDisposable
 
         public bool SupportsOperations => false;
 
-        public IReadOnlyList<(FileFormat From, FileFormat To)> Pairs { get; } = [(FileFormat.Mp3, FileFormat.Wav)];
+        public IReadOnlyList<ConversionPair> Pairs { get; } = [new(FileFormat.Mp3, FileFormat.Wav)];
 
         public bool CanConvert(FileFormat from, FileFormat to)
         {
             return from.Equals(FileFormat.Mp3) && to.Equals(FileFormat.Wav);
         }
 
-        public async Task ConvertAsync(EngineRequest request, CancellationToken cancellationToken)
+        public async Task ConvertAsync(ConversionRequest request, CancellationToken cancellationToken)
         {
             int calls = Interlocked.Increment(ref _calls);
             int now = Interlocked.Increment(ref _running);

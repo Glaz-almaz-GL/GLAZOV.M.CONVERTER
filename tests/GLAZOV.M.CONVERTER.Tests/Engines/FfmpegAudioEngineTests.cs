@@ -3,6 +3,7 @@ using GLAZOV.M.CONVERTER.Converting;
 using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Detection;
 using GLAZOV.M.CONVERTER.Engines;
+using GLAZOV.M.CONVERTER.Extensions;
 using GLAZOV.M.CONVERTER.Errors;
 using GLAZOV.M.CONVERTER.Settings;
 using GLAZOV.M.CONVERTER.Tooling;
@@ -44,7 +45,7 @@ public sealed class FfmpegAudioEngineTests : IDisposable
         using MemoryStream source = new(input);
         using MemoryStream output = new();
 
-        await _engine.ConvertAsync(new EngineRequest(source, output, SignatureMatcher.Match(input), to, audio is null ? null : new ConversionOptions { Audio = audio }, Ffmpeg(), _temp), CancellationToken.None);
+        await _engine.ConvertAsync(new ConversionRequest(source, output, SignatureMatcher.Match(input), to, new ConversionOptions { Audio = audio }, Ffmpeg(), _temp), CancellationToken.None);
 
         return output.ToArray();
     }
@@ -201,7 +202,7 @@ public sealed class FfmpegAudioEngineTests : IDisposable
         using MemoryStream output = new();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
-            await _engine.ConvertAsync(new EngineRequest(source, output, FileFormat.Wav, FileFormat.Wav, null, Ffmpeg(), _temp), cts.Token));
+            await _engine.ConvertAsync(new ConversionRequest(source, output, FileFormat.Wav, FileFormat.Wav, new ConversionOptions(), Ffmpeg(), _temp), cts.Token));
 
         Assert.Empty(Directory.GetFiles(_temp));
     }

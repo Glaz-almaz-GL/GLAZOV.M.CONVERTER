@@ -46,14 +46,26 @@ public static class FileTypeDetector
     }
 
     /// <summary>
-    /// Определяет тип по уже открытому входу — его начало остаётся читаемым для конвертации.
+    /// Определяет тип по уже открытому входу готовыми признаками — его начало остаётся читаемым для конвертации.
     /// </summary>
     /// <param name="handle">Открытый вход.</param>
     /// <param name="cancellationToken">Отмена.</param>
-    internal static async Task<FileFormat> DetectAsync(InputHandle handle, CancellationToken cancellationToken = default)
+    internal static Task<FileFormat> DetectAsync(InputHandle handle, CancellationToken cancellationToken = default)
+    {
+        return DetectAsync(handle, DetectorChain.BuiltIn, cancellationToken);
+    }
+
+    /// <summary>
+    /// Определяет тип по уже открытому входу цепочкой определителей (готовые и расширений конвертера).
+    /// </summary>
+    /// <param name="handle">Открытый вход.</param>
+    /// <param name="chain">Цепочка определителей.</param>
+    /// <param name="cancellationToken">Отмена.</param>
+    internal static async Task<FileFormat> DetectAsync(InputHandle handle, DetectorChain chain, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(handle);
-        ReadOnlyMemory<byte> head = await handle.HeadAsync(SignatureMatcher.HeadLength, cancellationToken).ConfigureAwait(false);
-        return SignatureMatcher.Match(head.Span);
+        ArgumentNullException.ThrowIfNull(chain);
+        ReadOnlyMemory<byte> head = await handle.HeadAsync(chain.HeadLength, cancellationToken).ConfigureAwait(false);
+        return chain.Detect(head.Span);
     }
 }

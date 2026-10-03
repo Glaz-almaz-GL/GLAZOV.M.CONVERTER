@@ -75,6 +75,20 @@ internal static class Failures
     }
 
     /// <summary>
+    /// Движок расширения упал непредвиденно: ошибка конвертации с исходным исключением внутри.
+    /// </summary>
+    /// <param name="engineName">Имя типа движка.</param>
+    /// <param name="inner">Исходное исключение.</param>
+    internal static ConversionException EngineFailed(string engineName, Exception inner)
+    {
+        return new ConversionException(
+            ConversionStage.Conversion,
+            ConversionFailureReason.EngineFailed,
+            $"Движок «{engineName}» завершился ошибкой: {inner.Message}",
+            innerException: inner);
+    }
+
+    /// <summary>
     /// Нужная внешняя программа не найдена.
     /// </summary>
     /// <param name="tool">Имя программы.</param>

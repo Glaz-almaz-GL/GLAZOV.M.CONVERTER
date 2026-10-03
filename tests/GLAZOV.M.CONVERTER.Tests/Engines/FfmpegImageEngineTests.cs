@@ -4,6 +4,7 @@ using GLAZOV.M.CONVERTER.Converting;
 using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Detection;
 using GLAZOV.M.CONVERTER.Engines;
+using GLAZOV.M.CONVERTER.Extensions;
 using GLAZOV.M.CONVERTER.Errors;
 using GLAZOV.M.CONVERTER.Settings;
 using GLAZOV.M.CONVERTER.Tooling;
@@ -61,9 +62,9 @@ public sealed class FfmpegImageEngineTests : IDisposable
     {
         using MemoryStream source = new(input);
         using MemoryStream output = new();
-        ConversionOptions? options = image is null ? null : new ConversionOptions { Image = image };
+        ConversionOptions options = new() { Image = image };
 
-        await _engine.ConvertAsync(new EngineRequest(source, output, from, to, options, Ffmpeg(), _temp), CancellationToken.None);
+        await _engine.ConvertAsync(new ConversionRequest(source, output, from, to, options, Ffmpeg(), _temp), CancellationToken.None);
 
         return output.ToArray();
     }
@@ -266,7 +267,7 @@ public sealed class FfmpegImageEngineTests : IDisposable
         using MemoryStream output = new();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
-            await _engine.ConvertAsync(new EngineRequest(source, output, FileFormat.Png, FileFormat.Jpeg, null, Ffmpeg(), _temp), cts.Token));
+            await _engine.ConvertAsync(new ConversionRequest(source, output, FileFormat.Png, FileFormat.Jpeg, new ConversionOptions(), Ffmpeg(), _temp), cts.Token));
 
         Assert.Empty(Directory.GetFiles(_temp));
     }

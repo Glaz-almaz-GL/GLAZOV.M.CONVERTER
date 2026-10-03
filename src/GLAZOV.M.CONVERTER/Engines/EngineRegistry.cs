@@ -1,4 +1,5 @@
 using GLAZOV.M.CONVERTER.Data;
+using GLAZOV.M.CONVERTER.Extensions;
 
 namespace GLAZOV.M.CONVERTER.Engines;
 
@@ -25,7 +26,7 @@ internal sealed class EngineRegistry
     /// </summary>
     internal static EngineRegistry CreateDefault()
     {
-        return new EngineRegistry([new FfmpegAudioEngine(), new FfmpegImageEngine()]);
+        return new EngineRegistry(new BuiltInExtension().Engines);
     }
 
     /// <summary>
@@ -35,17 +36,29 @@ internal sealed class EngineRegistry
     /// <param name="to">Формат результата.</param>
     internal IConversionEngine? Find(FileFormat from, FileFormat to)
     {
-        return _engines.FirstOrDefault(engine => engine.CanConvert(from, to));
+        ConversionPair pair = new(from, to);
+        return _engines.FirstOrDefault(engine => engine.Pairs.Contains(pair));
     }
 
     /// <summary>
-    /// Все пары всех движков с именем нужной программы — для каталога возможностей; порядок стабильный.
+    /// Пары всех движков с именем нужной программы (или <c>null</c>) — для каталога возможностей; порядок стабильный,
+    /// пара, заявленная несколькими движками, встречается один раз — с тем движком, который подключён раньше (он и победит при подборе).
     /// </summary>
-    internal IReadOnlyList<(FileFormat From, FileFormat To, string ToolName)> Pairs()
+    internal IReadOnlyList<(FileFormat From, FileFormat To, string? ToolName)> Pairs()
     {
-        return
-        [
-            .. _engines.SelectMany(engine => engine.Pairs.Select(pair => (pair.From, pair.To, engine.ToolName))),
-        ];
+        List<(FileFormat From, FileFormat To, string? ToolName)> pairs = [];
+        HashSet<ConversionPair> seen = [];
+        foreach (IConversionEngine engine in _engines)
+        {
+            foreach (ConversionPair pair in engine.Pairs)
+            {
+                if (seen.Add(pair))
+                {
+                    pairs.Add((pair.From, pair.To, engine.ToolName));
+                }
+            }
+        }
+
+        return pairs;
     }
 }
