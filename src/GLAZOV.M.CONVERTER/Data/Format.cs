@@ -35,6 +35,11 @@ public sealed class Format : IEquatable<Format>
     public static Format Jpeg { get; } = new("JPEG", "image/jpeg", "jpg");
 
     /// <summary>
+    /// Тип не распознан: результат определения типа по начальным байтам. Целью конвертации быть не может.
+    /// </summary>
+    public static Format Unknown { get; } = new("Unknown", "application/octet-stream", string.Empty);
+
+    /// <summary>
     /// Короткое имя формата.
     /// </summary>
     public string Name { get; }

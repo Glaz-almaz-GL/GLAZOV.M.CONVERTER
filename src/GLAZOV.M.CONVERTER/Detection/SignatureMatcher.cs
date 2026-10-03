@@ -1,3 +1,5 @@
+using GLAZOV.M.CONVERTER.Data;
+
 namespace GLAZOV.M.CONVERTER.Detection;
 
 /// <summary>
@@ -20,25 +22,25 @@ internal static class SignatureMatcher
     /// <summary>
     /// Определяет тип по началу данных.
     /// </summary>
-    /// <param name="head">Начальные байты входа; пустой и короткий буфер — не ошибка, а <see cref="FileType.Unknown"/>.</param>
-    internal static FileType Match(ReadOnlySpan<byte> head)
+    /// <param name="head">Начальные байты входа; пустой и короткий буфер — не ошибка, а <see cref="Format.Unknown"/>.</param>
+    internal static Format Match(ReadOnlySpan<byte> head)
     {
         if (IsOgg(head))
         {
-            return FileType.Ogg;
+            return Format.Ogg;
         }
 
         if (IsWav(head))
         {
-            return FileType.Wav;
+            return Format.Wav;
         }
 
         if (IsMp3(head))
         {
-            return FileType.Mp3;
+            return Format.Mp3;
         }
 
-        return FileType.Unknown;
+        return Format.Unknown;
     }
 
     // Страница OGG начинается с «OggS» и нулевой версии формата потока.

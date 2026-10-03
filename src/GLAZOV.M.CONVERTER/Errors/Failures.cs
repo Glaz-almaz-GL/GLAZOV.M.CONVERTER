@@ -25,9 +25,9 @@ internal static class Failures
     /// <param name="inputName">Имя входа.</param>
     /// <param name="expectedHint">Чем вход назван (например, MP3 по расширению); пусто — ничем.</param>
     /// <param name="actual">Что показали начальные байты.</param>
-    internal static ConversionException TypeNotConfirmed(string inputName, string? expectedHint, FileType actual)
+    internal static ConversionException TypeNotConfirmed(string inputName, string? expectedHint, Format actual)
     {
-        var found = ReferenceEquals(actual, FileType.Unknown)
+        var found = ReferenceEquals(actual, Format.Unknown)
             ? "тип не распознан"
             : $"это {actual.Name}";
         var message = string.IsNullOrWhiteSpace(expectedHint)
@@ -42,7 +42,7 @@ internal static class Failures
     /// </summary>
     /// <param name="from">Тип входа.</param>
     /// <param name="to">Формат результата.</param>
-    internal static ConversionException UnsupportedConversion(FileType from, Format to) =>
+    internal static ConversionException UnsupportedConversion(Format from, Format to) =>
         new(
             ConversionStage.Preparation,
             ConversionFailureReason.UnsupportedConversion,

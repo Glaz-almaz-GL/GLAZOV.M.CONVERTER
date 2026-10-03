@@ -9,6 +9,12 @@ public sealed class Target
 {
     private Target(TargetKind kind, string? path, Stream? stream, Format format)
     {
+        ArgumentNullException.ThrowIfNull(format);
+        if (format.Equals(Format.Unknown))
+        {
+            throw new ArgumentException("Формат «Unknown» означает «тип не распознан» и не может быть целью конвертации.", nameof(format));
+        }
+
         Kind = kind;
         Path = path;
         OutputStream = stream;

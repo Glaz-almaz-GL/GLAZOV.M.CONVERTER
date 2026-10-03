@@ -8,7 +8,7 @@ namespace GLAZOV.M.CONVERTER.Capabilities;
 /// </summary>
 public sealed class Conversion
 {
-    internal Conversion(FileType from, Format to, ConversionAvailability availability)
+    internal Conversion(Format from, Format to, ConversionAvailability availability)
     {
         From = from;
         To = to;
@@ -18,7 +18,7 @@ public sealed class Conversion
     /// <summary>
     /// Тип входа.
     /// </summary>
-    public FileType From { get; }
+    public Format From { get; }
 
     /// <summary>
     /// Формат результата.

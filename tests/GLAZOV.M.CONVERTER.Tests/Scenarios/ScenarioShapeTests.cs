@@ -89,7 +89,7 @@ public class ScenarioShapeTests
         await Assert.ThrowsAsync<NotImplementedException>(() => FileTypeDetector.DetectAsync(Source.Stream(input)));
 
         var caps = converter.Capabilities;
-        Assert.Throws<NotImplementedException>(() => caps.CanConvert(FileType.Ogg, Format.Mp3));
+        Assert.Throws<NotImplementedException>(() => caps.CanConvert(Format.Ogg, Format.Mp3));
         Assert.Throws<NotImplementedException>(() => caps.All);
         Assert.Throws<NotImplementedException>(() => caps.Tool("ffmpeg"));
 
@@ -102,10 +102,10 @@ public class ScenarioShapeTests
     [Fact]
     public void FileTypeNames_CarryNameMimeAndExtension()
     {
-        Assert.Equal("OGG", FileType.Ogg.Name);
-        Assert.Equal("audio/ogg", FileType.Ogg.MimeType);
-        Assert.Equal("ogg", FileType.Ogg.Extension);
-        Assert.Equal(string.Empty, FileType.Unknown.Extension);
+        Assert.Equal("OGG", Format.Ogg.Name);
+        Assert.Equal("audio/ogg", Format.Ogg.MimeType);
+        Assert.Equal("ogg", Format.Ogg.Extension);
+        Assert.Equal(string.Empty, Format.Unknown.Extension);
     }
 
     [Fact]

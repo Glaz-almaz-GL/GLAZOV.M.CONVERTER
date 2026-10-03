@@ -26,9 +26,9 @@ public class PublicSurfaceTests
         ["Converter"] = [".ctor", "Capabilities", "ConvertAsync", "ConvertBatchAsync"],
         ["ConverterCapabilities"] = ["All", "CanConvert", "Tool"],
         ["ConverterSettings"] = ["MaxParallelTasks", "OverwriteExisting", "TempFolder", "ToolPaths"],
-        ["FileType"] = ["Extension", "MimeType", "Mp3", "Name", "Ogg", "Unknown", "Wav"],
+        ["Format"] = ["Extension", "MimeType", "Mp3", "Name", "Ogg", "Unknown", "Wav"],
         ["FileTypeDetector"] = ["DetectAsync"],
-        ["Format"] = ["Create", "Extension", "Jpeg", "MimeType", "Mp3", "Name", "Ogg", "Wav"],
+        ["Format"] = ["Create", "Extension", "Jpeg", "MimeType", "Mp3", "Name", "Ogg", "Unknown", "Wav"],
         ["Operation"] = ["RotateRight", "ScalePercent"],
         ["Source"] = ["File", "Folder", "Stream"],
         ["Target"] = ["File", "Folder", "Memory", "Stream"],
@@ -38,7 +38,7 @@ public class PublicSurfaceTests
     [Fact]
     public void ExportedTypes_AreExactlyTheSketchTypes()
     {
-        string[] actual = typeof(Converter).Assembly.GetExportedTypes().Select(t => t.Name).Order().ToArray();
+        string[] actual = [.. typeof(Converter).Assembly.GetExportedTypes().Select(t => t.Name).Order()];
 
         Assert.Equal(Expected.Keys.Order().ToArray(), actual);
     }
@@ -50,15 +50,14 @@ public class PublicSurfaceTests
         Type type = typeof(Converter).Assembly.GetExportedTypes().Single(t => t.Name == typeName);
         const BindingFlags flags = BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly;
 
-        string[] actual = type.GetMembers(flags)
+        string[] actual = [.. type.GetMembers(flags)
             .Where(m => !(m is MethodBase method && method.IsSpecialName && m.Name != ".ctor"))
             .Where(m => m.Name != ".ctor" || type == typeof(Converter))
             .Select(m => m.Name)
             .Where(n => !(type.IsEnum && n == "value__"))
             .Where(n => n is not ("ToString" or "Equals" or "GetHashCode"))
             .Distinct()
-            .Order()
-            .ToArray();
+            .Order()];
 
         Assert.Equal(Expected[typeName].Order().ToArray(), actual);
     }

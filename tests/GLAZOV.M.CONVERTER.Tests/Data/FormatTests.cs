@@ -17,6 +17,18 @@ public class FormatTests
     }
 
     [Fact]
+    public void Unknown_IsTheDetectionResultForUnrecognizedData_AndCannotBeATarget()
+    {
+        Assert.Equal("Unknown", Format.Unknown.Name);
+        Assert.Equal(string.Empty, Format.Unknown.Extension);
+
+        Assert.Throws<ArgumentException>(() => Target.Memory(Format.Unknown));
+        Assert.Throws<ArgumentException>(() => Target.File("a.bin", Format.Unknown));
+        Assert.Throws<ArgumentException>(() => Target.Folder("out", Format.Unknown));
+        Assert.Throws<ArgumentException>(() => Target.Stream(new MemoryStream(), Format.Unknown));
+    }
+
+    [Fact]
     public void Create_MakesAFormatForAnUnregisteredType_AndNormalizesTheExtension()
     {
         Format flac = Format.Create("FLAC", "audio/flac", ".FLAC");

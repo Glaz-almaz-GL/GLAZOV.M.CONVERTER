@@ -13,9 +13,9 @@ public static class FileTypeDetector
     /// </summary>
     /// <param name="source">Файл или поток.</param>
     /// <param name="cancellationToken">Отмена.</param>
-    public static Task<FileType> DetectAsync(Source source, CancellationToken cancellationToken = default)
+    public static Task<Format> DetectAsync(Source source, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(source);
-        return Task.FromException<FileType>(Stub.NotYet("FileTypeDetector.DetectAsync"));
+        return Task.FromException<Format>(Stub.NotYet("FileTypeDetector.DetectAsync"));
     }
 }

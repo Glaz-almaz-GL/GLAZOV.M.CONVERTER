@@ -12,7 +12,7 @@ public class FailuresTests
     [Fact]
     public void TypeNotConfirmed_NamedByExtension_SaysWhatTheBytesShow()
     {
-        var ex = Failures.TypeNotConfirmed("a.mp3", "MP3", FileType.Wav);
+        var ex = Failures.TypeNotConfirmed("a.mp3", "MP3", Format.Wav);
 
         Assert.Equal(ConversionStage.Detection, ex.Stage);
         Assert.Equal(ConversionFailureReason.TypeNotConfirmed, ex.Reason);
@@ -22,7 +22,7 @@ public class FailuresTests
     [Fact]
     public void TypeNotConfirmed_Unknown_SaysNotRecognized()
     {
-        var ex = Failures.TypeNotConfirmed("мусор.bin", null, FileType.Unknown);
+        var ex = Failures.TypeNotConfirmed("мусор.bin", null, Format.Unknown);
 
         Assert.Equal("Тип входа «мусор.bin» не подтвердился: по начальным байтам тип не распознан.", ex.Message);
     }
@@ -41,7 +41,7 @@ public class FailuresTests
     [Fact]
     public void UnsupportedConversion_NamesBothSides()
     {
-        var ex = Failures.UnsupportedConversion(FileType.Ogg, Format.Jpeg);
+        var ex = Failures.UnsupportedConversion(Format.Ogg, Format.Jpeg);
 
         Assert.Equal(ConversionStage.Preparation, ex.Stage);
         Assert.Equal(ConversionFailureReason.UnsupportedConversion, ex.Reason);

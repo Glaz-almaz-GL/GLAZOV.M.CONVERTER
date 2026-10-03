@@ -1,3 +1,4 @@
+using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Detection;
 
 namespace GLAZOV.M.CONVERTER.Tests.Detection;
@@ -31,7 +32,7 @@ public class SignatureMatcherTests
         // Те же байты MP3 — тип определяется по ним, как бы файл ни назывался: у буфера имени нет вовсе.
         var bytes = Sample("sample-id3.mp3");
 
-        Assert.Same(FileType.Mp3, SignatureMatcher.Match(bytes));
+        Assert.Same(Format.Mp3, SignatureMatcher.Match(bytes));
     }
 
     [Theory]
@@ -44,14 +45,14 @@ public class SignatureMatcherTests
     {
         var wav = Sample("sample.wav");
 
-        Assert.Same(FileType.Unknown, SignatureMatcher.Match(wav.AsSpan(0, length)));
+        Assert.Same(Format.Unknown, SignatureMatcher.Match(wav.AsSpan(0, length)));
     }
 
     [Fact]
     public void Match_ZeroesAndText_AreUnknown()
     {
-        Assert.Same(FileType.Unknown, SignatureMatcher.Match(new byte[4096]));
-        Assert.Same(FileType.Unknown, SignatureMatcher.Match("Просто текстовый файл, а не звук."u8));
+        Assert.Same(Format.Unknown, SignatureMatcher.Match(new byte[4096]));
+        Assert.Same(Format.Unknown, SignatureMatcher.Match("Просто текстовый файл, а не звук."u8));
     }
 
     [Fact]
@@ -60,7 +61,7 @@ public class SignatureMatcherTests
         var bytes = Sample("sample-vorbis.ogg");
         bytes[0] = (byte)'X';
 
-        Assert.Same(FileType.Unknown, SignatureMatcher.Match(bytes));
+        Assert.Same(Format.Unknown, SignatureMatcher.Match(bytes));
     }
 
     [Fact]
@@ -69,7 +70,7 @@ public class SignatureMatcherTests
         var bytes = Sample("sample.wav");
         bytes[8] = (byte)'A'; // «AVE…» вместо «WAVE»
 
-        Assert.Same(FileType.Unknown, SignatureMatcher.Match(bytes));
+        Assert.Same(Format.Unknown, SignatureMatcher.Match(bytes));
     }
 
     [Fact]
@@ -78,7 +79,7 @@ public class SignatureMatcherTests
         // Один кадр без подтверждающего второго — слишком слабый признак: данные не принимаются за MP3.
         var raw = Sample("sample-raw.mp3");
 
-        Assert.Same(FileType.Unknown, SignatureMatcher.Match(raw.AsSpan(0, 120)));
+        Assert.Same(Format.Unknown, SignatureMatcher.Match(raw.AsSpan(0, 120)));
     }
 
     [Fact]
@@ -91,7 +92,7 @@ public class SignatureMatcherTests
         {
             random.NextBytes(buffer);
 
-            Assert.Same(FileType.Unknown, SignatureMatcher.Match(buffer));
+            Assert.Same(Format.Unknown, SignatureMatcher.Match(buffer));
         }
     }
 }

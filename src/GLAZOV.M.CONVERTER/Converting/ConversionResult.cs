@@ -10,7 +10,7 @@ public sealed class ConversionResult
 {
     internal ConversionResult(
         bool succeeded,
-        FileType sourceType,
+        Format sourceType,
         Format targetFormat,
         TimeSpan duration,
         string? outputPath,
@@ -34,7 +34,7 @@ public sealed class ConversionResult
     /// <summary>
     /// Подтверждённый тип входа.
     /// </summary>
-    public FileType SourceType { get; }
+    public Format SourceType { get; }
 
     /// <summary>
     /// Формат результата.
