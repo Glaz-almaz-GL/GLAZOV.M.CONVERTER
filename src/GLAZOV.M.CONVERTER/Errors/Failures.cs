@@ -62,6 +62,19 @@ internal static class Failures
     }
 
     /// <summary>
+    /// Два входа пакета дают результат с одним именем: обработан первый, остальные отвергаются, чтобы не затирать друг друга.
+    /// </summary>
+    /// <param name="inputName">Имя отвергнутого входа.</param>
+    /// <param name="outputName">Общее имя результата.</param>
+    internal static ConversionException DuplicateOutput(string inputName, string outputName)
+    {
+        return new ConversionException(
+            ConversionStage.Preparation,
+            ConversionFailureReason.FileExists,
+            $"Вход «{inputName}» пропущен: результат «{outputName}» уже занят другим входом этого пакета.");
+    }
+
+    /// <summary>
     /// Нужная внешняя программа не найдена.
     /// </summary>
     /// <param name="tool">Имя программы.</param>

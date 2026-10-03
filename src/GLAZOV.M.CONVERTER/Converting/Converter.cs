@@ -38,6 +38,7 @@ public sealed class Converter
         Settings = ConverterSettingsSnapshot.Create(settings);
         Capabilities = new ConverterCapabilities();
         _single = new SingleConversion(Settings, registry, new ToolLocator(Settings, environment));
+        _batch = new BatchConversion(Settings, _single);
     }
 
     /// <summary>
@@ -48,6 +49,8 @@ public sealed class Converter
     internal ConverterSettingsSnapshot Settings { get; }
 
     private readonly SingleConversion _single;
+
+    private readonly BatchConversion _batch;
 
     /// <summary>
     /// Конвертирует один вход в один результат. При ошибке бросает <see cref="ConversionException"/>.
@@ -84,7 +87,7 @@ public sealed class Converter
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(target);
-        return Task.FromException<BatchReport>(Stub.NotYet("Converter.ConvertBatchAsync"));
+        return _batch.RunFolderAsync(source, target, progress, cancellationToken);
     }
 
     /// <summary>
@@ -102,6 +105,6 @@ public sealed class Converter
     {
         ArgumentNullException.ThrowIfNull(sources);
         ArgumentNullException.ThrowIfNull(target);
-        return Task.FromException<BatchReport>(Stub.NotYet("Converter.ConvertBatchAsync"));
+        return _batch.RunListAsync(sources, target, progress, cancellationToken);
     }
 }

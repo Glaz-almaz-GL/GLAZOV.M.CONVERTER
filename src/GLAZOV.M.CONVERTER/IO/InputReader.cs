@@ -15,6 +15,16 @@ internal static class InputReader
     internal const string StreamName = "поток";
 
     /// <summary>
+    /// Имя входа для отчёта и имени результата: имя файла или «поток»; папка — имя папки.
+    /// </summary>
+    /// <param name="source">Вход.</param>
+    internal static string NameOf(Source source)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        return source.Kind == SourceKind.Stream ? StreamName : Path.GetFileName(source.Path!);
+    }
+
+    /// <summary>
     /// Открывает файл или поток для чтения.
     /// </summary>
     /// <param name="source">Файл или поток; папка — неверное использование.</param>

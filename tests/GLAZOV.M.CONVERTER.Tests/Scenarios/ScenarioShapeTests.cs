@@ -49,23 +49,25 @@ public class ScenarioShapeTests
     }
 
     [Fact]
-    public async Task BatchAndReport_ShapeCompilesAndStubsThrow()
+    public void BatchAndReport_ShapeCompiles()
     {
         var converter = new Converter();
         CancellationToken token = CancellationToken.None;
 
-        await Assert.ThrowsAsync<NotImplementedException>(() =>
-            converter.ConvertBatchAsync(
+        Func<Task<BatchReport>>[] calls =
+        [
+            () => converter.ConvertBatchAsync(
                 Source.Folder("музыка", pattern: "*.ogg", recursive: true),
                 Target.Folder("готово", FileFormat.Mp3),
                 progress: new Progress<BatchProgress>(p => _ = (p.Completed, p.Total, p.CurrentName)),
-                cancellationToken: token));
-        await Assert.ThrowsAsync<NotImplementedException>(() =>
-            converter.ConvertBatchAsync(
+                cancellationToken: token),
+            () => converter.ConvertBatchAsync(
                 new[] { Source.File("a.ogg"), Source.File("b.wav") },
-                Target.Folder("готово", FileFormat.Mp3)));
+                Target.Folder("готово", FileFormat.Mp3)),
+        ];
+        Assert.All(calls, Assert.NotNull);
 
-        // Форма отчёта: поля читаются так, как в эталоне (в тест не попадает выполнение — отчёта пока никто не создаёт).
+        // Форма отчёта: поля читаются так, как в эталоне (выполнение не требуется — это проверка записи).
         Func<BatchReport, string> describe = report =>
         {
             string line = $"{report.Succeeded} из {report.Total}; отменено: {report.Canceled}; ошибок: {report.Failed}";
