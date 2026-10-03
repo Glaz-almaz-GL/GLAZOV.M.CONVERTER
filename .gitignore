@@ -1,0 +1,29 @@
+# .NET
+bin/
+obj/
+*.user
+.vs/
+artifacts/
+TestResults/
+
+# Secrets — never in the repo
+appsettings.*.local.json
+*.pfx
+.env
+
+# Unity (harmless for non-Unity projects)
+[Ll]ibrary/
+[Tt]emp/
+[Ll]ogs/
+[Uu]serSettings/
+MemoryCaptures/
+crashlytics-build.properties
+
+# Local tooling and notes — never part of the product repository
+.claude/
+.remember/
+.obsidian/
+
+# Secrets — a junction to the machine-local store; never committed (examples may be tracked)
+.secrets/*
+!.secrets/*.example
