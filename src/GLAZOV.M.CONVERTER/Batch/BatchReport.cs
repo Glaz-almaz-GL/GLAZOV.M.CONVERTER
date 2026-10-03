@@ -1,5 +1,4 @@
 using GLAZOV.M.CONVERTER.Data;
-using GLAZOV.M.CONVERTER.Internal;
 
 namespace GLAZOV.M.CONVERTER.Batch;
 
@@ -8,9 +7,19 @@ namespace GLAZOV.M.CONVERTER.Batch;
 /// </summary>
 public sealed class BatchReport
 {
-    internal BatchReport(IReadOnlyList<BatchItemResult> items)
+    private readonly IReadOnlyList<Source> _sources;
+
+    internal BatchReport(IReadOnlyList<BatchItemResult> items, IReadOnlyList<Source> sources)
     {
+        ArgumentNullException.ThrowIfNull(items);
+        ArgumentNullException.ThrowIfNull(sources);
+        if (items.Count != sources.Count)
+        {
+            throw new ArgumentException("Записей отчёта и входов должно быть поровну: отчёт повторяет входы по порядку.", nameof(sources));
+        }
+
         Items = items;
+        _sources = sources;
     }
 
     /// <summary>
@@ -43,6 +52,11 @@ public sealed class BatchReport
     /// </summary>
     public IReadOnlyList<Source> FailedSources()
     {
-        throw Stub.NotYet("BatchReport.FailedSources");
+        return
+        [
+            .. Items.Select((item, index) => (item, index))
+                .Where(pair => !pair.item.Succeeded && !pair.item.Canceled)
+                .Select(pair => _sources[pair.index]),
+        ];
     }
 }
