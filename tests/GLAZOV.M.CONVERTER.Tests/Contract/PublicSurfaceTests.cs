@@ -17,6 +17,7 @@ public class PublicSurfaceTests
 {
     private static readonly Dictionary<string, string[]> Expected = new()
     {
+        ["AudioOptions"] = ["Bitrate", "Channels", "SampleRate"],
         ["BatchItemResult"] = ["Canceled", "Message", "OutputPath", "Reason", "SourceName", "Stage", "Succeeded"],
         ["BatchProgress"] = ["Completed", "CurrentName", "Total"],
         ["BatchReport"] = ["Canceled", "FailedSources", "Failed", "Items", "Succeeded", "Total"],
@@ -24,7 +25,7 @@ public class PublicSurfaceTests
         ["ConversionAvailability"] = ["Ready", "ToolMissing"],
         ["ConversionException"] = ["Reason", "Stage", "ToolExitCode", "ToolName", "ToolOutput"],
         ["ConversionFailureReason"] = ["FileExists", "InputUnreadable", "ToolFailed", "ToolNotFound", "TypeNotConfirmed", "UnsupportedConversion"],
-        ["ConversionOptions"] = ["Operations"],
+        ["ConversionOptions"] = ["Audio", "Operations"],
         ["ConversionProgress"] = ["Percent"],
         ["ConversionResult"] = ["Bytes", "Duration", "OutputPath", "SourceType", "Stream", "Succeeded", "TargetFormat"],
         ["ConversionStage"] = ["Conversion", "Detection", "Preparation"],

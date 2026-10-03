@@ -35,6 +35,11 @@ public class ScenarioShapeTests
                 new ConversionOptions { Operations = { Operation.RotateRight, Operation.ScalePercent(75) } }));
         await Assert.ThrowsAsync<NotImplementedException>(() =>
             converter.ConvertAsync(
+                Source.File("песня.wav"),
+                Target.File("песня.mp3", Format.Mp3),
+                new ConversionOptions { Audio = new AudioOptions { Bitrate = 192_000, SampleRate = 44_100, Channels = 2 } }));
+        await Assert.ThrowsAsync<NotImplementedException>(() =>
+            converter.ConvertAsync(
                 Source.File("песня.ogg"),
                 Target.File("песня.mp3", Format.Mp3),
                 options: null,
@@ -119,6 +124,24 @@ public class ScenarioShapeTests
         Assert.Equal(Environment.ProcessorCount, new ConverterSettings().MaxParallelTasks);
         Assert.False(new ConverterSettings().OverwriteExisting);
         Assert.NotNull(new Converter(settings));
+    }
+
+    [Fact]
+    public void AudioOptions_DefaultToNotSetAndRejectNonPositive()
+    {
+        var audio = new AudioOptions();
+        Assert.Null(audio.Bitrate);
+        Assert.Null(audio.SampleRate);
+        Assert.Null(audio.Channels);
+        Assert.Null(new ConversionOptions().Audio);
+
+        audio.Bitrate = 192_000;
+        audio.Bitrate = null;
+        Assert.Null(audio.Bitrate);
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => audio.Bitrate = 0);
+        Assert.Throws<ArgumentOutOfRangeException>(() => audio.SampleRate = -44_100);
+        Assert.Throws<ArgumentOutOfRangeException>(() => audio.Channels = 0);
     }
 
     [Fact]
