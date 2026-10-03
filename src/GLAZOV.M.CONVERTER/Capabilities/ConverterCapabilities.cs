@@ -1,16 +1,22 @@
 namespace GLAZOV.M.CONVERTER;
 
-/// <summary>Что библиотека поддерживает сейчас и какие внешние программы найдены.</summary>
+/// <summary>
+/// Что библиотека поддерживает сейчас и какие внешние программы найдены.
+/// </summary>
 public sealed class ConverterCapabilities
 {
     internal ConverterCapabilities()
     {
     }
 
-    /// <summary>Все поддерживаемые конвертации с пометкой «готово» или «нужна программа».</summary>
+    /// <summary>
+    /// Все поддерживаемые конвертации с пометкой «готово» или «нужна программа».
+    /// </summary>
     public IReadOnlyList<Conversion> All => throw Stub.NotYet("ConverterCapabilities.All");
 
-    /// <summary>Поддерживается ли конвертация из типа в формат.</summary>
+    /// <summary>
+    /// Поддерживается ли конвертация из типа в формат.
+    /// </summary>
     /// <param name="from">Тип входа.</param>
     /// <param name="to">Формат результата.</param>
     public bool CanConvert(FileType from, Format to)
@@ -19,7 +25,9 @@ public sealed class ConverterCapabilities
         throw Stub.NotYet("ConverterCapabilities.CanConvert");
     }
 
-    /// <summary>Состояние внешней программы по имени.</summary>
+    /// <summary>
+    /// Состояние внешней программы по имени.
+    /// </summary>
     /// <param name="name">Имя программы, например ffmpeg.</param>
     public ToolStatus Tool(string name)
     {

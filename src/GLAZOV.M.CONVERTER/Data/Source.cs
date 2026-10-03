@@ -1,6 +1,8 @@
 namespace GLAZOV.M.CONVERTER;
 
-/// <summary>Откуда берутся данные: файл, поток или папка с файлами.</summary>
+/// <summary>
+/// Откуда берутся данные: файл, поток или папка с файлами.
+/// </summary>
 public sealed class Source
 {
     private Source(SourceKind kind, string? path, System.IO.Stream? stream, string pattern, bool recursive)
@@ -22,7 +24,9 @@ public sealed class Source
 
     internal bool Recursive { get; }
 
-    /// <summary>Один файл на диске.</summary>
+    /// <summary>
+    /// Один файл на диске.
+    /// </summary>
     /// <param name="path">Путь к файлу.</param>
     public static Source File(string path)
     {
@@ -30,7 +34,9 @@ public sealed class Source
         return new Source(SourceKind.File, path, null, "*", false);
     }
 
-    /// <summary>Поток с данными файла целиком.</summary>
+    /// <summary>
+    /// Поток с данными файла целиком.
+    /// </summary>
     /// <param name="stream">Читаемый поток.</param>
     public static Source Stream(System.IO.Stream stream)
     {
@@ -38,7 +44,9 @@ public sealed class Source
         return new Source(SourceKind.Stream, null, stream, "*", false);
     }
 
-    /// <summary>Папка с файлами (для пакетной обработки).</summary>
+    /// <summary>
+    /// Папка с файлами (для пакетной обработки).
+    /// </summary>
     /// <param name="path">Путь к папке.</param>
     /// <param name="pattern">Маска имён файлов.</param>
     /// <param name="recursive">Входить ли во вложенные папки.</param>
