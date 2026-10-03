@@ -15,36 +15,37 @@ namespace GLAZOV.M.CONVERTER.Tests.Scenarios;
 public class ScenarioShapeTests
 {
     [Fact]
-    public async Task OneFileStreamAndMemory_ShapeCompilesAndStubsThrow()
+    public void OneFileStreamAndMemory_ShapeCompiles()
     {
+        // Форма вызовов записана как в эталоне; вызовы не выполняются — их поведение проверяют тесты конвертации.
         var converter = new Converter();
-        using MemoryStream input = new();
-        using MemoryStream output = new();
+        MemoryStream input = new();
+        MemoryStream output = new();
         CancellationToken token = CancellationToken.None;
 
-        await Assert.ThrowsAsync<NotImplementedException>(() =>
-            converter.ConvertAsync(Source.File("песня.ogg"), Target.File("песня.mp3", FileFormat.Mp3)));
-        await Assert.ThrowsAsync<NotImplementedException>(() =>
-            converter.ConvertAsync(Source.Stream(input), Target.Stream(output, FileFormat.Wav)));
-        await Assert.ThrowsAsync<NotImplementedException>(() =>
-            converter.ConvertAsync(Source.File("песня.ogg"), Target.Memory(FileFormat.Mp3)));
-        await Assert.ThrowsAsync<NotImplementedException>(() =>
-            converter.ConvertAsync(
+        Func<Task<ConversionResult>>[] calls =
+        [
+            () => converter.ConvertAsync(Source.File("песня.ogg"), Target.File("песня.mp3", FileFormat.Mp3)),
+            () => converter.ConvertAsync(Source.Stream(input), Target.Stream(output, FileFormat.Wav)),
+            () => converter.ConvertAsync(Source.File("песня.ogg"), Target.Memory(FileFormat.Mp3)),
+            () => converter.ConvertAsync(
                 Source.File("фото.png"),
                 Target.File("фото.jpg", FileFormat.Jpeg),
-                new ConversionOptions { Operations = { Operation.RotateRight, Operation.ScalePercent(75) } }));
-        await Assert.ThrowsAsync<NotImplementedException>(() =>
-            converter.ConvertAsync(
+                new ConversionOptions { Operations = { Operation.RotateRight, Operation.ScalePercent(75) } }),
+            () => converter.ConvertAsync(
                 Source.File("песня.wav"),
                 Target.File("песня.mp3", FileFormat.Mp3),
-                new ConversionOptions { Audio = new AudioOptions { Bitrate = 192_000, SampleRate = 44_100, Channels = 2 } }));
-        await Assert.ThrowsAsync<NotImplementedException>(() =>
-            converter.ConvertAsync(
+                new ConversionOptions { Audio = new AudioOptions { Bitrate = 192_000, SampleRate = 44_100, Channels = 2 } }),
+            () => converter.ConvertAsync(
                 Source.File("песня.ogg"),
                 Target.File("песня.mp3", FileFormat.Mp3),
                 options: null,
                 progress: new Progress<ConversionProgress>(p => _ = p.Percent),
-                cancellationToken: token));
+                cancellationToken: token),
+        ];
+
+        Assert.Equal(6, calls.Length);
+        Assert.All(calls, Assert.NotNull);
     }
 
     [Fact]

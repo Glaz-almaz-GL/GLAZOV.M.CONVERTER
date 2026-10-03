@@ -1,9 +1,11 @@
 using GLAZOV.M.CONVERTER.Batch;
 using GLAZOV.M.CONVERTER.Capabilities;
 using GLAZOV.M.CONVERTER.Data;
+using GLAZOV.M.CONVERTER.Engines;
 using GLAZOV.M.CONVERTER.Errors;
 using GLAZOV.M.CONVERTER.Internal;
 using GLAZOV.M.CONVERTER.Settings;
+using GLAZOV.M.CONVERTER.Tooling;
 
 namespace GLAZOV.M.CONVERTER.Converting;
 
@@ -25,10 +27,17 @@ public sealed class Converter
     /// </summary>
     /// <param name="settings">Настройки; неверное значение отвергается сразу.</param>
     public Converter(ConverterSettings settings)
+        : this(settings, EngineRegistry.CreateDefault(), null)
+    {
+    }
+
+    internal Converter(ConverterSettings settings, EngineRegistry registry, ToolEnvironment? environment)
     {
         ArgumentNullException.ThrowIfNull(settings);
+        ArgumentNullException.ThrowIfNull(registry);
         Settings = ConverterSettingsSnapshot.Create(settings);
         Capabilities = new ConverterCapabilities();
+        _single = new SingleConversion(Settings, registry, new ToolLocator(Settings, environment));
     }
 
     /// <summary>
@@ -37,6 +46,8 @@ public sealed class Converter
     public ConverterCapabilities Capabilities { get; }
 
     internal ConverterSettingsSnapshot Settings { get; }
+
+    private readonly SingleConversion _single;
 
     /// <summary>
     /// Конвертирует один вход в один результат. При ошибке бросает <see cref="ConversionException"/>.
@@ -55,7 +66,7 @@ public sealed class Converter
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(target);
-        return Task.FromException<ConversionResult>(Stub.NotYet("Converter.ConvertAsync"));
+        return _single.RunAsync(source, target, options, progress, cancellationToken);
     }
 
     /// <summary>

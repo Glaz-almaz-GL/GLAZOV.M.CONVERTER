@@ -49,6 +49,19 @@ internal static class Failures
             $"Конвертация {from.Name} → {to.Name} не поддерживается.");
 
     /// <summary>
+    /// Действия над изображением (поворот, масштаб) запрошены там, где они пока не поддерживаются.
+    /// </summary>
+    /// <param name="from">Формат входа.</param>
+    /// <param name="to">Формат результата.</param>
+    internal static ConversionException UnsupportedOperations(FileFormat from, FileFormat to)
+    {
+        return new ConversionException(
+            ConversionStage.Preparation,
+            ConversionFailureReason.UnsupportedConversion,
+            $"Действия над изображением (поворот, масштаб) для {from.Name} → {to.Name} пока не поддерживаются.");
+    }
+
+    /// <summary>
     /// Нужная внешняя программа не найдена.
     /// </summary>
     /// <param name="tool">Имя программы.</param>
