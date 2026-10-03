@@ -88,48 +88,59 @@ internal sealed class OutputSink : IAsyncDisposable
         {
             await _stream.FlushAsync(cancellationToken).ConfigureAwait(false);
 
-            switch (_target.Kind)
+            var result = _target.Kind switch
             {
-                case TargetKind.Memory:
-                    var bytes = ((MemoryStream)_stream).ToArray();
-                    await _stream.DisposeAsync().ConfigureAwait(false);
-                    _finished = true;
-                    return new SinkResult(null, bytes, new MemoryStream(bytes, writable: false));
+                TargetKind.Memory => await CommitMemoryAsync().ConfigureAwait(false),
+                TargetKind.Stream => await CommitStreamAsync(cancellationToken).ConfigureAwait(false),
+                _ => await CommitFileAsync().ConfigureAwait(false),
+            };
 
-                case TargetKind.Stream:
-                    if (_tempPath is not null)
-                    {
-                        _stream.Position = 0;
-                        await _stream.CopyToAsync(_target.OutputStream!, cancellationToken).ConfigureAwait(false);
-                        await _target.OutputStream!.FlushAsync(cancellationToken).ConfigureAwait(false);
-                        await _stream.DisposeAsync().ConfigureAwait(false);
-                        File.Delete(_tempPath);
-                    }
-
-                    _finished = true;
-                    return new SinkResult(null, null, null);
-
-                default:
-                    await _stream.DisposeAsync().ConfigureAwait(false);
-                    try
-                    {
-                        File.Move(_tempPath!, _finalPath!, overwrite: _settings.OverwriteExisting);
-                    }
-                    catch (IOException) when (!_settings.OverwriteExisting && File.Exists(_finalPath))
-                    {
-                        // Файл появился, пока шла работа: перезапись запрещена.
-                        throw FileExists(_finalPath!);
-                    }
-
-                    _finished = true;
-                    return new SinkResult(_finalPath, null, null);
-            }
+            _finished = true;
+            return result;
         }
         catch
         {
             await AbortAsync().ConfigureAwait(false);
             throw;
         }
+    }
+
+    private async ValueTask<SinkResult> CommitMemoryAsync()
+    {
+        var bytes = ((MemoryStream)_stream).ToArray();
+        await _stream.DisposeAsync().ConfigureAwait(false);
+        return new SinkResult(null, bytes, new MemoryStream(bytes, writable: false));
+    }
+
+    // Чужой поток: если писали напрямую — только сбросили; если через временный файл — переливаем и удаляем его.
+    private async ValueTask<SinkResult> CommitStreamAsync(CancellationToken cancellationToken)
+    {
+        if (_tempPath is not null)
+        {
+            _stream.Position = 0;
+            await _stream.CopyToAsync(_target.OutputStream!, cancellationToken).ConfigureAwait(false);
+            await _target.OutputStream!.FlushAsync(cancellationToken).ConfigureAwait(false);
+            await _stream.DisposeAsync().ConfigureAwait(false);
+            File.Delete(_tempPath);
+        }
+
+        return new SinkResult(null, null, null);
+    }
+
+    private async ValueTask<SinkResult> CommitFileAsync()
+    {
+        await _stream.DisposeAsync().ConfigureAwait(false);
+        try
+        {
+            File.Move(_tempPath!, _finalPath!, overwrite: _settings.OverwriteExisting);
+        }
+        catch (IOException) when (!_settings.OverwriteExisting && File.Exists(_finalPath))
+        {
+            // Файл появился, пока шла работа: перезапись запрещена.
+            throw FileExists(_finalPath!);
+        }
+
+        return new SinkResult(_finalPath, null, null);
     }
 
     /// <summary>

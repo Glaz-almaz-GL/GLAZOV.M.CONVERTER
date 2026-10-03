@@ -43,62 +43,67 @@ internal sealed class InputHandle : IAsyncDisposable
     /// </summary>
     /// <param name="count">Сколько байтов нужно.</param>
     /// <param name="cancellationToken">Отмена.</param>
-    internal async ValueTask<ReadOnlyMemory<byte>> HeadAsync(int count, CancellationToken cancellationToken = default)
+    internal ValueTask<ReadOnlyMemory<byte>> HeadAsync(int count, CancellationToken cancellationToken = default)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(count);
 
-        if (_canRewind)
+        return _canRewind
+            ? HeadFromSeekableAsync(count, cancellationToken)
+            : HeadFromBufferedAsync(count, cancellationToken);
+    }
+
+    // Поток умеет искать: читаем и возвращаем позицию, где она была.
+    private async ValueTask<ReadOnlyMemory<byte>> HeadFromSeekableAsync(int count, CancellationToken cancellationToken)
+    {
+        var head = new byte[count];
+        try
         {
-            // Поток умеет искать: читаем и возвращаем позицию, где она была.
-            var head = new byte[count];
-            var total = 0;
-            try
-            {
-                while (total < count)
-                {
-                    var read = await _inner.ReadAsync(head.AsMemory(total), cancellationToken).ConfigureAwait(false);
-                    if (read == 0)
-                    {
-                        break;
-                    }
-
-                    total += read;
-                }
-            }
-            finally
-            {
-                _inner.Position = _startPosition;
-            }
-
+            var total = await FillAsync(_inner, head, cancellationToken).ConfigureAwait(false);
             return head.AsMemory(0, total);
         }
-
-        // Поток без перемотки: просмотренные байты запоминаются и отдаются читателю первыми.
-        if (_readStarted && count > _bufferLength)
+        finally
         {
-            throw new InvalidOperationException("Просмотр начальных байтов невозможен после начала чтения входа без перемотки.");
+            _inner.Position = _startPosition;
         }
+    }
 
+    // Поток без перемотки: просмотренные байты запоминаются и отдаются читателю первыми.
+    private async ValueTask<ReadOnlyMemory<byte>> HeadFromBufferedAsync(int count, CancellationToken cancellationToken)
+    {
         if (count > _bufferLength)
         {
+            if (_readStarted)
+            {
+                throw new InvalidOperationException("Просмотр начальных байтов невозможен после начала чтения входа без перемотки.");
+            }
+
             if (_buffer.Length < count)
             {
                 Array.Resize(ref _buffer, count);
             }
 
-            while (_bufferLength < count)
-            {
-                var read = await _inner.ReadAsync(_buffer.AsMemory(_bufferLength, count - _bufferLength), cancellationToken).ConfigureAwait(false);
-                if (read == 0)
-                {
-                    break;
-                }
-
-                _bufferLength += read;
-            }
+            _bufferLength += await FillAsync(_inner, _buffer.AsMemory(_bufferLength, count - _bufferLength), cancellationToken).ConfigureAwait(false);
         }
 
         return _buffer.AsMemory(0, Math.Min(count, _bufferLength));
+    }
+
+    // Читает, пока не заполнит буфер или не кончится вход; возвращает, сколько прочитано.
+    private static async ValueTask<int> FillAsync(Stream stream, Memory<byte> destination, CancellationToken cancellationToken)
+    {
+        var total = 0;
+        while (total < destination.Length)
+        {
+            var read = await stream.ReadAsync(destination[total..], cancellationToken).ConfigureAwait(false);
+            if (read == 0)
+            {
+                break;
+            }
+
+            total += read;
+        }
+
+        return total;
     }
 
     /// <inheritdoc />
