@@ -111,6 +111,17 @@ public sealed class FfmpegAudioEngineTests : IDisposable
     }
 
     [ExternalFact]
+    public async Task Mp3_HasTheDurationHeader_BecauseItWasWrittenToAFileNotAPipe()
+    {
+        // Служебный заголовок MP3 (Xing — переменный битрейт, Info — постоянный) пишется после кодирования, возвращаясь в начало выхода;
+        // в канал он не попадает, и тогда длительность файла определяется по первым кадрам, то есть неверно.
+        byte[] result = await Convert(Sample("sample-opus.ogg"), FileFormat.Mp3);
+
+        string head = System.Text.Encoding.ASCII.GetString(result, 0, Math.Min(result.Length, 1000));
+        Assert.True(head.Contains("Xing") || head.Contains("Info"), "В начале MP3 нет заголовка Xing/Info.");
+    }
+
+    [ExternalFact]
     public async Task Bitrate_ChangesTheSize_LowerBitrateIsSmaller()
     {
         byte[] wav = Sample("sample.wav");

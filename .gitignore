@@ -27,3 +27,6 @@ crashlytics-build.properties
 # Secrets — a junction to the machine-local store; never committed (examples may be tracked)
 .secrets/*
 !.secrets/*.example
+
+# Результаты живого прогона для прослушивания
+run-output/
