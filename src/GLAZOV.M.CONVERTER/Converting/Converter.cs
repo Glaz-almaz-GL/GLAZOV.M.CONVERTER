@@ -36,8 +36,9 @@ public sealed class Converter
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(registry);
         Settings = ConverterSettingsSnapshot.Create(settings);
-        Capabilities = new ConverterCapabilities();
-        _single = new SingleConversion(Settings, registry, new ToolLocator(Settings, environment));
+        ToolLocator locator = new(Settings, environment);
+        Capabilities = new ConverterCapabilities(registry, locator);
+        _single = new SingleConversion(Settings, registry, locator);
         _batch = new BatchConversion(Settings, _single);
     }
 

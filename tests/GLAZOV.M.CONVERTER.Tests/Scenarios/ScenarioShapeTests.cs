@@ -83,14 +83,17 @@ public class ScenarioShapeTests
     }
 
     [Fact]
-    public void Capabilities_ShapeCompilesAndStubsThrow()
+    public void Capabilities_ShapeCompiles()
     {
         var converter = new Converter();
 
         var caps = converter.Capabilities;
-        Assert.Throws<NotImplementedException>(() => caps.CanConvert(FileFormat.Ogg, FileFormat.Mp3));
-        Assert.Throws<NotImplementedException>(() => caps.All);
-        Assert.Throws<NotImplementedException>(() => caps.Tool("ffmpeg"));
+        Func<bool> can = () => caps.CanConvert(FileFormat.Ogg, FileFormat.Mp3);
+        Func<IReadOnlyList<Conversion>> all = () => caps.All;
+        Func<ToolStatus> tool = () => caps.Tool("ffmpeg");
+        Assert.NotNull(can);
+        Assert.NotNull(all);
+        Assert.NotNull(tool);
 
         Func<ToolStatus, string> hint = status => $"{status.Name} {status.Found} {status.Path} {status.InstallHint}";
         Func<Conversion, string> row = c => $"{c.From} {c.To} {c.Availability}";
