@@ -49,16 +49,18 @@ internal static class Failures
             $"Конвертация {from.Name} → {to.Name} не поддерживается.");
 
     /// <summary>
-    /// Действия над изображением (поворот, масштаб) запрошены там, где они не поддерживаются.
+    /// Действия (поворот, масштаб) запрошены там, где они не поддерживаются. Для результата-звука сообщение называет звук.
     /// </summary>
     /// <param name="from">Формат входа.</param>
     /// <param name="to">Формат результата.</param>
     internal static ConversionException UnsupportedOperations(FileFormat from, FileFormat to)
     {
-        return new ConversionException(
-            ConversionStage.Preparation,
-            ConversionFailureReason.UnsupportedConversion,
-            $"Действия над изображением (поворот, масштаб) не поддерживаются для {from.Name} → {to.Name}.");
+        FileFormat[] sound = [FileFormat.Mp3, FileFormat.Wav, FileFormat.Ogg, FileFormat.Flac, FileFormat.M4a];
+        string message = sound.Contains(to)
+            ? $"Поворот и масштаб не применимы к звуку: {from.Name} → {to.Name}."
+            : $"Действия не поддерживаются для {from.Name} → {to.Name}.";
+
+        return new ConversionException(ConversionStage.Preparation, ConversionFailureReason.UnsupportedConversion, message);
     }
 
     /// <summary>

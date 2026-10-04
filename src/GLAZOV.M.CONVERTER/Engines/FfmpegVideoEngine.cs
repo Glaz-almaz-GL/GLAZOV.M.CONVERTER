@@ -57,7 +57,7 @@ internal sealed partial class FfmpegVideoEngine : IConversionEngine, IUsesProbe
 
             if (result.ExitCode != 0)
             {
-                throw Failures.ToolFailed(ToolName, result.ExitCode, ExplainMissingEncoder(result.ErrorOutput));
+                throw Failures.ToolFailed(ToolName, result.ExitCode, Explain(result.ErrorOutput));
             }
 
             request.Reencoded = !plan.CopiesEverything(codecs);
@@ -93,10 +93,16 @@ internal sealed partial class FfmpegVideoEngine : IConversionEngine, IUsesProbe
         return ToolRunner.RunAsync(invocation, cancellationToken);
     }
 
-    // A build of FFmpeg without an encoder says only "Unknown encoder"; the last line becomes the message, so the hint goes last.
-    private static string ExplainMissingEncoder(string output)
+    // FFmpeg says only "Unknown encoder" or "matches no streams"; the last line becomes the message, so the plain words go last.
+    // Only the video track is required (the map of the sound track is optional), so a missing stream means no video.
+    private static string Explain(string output)
     {
         Match match = UnknownEncoderPattern().Match(output);
-        return match.Success ? $"{output}\nваш FFmpeg собран без кодека {match.Groups[1].Value}" : output;
+        if (match.Success)
+        {
+            return $"{output}\nваш FFmpeg собран без кодека {match.Groups[1].Value}";
+        }
+
+        return output.Contains("matches no streams", StringComparison.Ordinal) ? $"{output}\nв файле нет видеодорожки" : output;
     }
 }

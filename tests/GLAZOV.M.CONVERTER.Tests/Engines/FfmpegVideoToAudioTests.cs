@@ -141,7 +141,8 @@ public sealed class FfmpegVideoToAudioTests : IClassFixture<VideoSourcesFixture>
         ConversionException ex = await Assert.ThrowsAsync<ConversionException>(() => ConvertAsync(_fixture.NoSound, FileFormat.Mp3, withPath: true));
 
         Assert.Equal(ConversionFailureReason.ToolFailed, ex.Reason);
-        Assert.Contains("matches no streams", ex.ToolOutput ?? ex.Message);
+        Assert.Contains("matches no streams", ex.ToolOutput);
+        Assert.EndsWith("в файле нет звуковой дорожки", ex.Message);
         Assert.Empty(Directory.GetFiles(_temp));
     }
 

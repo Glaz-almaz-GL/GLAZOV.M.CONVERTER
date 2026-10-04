@@ -206,7 +206,8 @@ public sealed class SingleConversionTests : IDisposable
                 new ConversionOptions { Operations = { Operation.RotateRight } }));
 
         Assert.Equal(ConversionFailureReason.UnsupportedConversion, ex.Reason);
-        Assert.Contains("Действия над изображением", ex.Message);
+        Assert.Contains("Поворот и масштаб не применимы к звуку:", ex.Message);
+        Assert.EndsWith("→ WAV.", ex.Message);
         Assert.False(File.Exists(output));
         Assert.Equal(0, engine.Calls);
     }

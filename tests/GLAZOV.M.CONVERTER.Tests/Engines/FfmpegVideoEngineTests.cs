@@ -217,7 +217,8 @@ public sealed class FfmpegVideoEngineTests : IClassFixture<VideoSourcesFixture>,
         ConversionException ex = await Assert.ThrowsAsync<ConversionException>(() => ConvertAsync(_fixture.NoPicture, FileFormat.Mp4));
 
         Assert.Equal(ConversionFailureReason.ToolFailed, ex.Reason);
-        Assert.Contains("matches no streams", ex.ToolOutput ?? ex.Message);
+        Assert.Contains("matches no streams", ex.ToolOutput);
+        Assert.EndsWith("в файле нет видеодорожки", ex.Message);
         Assert.Empty(Directory.GetFiles(_temp));
     }
 

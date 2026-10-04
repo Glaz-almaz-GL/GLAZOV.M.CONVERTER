@@ -166,7 +166,7 @@ public sealed class ImageOperationsTests : IDisposable
 
         ConversionException ex = Assert.Throws<ConversionException>(() => call.GetAwaiter().GetResult());
         Assert.Equal(ConversionFailureReason.UnsupportedConversion, ex.Reason);
-        Assert.Contains("не поддерживаются для WAV → MP3", ex.Message);
+        Assert.Contains("Поворот и масштаб не применимы к звуку: WAV → MP3", ex.Message);
     }
 
     [ExternalFact]

@@ -52,7 +52,7 @@ internal sealed class FfmpegAudioEngine : IConversionEngine
                 : await RunAudioAsync(request, tempPath, cancellationToken).ConfigureAwait(false);
             if (result.ExitCode != 0)
             {
-                throw Failures.ToolFailed(ToolName, result.ExitCode, result.ErrorOutput);
+                throw Failures.ToolFailed(ToolName, result.ExitCode, fromVideo ? ExplainMissingSound(result.ErrorOutput) : result.ErrorOutput);
             }
 
             if (tempPath is not null)
@@ -96,5 +96,11 @@ internal sealed class FfmpegAudioEngine : IConversionEngine
             OnOutputLine: progress.ProcessLine);
 
         return ToolRunner.RunAsync(invocation, cancellationToken);
+    }
+
+    // FFmpeg says only "matches no streams"; for a video input the only mapped track is the sound, so the plain words go last.
+    private static string ExplainMissingSound(string output)
+    {
+        return output.Contains("matches no streams", StringComparison.Ordinal) ? $"{output}\nв файле нет звуковой дорожки" : output;
     }
 }

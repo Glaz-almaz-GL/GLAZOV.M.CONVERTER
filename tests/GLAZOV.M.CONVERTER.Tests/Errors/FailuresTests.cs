@@ -38,6 +38,23 @@ public class FailuresTests
         Assert.Equal("Программа «ffmpeg» не найдена. Установите: winget install Gyan.FFmpeg", ex.Message);
     }
 
+    [Theory]
+    [InlineData("MP4", "MP3", "Поворот и масштаб не применимы к звуку: MP4 → MP3.")]
+    [InlineData("WAV", "FLAC", "Поворот и масштаб не применимы к звуку: WAV → FLAC.")]
+    [InlineData("PNG", "JPEG", "Действия не поддерживаются для PNG → JPEG.")]
+    [InlineData("MKV", "MP4", "Действия не поддерживаются для MKV → MP4.")]
+    public void UnsupportedOperations_NamesSoundOnlyForASoundResult_AndNeverSaysImage(string from, string to, string expected)
+    {
+        FileFormat[] all = [FileFormat.Mp3, FileFormat.Wav, FileFormat.Flac, FileFormat.Mp4, FileFormat.Mkv, FileFormat.Png, FileFormat.Jpeg];
+
+        ConversionException ex = Failures.UnsupportedOperations(all.Single(f => f.Name == from), all.Single(f => f.Name == to));
+
+        Assert.Equal(expected, ex.Message);
+        Assert.Equal(ConversionFailureReason.UnsupportedConversion, ex.Reason);
+        Assert.Equal(ConversionStage.Preparation, ex.Stage);
+        Assert.DoesNotContain("изображени", ex.Message);
+    }
+
     [Fact]
     public void UnsupportedConversion_NamesBothSides()
     {
