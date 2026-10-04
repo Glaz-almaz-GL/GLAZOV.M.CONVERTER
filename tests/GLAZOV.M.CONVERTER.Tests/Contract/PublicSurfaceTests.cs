@@ -18,7 +18,7 @@ public class PublicSurfaceTests
         ["Conversion"] = ["Availability", "From", "To"],
         ["ConversionAvailability"] = ["Ready", "ToolMissing"],
         ["ConversionException"] = ["Reason", "Stage", "ToolExitCode", "ToolName", "ToolOutput"],
-        ["ConversionFailureReason"] = ["EngineFailed", "FileExists", "InputUnreadable", "ToolFailed", "ToolNotFound", "TypeNotConfirmed", "UnsupportedConversion"],
+        ["ConversionFailureReason"] = ["EngineFailed", "FileExists", "InputUnreadable", "OutputUnwritable", "ToolFailed", "ToolNotFound", "TypeNotConfirmed", "UnsupportedConversion"],
         ["ConversionPair"] = ["Deconstruct", "From", "To"],
         ["ConversionRequest"] = ["From", "Input", "InputPath", "Options", "Output", "ReportProgress", "TempFolder", "To", "Tool"],
         ["IConversionEngine"] = ["ConvertAsync", "Pairs", "SupportsOperations", "ToolName"],

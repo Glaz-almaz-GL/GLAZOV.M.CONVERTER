@@ -157,8 +157,17 @@ internal static class ToolRunner
             return;
         }
 
-        await process.StandardOutput.BaseStream.CopyToAsync(destination, cancellationToken).ConfigureAwait(false);
-        await destination.FlushAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await process.StandardOutput.BaseStream.CopyToAsync(destination, cancellationToken).ConfigureAwait(false);
+            await destination.FlushAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Nobody reads the pipe any more: the process would block on it for ever.
+            Kill(process);
+            throw;
+        }
     }
 
     private static void Kill(Process process)

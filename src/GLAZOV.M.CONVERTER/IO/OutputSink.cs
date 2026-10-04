@@ -92,6 +92,11 @@ internal sealed class OutputSink : IAsyncDisposable
             _finished = true;
             return result;
         }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException && ex is not ConversionException)
+        {
+            await AbortAsync().ConfigureAwait(false);
+            throw Failures.OutputUnwritable(NameOfResult(), ex, ConversionStage.Conversion);
+        }
         catch
         {
             await AbortAsync().ConfigureAwait(false);
@@ -165,6 +170,11 @@ internal sealed class OutputSink : IAsyncDisposable
         return AbortAsync();
     }
 
+    private string NameOfResult()
+    {
+        return _finalPath is not null ? Path.GetFileName(_finalPath) : "поток";
+    }
+
     private static OutputSink OpenFile(Target target, ConverterSettingsSnapshot settings, string finalPath)
     {
         if (!settings.OverwriteExisting && File.Exists(finalPath))
@@ -172,13 +182,20 @@ internal sealed class OutputSink : IAsyncDisposable
             throw Failures.FileExists(finalPath);
         }
 
-        string directory = Path.GetDirectoryName(Path.GetFullPath(finalPath))!;
-        Directory.CreateDirectory(directory);
+        try
+        {
+            string directory = Path.GetDirectoryName(Path.GetFullPath(finalPath))!;
+            Directory.CreateDirectory(directory);
 
-        // Временный файл рядом с результатом: переименование внутри одной папки атомарно.
-        string tempPath = Path.Combine(directory, $".{Path.GetFileName(finalPath)}.{Guid.NewGuid():N}.tmp");
-        FileStream stream = new(tempPath, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None, 4096, FileOptions.Asynchronous);
-        return new OutputSink(target, settings, finalPath, tempPath, stream, ownsStream: true);
+            // Временный файл рядом с результатом: переименование внутри одной папки атомарно.
+            string tempPath = Path.Combine(directory, $".{Path.GetFileName(finalPath)}.{Guid.NewGuid():N}.tmp");
+            FileStream stream = new(tempPath, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None, 4096, FileOptions.Asynchronous);
+            return new OutputSink(target, settings, finalPath, tempPath, new GuardedOutputStream(stream, Path.GetFileName(finalPath), ownsInner: true), ownsStream: true);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            throw Failures.OutputUnwritable(Path.GetFileName(finalPath), ex, ConversionStage.Preparation);
+        }
     }
 
     private static OutputSink OpenStream(Target target, ConverterSettingsSnapshot settings, bool requireSeekable)
@@ -191,16 +208,23 @@ internal sealed class OutputSink : IAsyncDisposable
 
         if (!requireSeekable)
         {
-            return new OutputSink(target, settings, null, null, output, ownsStream: false);
+            return new OutputSink(target, settings, null, null, new GuardedOutputStream(output, "поток", ownsInner: false), ownsStream: false);
         }
 
         // Движку нужен перематываемый вывод, а чужой поток может его не дать: пишем во временный файл
         // и при завершении переливаем в поток.
-        string directory = settings.TempFolder ?? Path.GetTempPath();
-        Directory.CreateDirectory(directory);
-        string tempPath = Path.Combine(directory, $"convert-{Guid.NewGuid():N}.tmp");
-        FileStream temp = new(tempPath, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None, 4096, FileOptions.Asynchronous | FileOptions.DeleteOnClose);
-        return new OutputSink(target, settings, null, tempPath, temp, ownsStream: true);
+        try
+        {
+            string directory = settings.TempFolder ?? Path.GetTempPath();
+            Directory.CreateDirectory(directory);
+            string tempPath = Path.Combine(directory, $"convert-{Guid.NewGuid():N}.tmp");
+            FileStream temp = new(tempPath, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None, 4096, FileOptions.Asynchronous | FileOptions.DeleteOnClose);
+            return new OutputSink(target, settings, null, tempPath, new GuardedOutputStream(temp, "поток", ownsInner: true), ownsStream: true);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            throw Failures.OutputUnwritable("поток", ex, ConversionStage.Preparation);
+        }
     }
 
     private static OutputSink GetFolderSink(Target target, ConverterSettingsSnapshot settings, string inputName)

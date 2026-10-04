@@ -155,7 +155,7 @@ public sealed class OutputSinkTests : IDisposable
 
         await using (OutputSink sink = await OutputSink.OpenAsync(Target.Stream(destination, FileFormat.Ogg), "in.wav", Settings()))
         {
-            Assert.Same(destination, sink.Stream);
+            Assert.NotSame(destination, sink.Stream); // wrapped so that a failing write becomes a library error
             await sink.Stream.WriteAsync(_payload);
             SinkResult result = await sink.CommitAsync();
             Assert.Null(result.OutputPath);

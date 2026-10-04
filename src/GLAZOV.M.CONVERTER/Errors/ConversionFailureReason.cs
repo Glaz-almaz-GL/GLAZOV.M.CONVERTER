@@ -39,4 +39,9 @@ public enum ConversionFailureReason
     /// Движок расширения завершился непредвиденной ошибкой (исходное исключение — во внутренней части ошибки).
     /// </summary>
     EngineFailed,
+
+    /// <summary>
+    /// The result cannot be written: no access, no space on the disk, a path that cannot be created or a target stream that failed.
+    /// </summary>
+    OutputUnwritable,
 }

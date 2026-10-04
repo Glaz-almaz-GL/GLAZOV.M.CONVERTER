@@ -175,6 +175,41 @@ internal static class Failures
             $"Вход «{inputName}» не читается: {detail}");
 
     /// <summary>
+    /// The result could not be written or created. The message names the result by its file name only.
+    /// </summary>
+    /// <param name="name">File name of the result, or «поток».</param>
+    /// <param name="inner">The system error; kept as the inner exception.</param>
+    /// <param name="stage">Preparation when the output could not be opened, conversion when writing broke off.</param>
+    internal static ConversionException OutputUnwritable(string name, Exception inner, ConversionStage stage) =>
+        new(
+            stage,
+            ConversionFailureReason.OutputUnwritable,
+            $"Не удалось записать результат «{name}»: {DescribeOutput(inner)}.",
+            innerException: inner);
+
+    // The system message holds the full path, so the cause is named in plain words and the exception stays inside.
+    private static string DescribeOutput(Exception error)
+    {
+        return error switch
+        {
+            UnauthorizedAccessException => "нет доступа",
+            DirectoryNotFoundException => "папка не найдена",
+            PathTooLongException => "слишком длинный путь",
+            ArgumentException or NotSupportedException => "недопустимый путь",
+            IOException io when IsDiskFull(io) => "нет места на диске",
+            IOException => "запись не удалась или файл занят другой программой",
+            _ => "запись не удалась",
+        };
+    }
+
+    // ERROR_HANDLE_DISK_FULL (0x27) and ERROR_DISK_FULL (0x70) on Windows, ENOSPC (28) elsewhere.
+    private static bool IsDiskFull(IOException error)
+    {
+        int code = error.HResult & 0xFFFF;
+        return code is 0x27 or 0x70 or 28;
+    }
+
+    /// <summary>
     /// Оставляет последние <see cref="ToolOutputLines"/> строк вывода, не больше <see cref="ToolOutputChars"/> символов.
     /// </summary>
     /// <param name="output">Вывод программы.</param>
