@@ -17,9 +17,10 @@ internal sealed class InputHandle : IAsyncDisposable
     private int _replayOffset;
     private bool _readStarted;
 
-    internal InputHandle(string name, Stream inner, bool ownsInner)
+    internal InputHandle(string name, Stream inner, bool ownsInner, string? path = null)
     {
         Name = name;
+        Path = path;
         _inner = inner;
         _ownsInner = ownsInner;
         _canRewind = inner.CanSeek;
@@ -31,6 +32,11 @@ internal sealed class InputHandle : IAsyncDisposable
     /// Имя входа для отчёта: имя файла или «поток».
     /// </summary>
     internal string Name { get; }
+
+    /// <summary>
+    /// Full path of the input file; <c>null</c> for a stream.
+    /// </summary>
+    internal string? Path { get; }
 
     /// <summary>
     /// Читаемый поток со всем содержимым входа, включая уже просмотренные начальные байты.

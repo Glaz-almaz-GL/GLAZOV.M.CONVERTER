@@ -90,6 +90,31 @@ public sealed class FileFormat : IEquatable<FileFormat>
     public static FileFormat Svg { get; } = new("SVG", "image/svg+xml", "svg");
 
     /// <summary>
+    /// MP4. Also covers an MP4 container with no video track (audio with common brands other than M4A).
+    /// </summary>
+    public static FileFormat Mp4 { get; } = new("MP4", "video/mp4", "mp4");
+
+    /// <summary>
+    /// MKV (Matroska).
+    /// </summary>
+    public static FileFormat Mkv { get; } = new("MKV", "video/x-matroska", "mkv");
+
+    /// <summary>
+    /// WebM.
+    /// </summary>
+    public static FileFormat Webm { get; } = new("WebM", "video/webm", "webm");
+
+    /// <summary>
+    /// MOV (QuickTime).
+    /// </summary>
+    public static FileFormat Mov { get; } = new("MOV", "video/quicktime", "mov");
+
+    /// <summary>
+    /// AVI.
+    /// </summary>
+    public static FileFormat Avi { get; } = new("AVI", "video/x-msvideo", "avi");
+
+    /// <summary>
     /// Тип не распознан: результат определения типа по начальным байтам. Целью конвертации быть не может.
     /// </summary>
     public static FileFormat Unknown { get; } = new("Unknown", "application/octet-stream", string.Empty);

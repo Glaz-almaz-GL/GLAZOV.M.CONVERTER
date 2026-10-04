@@ -21,12 +21,22 @@ internal static class FfmpegAudioArguments
     /// <param name="to">Формат результата: MP3, WAV, OGG, FLAC или M4A.</param>
     /// <param name="audio">Параметры звука; задаются в аргументы только заданные.</param>
     /// <param name="outputTarget">Куда писать: <c>pipe:1</c> (стандартный вывод) или путь к временному файлу.</param>
-    internal static IReadOnlyList<string> Build(FileFormat to, AudioOptions? audio, string outputTarget)
+    /// <param name="input">Вход: <c>pipe:0</c> (стандартный ввод) или путь к файлу.</param>
+    /// <param name="fromVideo">
+    /// Вход — видео: берётся первая звуковая дорожка, нет её — ошибка FFmpeg; журнал на уровне «info»,
+    /// иначе длительность входа, нужная для процентов, не печатается.
+    /// </param>
+    internal static IReadOnlyList<string> Build(FileFormat to, AudioOptions? audio, string outputTarget, string input = "pipe:0", bool fromVideo = false)
     {
         ArgumentNullException.ThrowIfNull(to);
         ArgumentException.ThrowIfNullOrWhiteSpace(outputTarget);
+        ArgumentException.ThrowIfNullOrWhiteSpace(input);
 
-        List<string> args = ["-hide_banner", "-loglevel", "error", "-nostats", "-i", "pipe:0", "-vn"];
+        List<string> args = ["-hide_banner", "-loglevel", fromVideo ? "info" : "error", "-nostats", "-i", input, "-vn"];
+        if (fromVideo)
+        {
+            args.AddRange(["-map", "0:a:0"]);
+        }
 
         if (to.Equals(FileFormat.Mp3))
         {

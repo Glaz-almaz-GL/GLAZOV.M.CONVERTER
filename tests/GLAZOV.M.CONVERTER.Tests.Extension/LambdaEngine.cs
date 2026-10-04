@@ -22,10 +22,13 @@ public sealed class LambdaEngine(string? toolName, IReadOnlyList<ConversionPair>
 
     public bool WaitForCancel { get; init; }
 
+    public Action<ConversionRequest>? Inspect { get; init; }
+
     public async Task ConvertAsync(ConversionRequest request, CancellationToken cancellationToken)
     {
         Calls++;
         Last = request;
+        Inspect?.Invoke(request);
         if (Crash is not null)
         {
             throw Crash;

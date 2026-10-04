@@ -190,4 +190,65 @@ public class ToolRunnerTests
             return false;
         }
     }
+
+    // A process that prints a line, pauses, prints another: the first line must reach the handler during the pause.
+    private static string PausingScript(string redirect)
+    {
+        return OperatingSystem.IsWindows()
+            ? $"echo first {redirect} & ping -n 3 127.0.0.1 >nul & echo second {redirect}"
+            : $"echo first {(redirect.Length == 0 ? "" : ">&2")}; sleep 2; echo second {(redirect.Length == 0 ? "" : ">&2")}";
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task LineHandlers_GetLinesWhileTheProcessIsStillRunning(bool errorStream)
+    {
+        List<string> lines = [];
+        DateTime? firstAt = null;
+        void OnLine(string line)
+        {
+            lock (lines)
+            {
+                firstAt ??= DateTime.UtcNow;
+                lines.Add(line.Trim());
+            }
+        }
+
+        string script = PausingScript(errorStream ? "1>&2" : string.Empty);
+        ToolInvocation invocation = Shell(script) with
+        {
+            OnErrorLine = errorStream ? OnLine : null,
+            OnOutputLine = errorStream ? null : OnLine,
+        };
+
+        ToolResult result = await ToolRunner.RunAsync(invocation).WaitAsync(Patience);
+        DateTime endedAt = DateTime.UtcNow;
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Equal(["first", "second"], lines);
+        Assert.True(endedAt - firstAt >= TimeSpan.FromSeconds(1), "The first line arrived only after the process ended.");
+    }
+
+    [Fact]
+    public async Task ErrorLineHandler_DoesNotChangeTheKeptErrorOutput()
+    {
+        string script = OperatingSystem.IsWindows() ? "echo error one 1>&2 & exit 3" : "echo 'error one' >&2; exit 3";
+        List<string> seen = [];
+
+        ToolResult result = await ToolRunner.RunAsync(Shell(script) with { OnErrorLine = seen.Add }).WaitAsync(Patience);
+
+        Assert.Equal(3, result.ExitCode);
+        Assert.Contains("error one", result.ErrorOutput);
+        Assert.Contains("error one", Assert.Single(seen));
+    }
+
+    [Fact]
+    public async Task OutputStreamAndOutputLineHandler_TogetherAreRefused()
+    {
+        using MemoryStream output = new();
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            ToolRunner.RunAsync(Shell("exit 0", output: output) with { OnOutputLine = _ => { } }));
+    }
 }

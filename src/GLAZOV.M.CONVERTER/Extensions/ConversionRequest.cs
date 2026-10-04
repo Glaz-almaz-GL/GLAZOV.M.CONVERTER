@@ -10,6 +10,8 @@ namespace GLAZOV.M.CONVERTER.Extensions;
 /// </summary>
 public sealed class ConversionRequest
 {
+    private readonly Action<int>? _onProgress;
+
     internal ConversionRequest(
         Stream input,
         Stream output,
@@ -17,7 +19,9 @@ public sealed class ConversionRequest
         FileFormat to,
         ConversionOptions options,
         ToolStatus? tool,
-        string tempFolder)
+        string tempFolder,
+        string? inputPath = null,
+        Action<int>? onProgress = null)
     {
         Input = input;
         Output = output;
@@ -26,6 +30,8 @@ public sealed class ConversionRequest
         Options = options;
         Tool = tool;
         TempFolder = tempFolder;
+        InputPath = inputPath;
+        _onProgress = onProgress;
     }
 
     /// <summary>
@@ -62,4 +68,18 @@ public sealed class ConversionRequest
     /// Существующая папка для временных файлов движка.
     /// </summary>
     public string TempFolder { get; }
+
+    /// <summary>
+    /// Path of the input file when the input is a file; <c>null</c> for a stream.
+    /// </summary>
+    public string? InputPath { get; }
+
+    /// <summary>
+    /// Reports engine progress, 0–100. Out-of-range values are clamped; repeated and smaller values are ignored.
+    /// </summary>
+    /// <param name="percent">Percent done.</param>
+    public void ReportProgress(int percent)
+    {
+        _onProgress?.Invoke(percent);
+    }
 }

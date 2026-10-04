@@ -15,7 +15,8 @@ public sealed class ConversionResult
         TimeSpan duration,
         string? outputPath,
         byte[]? bytes,
-        Stream? stream)
+        Stream? stream,
+        bool reencoded = true)
     {
         Succeeded = succeeded;
         SourceType = sourceType;
@@ -24,6 +25,7 @@ public sealed class ConversionResult
         OutputPath = outputPath;
         Bytes = bytes;
         Stream = stream;
+        Reencoded = reencoded;
     }
 
     /// <summary>
@@ -60,4 +62,10 @@ public sealed class ConversionResult
     /// Читаемый поток с результатом, если он оставлен в памяти.
     /// </summary>
     public Stream? Stream { get; }
+
+    /// <summary>
+    /// <c>true</c>, если хотя бы одна дорожка перекодирована; для звука и изображений всегда <c>true</c>.
+    /// Значение задаёт библиотека.
+    /// </summary>
+    public bool Reencoded { get; }
 }

@@ -208,9 +208,10 @@ public sealed class FfmpegAudioEngineTests : IDisposable
     }
 
     [Fact]
-    public void Pairs_AreTwentyFive_AndCanConvertMatchesThem()
+    public void Pairs_AreFifty_AndCanConvertMatchesThem()
     {
-        Assert.Equal(25, _engine.Pairs.Count);
+        // 25 audio to audio and 25 video (five containers) to audio.
+        Assert.Equal(50, _engine.Pairs.Count);
         Assert.All(_engine.Pairs, p => Assert.True(_engine.CanConvert(p.From, p.To)));
         Assert.False(_engine.CanConvert(FileFormat.Mp3, FileFormat.Jpeg));
         Assert.False(_engine.CanConvert(FileFormat.Unknown, FileFormat.Mp3));

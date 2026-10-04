@@ -19,4 +19,9 @@ public sealed class ConversionOptions
     /// Параметры изображения. Не задано — всё берётся из умолчаний движка.
     /// </summary>
     public ImageOptions? Image { get; set; }
+
+    /// <summary>
+    /// Параметры видео. Не задано — всё берётся из умолчаний движка.
+    /// </summary>
+    public VideoOptions? Video { get; set; }
 }

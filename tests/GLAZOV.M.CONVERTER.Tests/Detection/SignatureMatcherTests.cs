@@ -132,14 +132,128 @@ public class SignatureMatcherTests
         Assert.Same(FileFormat.Unknown, SignatureMatcher.Match("<svgfoo></svgfoo>"u8));
     }
 
-    [Fact]
-    public void Match_Mp4WithAmbiguousBrand_IsUnknownUntilVideoIsSupported()
+    [Theory]
+    [InlineData("sample.mp4", "MP4")]
+    [InlineData("sample-audioonly.mp4", "MP4")]
+    [InlineData("sample.mov", "MOV")]
+    [InlineData("sample.mkv", "MKV")]
+    [InlineData("sample-audioonly.mkv", "MKV")]
+    [InlineData("sample.webm", "WebM")]
+    [InlineData("sample.avi", "AVI")]
+    [InlineData("sample.m4a", "M4A")]
+    [InlineData("sample.wav", "WAV")]
+    [InlineData("sample.webp", "WebP")]
+    public void Match_RealVideoFile_ReturnsItsContainer_AndNeighboursStayApart(string file, string expected)
     {
-        byte[] isom = [0, 0, 0, 0x18, .. "ftypisom"u8.ToArray(), 0, 0, 2, 0, .. "isomiso2"u8.ToArray()];
-        byte[] mp42 = [0, 0, 0, 0x18, .. "ftypmp42"u8.ToArray(), 0, 0, 0, 0, .. "mp42isom"u8.ToArray()];
+        byte[] bytes = Sample(file);
 
-        Assert.Same(FileFormat.Unknown, SignatureMatcher.Match(isom));
-        Assert.Same(FileFormat.Unknown, SignatureMatcher.Match(mp42));
+        FileFormat type = SignatureMatcher.Match(bytes.AsSpan(0, Math.Min(bytes.Length, SignatureMatcher.HeadLength)));
+
+        Assert.Equal(expected, type.Name);
+    }
+
+    [Theory]
+    [InlineData("isom")]
+    [InlineData("iso2")]
+    [InlineData("iso4")]
+    [InlineData("iso5")]
+    [InlineData("iso6")]
+    [InlineData("mp41")]
+    [InlineData("mp42")]
+    [InlineData("avc1")]
+    [InlineData("dash")]
+    [InlineData("msnv")]
+    [InlineData("f4v ")]
+    public void Match_Mp4CommonBrands_AreMp4(string brand)
+    {
+        byte[] bytes = [0, 0, 0, 0x18, .. "ftyp"u8.ToArray(), .. System.Text.Encoding.ASCII.GetBytes(brand), 0, 0, 2, 0, .. "isomiso2"u8.ToArray()];
+
+        Assert.Same(FileFormat.Mp4, SignatureMatcher.Match(bytes));
+    }
+
+    [Theory]
+    [InlineData("M4A ", "M4A")]
+    [InlineData("M4B ", "M4A")]
+    [InlineData("qt  ", "MOV")]
+    [InlineData("3gp4", "Unknown")]
+    [InlineData("heic", "Unknown")]
+    [InlineData("xxxx", "Unknown")]
+    public void Match_OtherFtypBrands_AreNotGuessedAsMp4(string brand, string expected)
+    {
+        byte[] bytes = [0, 0, 0, 0x18, .. "ftyp"u8.ToArray(), .. System.Text.Encoding.ASCII.GetBytes(brand), 0, 0, 2, 0, .. "isomiso2"u8.ToArray()];
+
+        Assert.Equal(expected, SignatureMatcher.Match(bytes).Name);
+    }
+
+    [Theory]
+    [InlineData("moov")]
+    [InlineData("mdat")]
+    [InlineData("wide")]
+    [InlineData("free")]
+    public void Match_OldQuickTimeStartingWithAnAtom_IsMov(string atom)
+    {
+        byte[] bytes = [0, 0, 0x10, 0, .. System.Text.Encoding.ASCII.GetBytes(atom), 1, 2, 3, 4, 5, 6, 7, 8];
+
+        Assert.Same(FileFormat.Mov, SignatureMatcher.Match(bytes));
+    }
+
+    [Fact]
+    public void Match_AtomWithTooSmallSizeOrUnknownType_IsNotMov()
+    {
+        Assert.Same(FileFormat.Unknown, SignatureMatcher.Match([0, 0, 0, 8, .. "moov"u8.ToArray(), 1, 2, 3, 4]));
+        Assert.Same(FileFormat.Unknown, SignatureMatcher.Match([0, 0, 0, 0, .. "free"u8.ToArray(), 1, 2, 3, 4]));
+        Assert.Same(FileFormat.Unknown, SignatureMatcher.Match([0, 0, 0x10, 0, .. "skip"u8.ToArray(), 1, 2, 3, 4]));
+    }
+
+    [Fact]
+    public void Match_AtomWhoseSizeIsPrintableText_OrWhoseNextAtomIsNoType_IsNotMov()
+    {
+        Assert.Same(FileFormat.Unknown, SignatureMatcher.Match("wxyzfree and more plain text"u8));
+
+        byte[] nextIsNoType = [0, 0, 0, 0x10, .. "free"u8.ToArray(), 1, 2, 3, 4, 5, 6, 7, 8, 0, 0, 0, 0x10, 0, 0, 0, 0];
+        byte[] nextIsAType = [0, 0, 0, 0x10, .. "free"u8.ToArray(), 1, 2, 3, 4, 5, 6, 7, 8, 0, 0, 0, 0x10, .. "mdat"u8.ToArray()];
+
+        Assert.Same(FileFormat.Unknown, SignatureMatcher.Match(nextIsNoType));
+        Assert.Same(FileFormat.Mov, SignatureMatcher.Match(nextIsAType));
+    }
+
+    [Theory]
+    [InlineData("sample.mp4")]
+    [InlineData("sample.mov")]
+    [InlineData("sample.mkv")]
+    [InlineData("sample.webm")]
+    [InlineData("sample.avi")]
+    public void Match_TruncatedBelowTheSignature_IsUnknownAndDoesNotThrow(string file)
+    {
+        byte[] bytes = Sample(file);
+
+        for (int length = 0; length < 12; length++)
+        {
+            Assert.Same(FileFormat.Unknown, SignatureMatcher.Match(bytes.AsSpan(0, length)));
+        }
+    }
+
+    [Theory]
+    [InlineData("sample.mkv")]
+    [InlineData("sample.webm")]
+    public void Match_EbmlCutBeforeTheDocTypeValue_IsUnknown(string file)
+    {
+        byte[] bytes = Sample(file);
+
+        for (int length = 12; length < 24; length++)
+        {
+            Assert.Same(FileFormat.Unknown, SignatureMatcher.Match(bytes.AsSpan(0, length)));
+        }
+    }
+
+    [Fact]
+    public void Match_EbmlWithAnotherDocType_AndTextStartingWithFtyp_AreUnknown()
+    {
+        byte[] other = [0x1A, 0x45, 0xDF, 0xA3, 0x93, 0x42, 0x82, 0x88, .. "othertyp"u8.ToArray(), 0, 0, 0, 0];
+
+        Assert.Same(FileFormat.Unknown, SignatureMatcher.Match(other));
+        Assert.Same(FileFormat.Unknown, SignatureMatcher.Match("ftypisom: это письмо, а не видео."u8));
+        Assert.Same(FileFormat.Unknown, SignatureMatcher.Match("RIFF    ABCDEFGH"u8));
     }
 
     [Theory]

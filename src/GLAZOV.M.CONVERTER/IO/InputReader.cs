@@ -79,7 +79,7 @@ internal static class InputReader
                 FileShare.ReadWrite | FileShare.Delete,
                 bufferSize: 4096,
                 FileOptions.Asynchronous | FileOptions.SequentialScan);
-            return new InputHandle(Path.GetFileName(path), stream, ownsInner: true);
+            return new InputHandle(Path.GetFileName(path), stream, ownsInner: true, Path.GetFullPath(path));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException or ArgumentException)
         {

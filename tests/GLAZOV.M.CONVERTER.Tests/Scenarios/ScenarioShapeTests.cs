@@ -168,6 +168,53 @@ public class ScenarioShapeTests
     }
 
     [Fact]
+    public void VideoOptions_DefaultToNotSetAndRejectOutOfRange()
+    {
+        VideoOptions video = new();
+        Assert.Null(video.Quality);
+        Assert.Null(video.Bitrate);
+        Assert.Null(video.Width);
+        Assert.Null(video.Height);
+        Assert.Null(video.FrameRate);
+        Assert.False(video.Reencode);
+        Assert.Null(new ConversionOptions().Video);
+
+        video.Quality = 1;
+        video.Quality = 100;
+        video.Bitrate = 1;
+        video.Width = 2;
+        video.Height = 2;
+        video.FrameRate = 0.5;
+        video.Reencode = true;
+        Assert.Equal((100, 1, 2, 2, 0.5, true), (video.Quality, video.Bitrate, video.Width, video.Height, video.FrameRate, video.Reencode));
+
+        video.Quality = null;
+        video.FrameRate = null;
+        Assert.Null(video.Quality);
+        Assert.Null(video.FrameRate);
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => video.Quality = 0);
+        Assert.Throws<ArgumentOutOfRangeException>(() => video.Quality = 101);
+        Assert.Throws<ArgumentOutOfRangeException>(() => video.Bitrate = 0);
+        Assert.Throws<ArgumentOutOfRangeException>(() => video.Width = -1);
+        Assert.Throws<ArgumentOutOfRangeException>(() => video.Height = 0);
+        Assert.Throws<ArgumentOutOfRangeException>(() => video.FrameRate = 0);
+        Assert.Throws<ArgumentOutOfRangeException>(() => video.FrameRate = -1);
+        Assert.Throws<ArgumentOutOfRangeException>(() => video.FrameRate = double.NaN);
+        Assert.Throws<ArgumentOutOfRangeException>(() => video.FrameRate = double.PositiveInfinity);
+    }
+
+    [Fact]
+    public void VideoFormats_CarryNameMimeAndExtension()
+    {
+        Assert.Equal(("MP4", "video/mp4", "mp4"), (FileFormat.Mp4.Name, FileFormat.Mp4.MimeType, FileFormat.Mp4.Extension));
+        Assert.Equal(("MKV", "video/x-matroska", "mkv"), (FileFormat.Mkv.Name, FileFormat.Mkv.MimeType, FileFormat.Mkv.Extension));
+        Assert.Equal(("WebM", "video/webm", "webm"), (FileFormat.Webm.Name, FileFormat.Webm.MimeType, FileFormat.Webm.Extension));
+        Assert.Equal(("MOV", "video/quicktime", "mov"), (FileFormat.Mov.Name, FileFormat.Mov.MimeType, FileFormat.Mov.Extension));
+        Assert.Equal(("AVI", "video/x-msvideo", "avi"), (FileFormat.Avi.Name, FileFormat.Avi.MimeType, FileFormat.Avi.Extension));
+    }
+
+    [Fact]
     public void NewFormatsAndImageOptions_ShapeCompilesAsInTheSketch()
     {
         var converter = new Converter();

@@ -27,15 +27,20 @@ internal static class ToolRunner
     internal static async Task<ToolResult> RunAsync(ToolInvocation invocation, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(invocation);
+        if (invocation.OnOutputLine is not null && invocation.StandardOutput is not null)
+        {
+            throw new ArgumentException("Standard output goes either to a stream or to a line handler, not both.", nameof(invocation));
+        }
+
         cancellationToken.ThrowIfCancellationRequested();
 
         using Process process = Start(invocation);
         invocation.OnStarted?.Invoke(process.Id);
 
         Queue<string> errorLines = new();
-        Task errors = ReadErrorsAsync(process, errorLines);
+        Task errors = ReadErrorsAsync(process, errorLines, invocation.OnErrorLine);
         Task input = PumpInputAsync(process, invocation.StandardInput, cancellationToken);
-        Task output = PumpOutputAsync(process, invocation.StandardOutput, cancellationToken);
+        Task output = PumpOutputAsync(process, invocation.StandardOutput, invocation.OnOutputLine, cancellationToken);
 
         try
         {
@@ -66,7 +71,7 @@ internal static class ToolRunner
             CreateNoWindow = true,
             RedirectStandardError = true,
             RedirectStandardInput = invocation.StandardInput is not null,
-            RedirectStandardOutput = invocation.StandardOutput is not null,
+            RedirectStandardOutput = invocation.StandardOutput is not null || invocation.OnOutputLine is not null,
             StandardErrorEncoding = Encoding.UTF8,
         };
 
@@ -92,11 +97,12 @@ internal static class ToolRunner
     }
 
     // Читает stderr построчно, всегда: иначе процесс зависнет на заполненном буфере. Хранит только хвост.
-    private static async Task ReadErrorsAsync(Process process, Queue<string> lines)
+    private static async Task ReadErrorsAsync(Process process, Queue<string> lines, Action<string>? onLine)
     {
         string? line;
         while ((line = await process.StandardError.ReadLineAsync().ConfigureAwait(false)) is not null)
         {
+            onLine?.Invoke(line);
             string kept = line.Length > MaxLineChars ? line[^MaxLineChars..] : line;
             lock (lines)
             {
@@ -133,8 +139,19 @@ internal static class ToolRunner
         }
     }
 
-    private static async Task PumpOutputAsync(Process process, Stream? destination, CancellationToken cancellationToken)
+    private static async Task PumpOutputAsync(Process process, Stream? destination, Action<string>? onLine, CancellationToken cancellationToken)
     {
+        if (onLine is not null)
+        {
+            string? line;
+            while ((line = await process.StandardOutput.ReadLineAsync(cancellationToken).ConfigureAwait(false)) is not null)
+            {
+                onLine(line);
+            }
+
+            return;
+        }
+
         if (destination is null)
         {
             return;

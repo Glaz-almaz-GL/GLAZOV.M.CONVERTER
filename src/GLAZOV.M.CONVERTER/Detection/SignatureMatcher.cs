@@ -4,8 +4,8 @@ using GLAZOV.M.CONVERTER.Data;
 namespace GLAZOV.M.CONVERTER.Detection;
 
 /// <summary>
-/// Определение типа по начальным байтам: звук (MP3, WAV, OGG, FLAC, M4A) и изображения
-/// (PNG, JPEG, WebP, GIF, BMP, TIFF, DDS, PSD, SVG). Расширение имени не учитывается (инвариант проекта INV-001).
+/// Определение типа по начальным байтам: звук (MP3, WAV, OGG, FLAC, M4A), видео (MP4, MOV, MKV, WebM, AVI —
+/// признаки в <see cref="VideoSignature"/>) и изображения (PNG, JPEG, WebP, GIF, BMP, TIFF, DDS, PSD, SVG). Расширение имени не учитывается (инвариант проекта INV-001).
 /// TGA по содержимому не определяется: в начале файла нет сигнатуры — такой вход получает <see cref="FileFormat.Unknown"/>.
 /// </summary>
 internal static class SignatureMatcher
@@ -56,6 +56,12 @@ internal static class SignatureMatcher
         if (IsM4a(head))
         {
             return FileFormat.M4a;
+        }
+
+        FileFormat? video = VideoSignature.Match(head);
+        if (video is not null)
+        {
+            return video;
         }
 
         if (IsMp3(head))
@@ -119,7 +125,7 @@ internal static class SignatureMatcher
     }
 
     // Контейнер MP4: «ftyp» с четвёртого байта и главный бренд звука «M4A »/«M4B ».
-    // Бренды isom, mp42 и подобные неоднозначны (видео или звук) и в эту очередь не распознаются.
+    // Остальные бренды MP4 (isom, mp42 и подобные) распознаёт VideoSignature.
     private static bool IsM4a(ReadOnlySpan<byte> head)
     {
         return head.Length >= 12
