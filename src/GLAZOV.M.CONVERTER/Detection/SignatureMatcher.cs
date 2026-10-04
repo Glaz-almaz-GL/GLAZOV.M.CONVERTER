@@ -11,8 +11,8 @@ namespace GLAZOV.M.CONVERTER.Detection;
 internal static class SignatureMatcher
 {
     /// <summary>
-    /// Сколько начальных байтов нужно прочитать: с запасом на самый длинный кадр MP3 (1441 байт)
-    /// и заголовок следующего за ним кадра, а также на пролог SVG (объявление, комментарии, DOCTYPE).
+    /// Наименьшее окно определения: с запасом на самый длинный кадр MP3 (1441 байт) и заголовок следующего за ним кадра.
+    /// Окно больше этого нужно только SVG с длинным вступлением (настройка <c>ConverterSettings.DetectionWindow</c>).
     /// </summary>
     internal const int HeadLength = 4096;
 
@@ -27,7 +27,10 @@ internal static class SignatureMatcher
     /// Определяет тип по началу данных.
     /// </summary>
     /// <param name="head">Начальные байты входа; пустой и короткий буфер — не ошибка, а <see cref="FileFormat.Unknown"/>.</param>
-    internal static FileFormat Match(ReadOnlySpan<byte> head)
+    /// <param name="window">
+    /// Окно определения: сколько байтов SVGZ распаковывается для поиска корня SVG; не меньше <see cref="HeadLength"/>.
+    /// </param>
+    internal static FileFormat Match(ReadOnlySpan<byte> head, int window = HeadLength)
     {
         if (IsOgg(head))
         {
@@ -60,7 +63,7 @@ internal static class SignatureMatcher
             return FileFormat.Mp3;
         }
 
-        return IsSvg(head) ? FileFormat.Svg : FileFormat.Unknown;
+        return SvgSignature.Matches(head, window) ? FileFormat.Svg : FileFormat.Unknown;
     }
 
     private static FileFormat? MatchImage(ReadOnlySpan<byte> head)
@@ -156,82 +159,6 @@ internal static class SignatureMatcher
             && head.StartsWith("BM"u8)
             && head[6..10].IndexOfAnyExcept((byte)0) < 0
             && BmpHeaderSizes.Contains(BinaryPrimitives.ReadUInt32LittleEndian(head[14..18]));
-    }
-
-    // SVG — текст: после метки порядка байтов, объявления XML, комментариев и DOCTYPE первый элемент — svg.
-    private static bool IsSvg(ReadOnlySpan<byte> head)
-    {
-        ReadOnlySpan<byte> rest = head.StartsWith(new byte[] { 0xEF, 0xBB, 0xBF }) ? head[3..] : head;
-
-        while (true)
-        {
-            rest = TrimStart(rest);
-            if (rest.StartsWith("<?"u8))
-            {
-                rest = SkipPast(rest, "?>"u8);
-            }
-            else if (rest.StartsWith("<!--"u8))
-            {
-                rest = SkipPast(rest, "-->"u8);
-            }
-            else if (rest.StartsWith("<!DOCTYPE"u8) || rest.StartsWith("<!doctype"u8))
-            {
-                rest = SkipDoctype(rest);
-            }
-            else
-            {
-                break;
-            }
-
-            if (rest.IsEmpty)
-            {
-                return false;
-            }
-        }
-
-        return rest.Length > 4
-            && rest.StartsWith("<svg"u8)
-            && (rest[4] is (byte)' ' or (byte)'>' or (byte)'/' or (byte)'\t' or (byte)'\r' or (byte)'\n');
-    }
-
-    private static ReadOnlySpan<byte> TrimStart(ReadOnlySpan<byte> data)
-    {
-        int i = 0;
-        while (i < data.Length && data[i] is (byte)' ' or (byte)'\t' or (byte)'\r' or (byte)'\n')
-        {
-            i++;
-        }
-
-        return data[i..];
-    }
-
-    private static ReadOnlySpan<byte> SkipPast(ReadOnlySpan<byte> data, ReadOnlySpan<byte> end)
-    {
-        int index = data.IndexOf(end);
-        return index < 0 ? [] : data[(index + end.Length)..];
-    }
-
-    // DOCTYPE может нести внутренний набор в квадратных скобках; конец — «>» вне скобок.
-    private static ReadOnlySpan<byte> SkipDoctype(ReadOnlySpan<byte> data)
-    {
-        int depth = 0;
-        for (int i = 0; i < data.Length; i++)
-        {
-            if (data[i] == (byte)'[')
-            {
-                depth++;
-            }
-            else if (data[i] == (byte)']')
-            {
-                depth--;
-            }
-            else if (data[i] == (byte)'>' && depth <= 0)
-            {
-                return data[(i + 1)..];
-            }
-        }
-
-        return [];
     }
 
     private static bool IsMp3(ReadOnlySpan<byte> head)

@@ -30,6 +30,7 @@ public sealed class ConverterSettingsSnapshotTests : IDisposable
         Assert.Null(snapshot.TempFolder);
         Assert.Empty(snapshot.ToolPaths);
         Assert.False(snapshot.OverwriteExisting);
+        Assert.Equal(64 * 1024, snapshot.DetectionWindow);
     }
 
     [Fact]

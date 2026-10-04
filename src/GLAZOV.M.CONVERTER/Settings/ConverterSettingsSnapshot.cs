@@ -1,3 +1,4 @@
+using GLAZOV.M.CONVERTER.Detection;
 using GLAZOV.M.CONVERTER.Extensions;
 
 namespace GLAZOV.M.CONVERTER.Settings;
@@ -13,8 +14,10 @@ internal sealed class ConverterSettingsSnapshot
         string? tempFolder,
         IReadOnlyDictionary<string, string> toolPaths,
         bool overwriteExisting,
+        int detectionWindow,
         IReadOnlyList<IConverterExtension> extensions)
     {
+        DetectionWindow = detectionWindow;
         MaxParallelTasks = maxParallelTasks;
         TempFolder = tempFolder;
         ToolPaths = toolPaths;
@@ -48,6 +51,11 @@ internal sealed class ConverterSettingsSnapshot
     internal bool OverwriteExisting { get; }
 
     /// <summary>
+    /// Окно определения формата в байтах, не меньше наименьшего окна готовых признаков.
+    /// </summary>
+    internal int DetectionWindow { get; }
+
+    /// <summary>
     /// Копирует и проверяет настройки; неверное значение — <see cref="ArgumentException"/> с понятным сообщением.
     /// </summary>
     /// <param name="settings">Настройки, заданные разработчиком.</param>
@@ -59,6 +67,13 @@ internal sealed class ConverterSettingsSnapshot
         {
             throw new ArgumentException(
                 $"Параметр MaxParallelTasks должен быть не меньше 1, получено {settings.MaxParallelTasks}.",
+                nameof(settings));
+        }
+
+        if (settings.DetectionWindow < SignatureMatcher.HeadLength)
+        {
+            throw new ArgumentException(
+                $"Параметр DetectionWindow должен быть не меньше {SignatureMatcher.HeadLength} байт, получено {settings.DetectionWindow}.",
                 nameof(settings));
         }
 
@@ -83,7 +98,7 @@ internal sealed class ConverterSettingsSnapshot
             toolPaths[name] = path;
         }
 
-        return new ConverterSettingsSnapshot(settings.MaxParallelTasks, tempFolder, toolPaths, settings.OverwriteExisting, CheckExtensions(settings.Extensions));
+        return new ConverterSettingsSnapshot(settings.MaxParallelTasks, tempFolder, toolPaths, settings.OverwriteExisting, settings.DetectionWindow, CheckExtensions(settings.Extensions));
     }
 
     // Расширения проверяются при создании: чужой код с пустым именем, повтором имени или пустыми списками отвергается сразу.

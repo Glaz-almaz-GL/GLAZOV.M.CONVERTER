@@ -31,7 +31,7 @@ public class PublicSurfaceTests
         ["ConversionStage"] = ["Conversion", "Detection", "Preparation"],
         ["Converter"] = [".ctor", "Capabilities", "ConvertAsync", "ConvertBatchAsync"],
         ["ConverterCapabilities"] = ["All", "CanConvert", "Tool"],
-        ["ConverterSettings"] = ["Extensions", "MaxParallelTasks", "OverwriteExisting", "TempFolder", "ToolPaths"],
+        ["ConverterSettings"] = ["DetectionWindow", "Extensions", "MaxParallelTasks", "OverwriteExisting", "TempFolder", "ToolPaths"],
         ["FileTypeDetector"] = ["DetectAsync"],
         ["FileFormat"] = ["Bmp", "Create", "Dds", "Extension", "Flac", "Gif", "Jpeg", "M4a", "MimeType", "Mp3", "Name", "Ogg", "Png", "Psd", "Svg", "Tga", "Tiff", "Unknown", "Wav", "Webp"],
         ["Operation"] = ["Kind", "Percent", "RotateRight", "ScalePercent"],

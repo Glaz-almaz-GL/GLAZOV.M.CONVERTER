@@ -41,7 +41,7 @@ public sealed class Converter
     private Converter(ConverterSettingsSnapshot settings, EngineRegistry? registry, ToolEnvironment? environment)
     {
         Settings = settings;
-        IConverterExtension[] extensions = [new BuiltInExtension(), .. settings.Extensions];
+        IConverterExtension[] extensions = [new BuiltInExtension(settings.DetectionWindow), .. settings.Extensions];
         EngineRegistry engines = registry ?? new EngineRegistry(extensions.SelectMany(e => e.Engines));
         DetectorChain chain = new(extensions.SelectMany(e => e.Detectors));
         ToolLocator locator = new(Settings, environment);

@@ -10,6 +10,11 @@ namespace GLAZOV.M.CONVERTER.Settings;
 public sealed class ConverterSettings
 {
     /// <summary>
+    /// Окно определения формата по умолчанию: 64 КБ.
+    /// </summary>
+    internal const int DefaultDetectionWindow = 64 * 1024;
+
+    /// <summary>
     /// Сколько задач выполняется одновременно. По умолчанию — число ядер; жёсткого потолка нет.
     /// </summary>
     public int MaxParallelTasks { get; set; } = Environment.ProcessorCount;
@@ -28,6 +33,14 @@ public sealed class ConverterSettings
     /// Перезаписывать ли существующие файлы. По умолчанию нет: будет ошибка «файл существует».
     /// </summary>
     public bool OverwriteExisting { get; set; }
+
+    /// <summary>
+    /// Сколько начальных байтов входа читается для определения формата. По умолчанию 64 КБ, не меньше 4096.
+    /// Больше всего окна нужно SVG с длинным вступлением (комментарии, DOCTYPE) до корневого <c>svg</c>:
+    /// вступление длиннее окна даёт «тип не распознан». Начало входа держится в памяти, пока идёт определение.
+    /// Статический <c>FileTypeDetector</c> работает с окном по умолчанию.
+    /// </summary>
+    public int DetectionWindow { get; set; } = DefaultDetectionWindow;
 
     /// <summary>
     /// Подключаемые расширения (сторонние форматы и движки). Подключаются при создании конвертера и дальше не меняются.

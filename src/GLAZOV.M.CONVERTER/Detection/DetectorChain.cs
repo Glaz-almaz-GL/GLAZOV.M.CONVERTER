@@ -19,7 +19,8 @@ internal sealed class DetectorChain
     }
 
     /// <summary>
-    /// Цепочка из одних готовых признаков — для публичного <see cref="FileTypeDetector"/>, не знающего о расширениях конвертера.
+    /// Цепочка из одних готовых признаков с окном по умолчанию — для публичного <see cref="FileTypeDetector"/>,
+    /// не знающего ни о расширениях, ни о настройках конвертера.
     /// </summary>
     internal static DetectorChain BuiltIn { get; } = new([new SignatureDetector()]);
 
