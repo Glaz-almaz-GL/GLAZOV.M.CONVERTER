@@ -5,7 +5,7 @@ namespace GLAZOV.M.CONVERTER.Detection;
 
 /// <summary>
 /// Определение типа по начальным байтам: звук (MP3, WAV, OGG, FLAC, M4A), видео (MP4, MOV, MKV, WebM, AVI —
-/// признаки в <see cref="VideoSignature"/>) и изображения (PNG, JPEG, WebP, GIF, BMP, TIFF, DDS, PSD, SVG). Расширение имени не учитывается (инвариант проекта INV-001).
+/// признаки в <see cref="VideoSignature"/>), документы (<see cref="DocumentSignature"/>) и изображения (PNG, JPEG, WebP, GIF, BMP, TIFF, DDS, PSD, SVG). Расширение имени не учитывается (инвариант проекта INV-001).
 /// TGA по содержимому не определяется: в начале файла нет сигнатуры — такой вход получает <see cref="FileFormat.Unknown"/>.
 /// </summary>
 internal static class SignatureMatcher
@@ -62,6 +62,12 @@ internal static class SignatureMatcher
         if (video is not null)
         {
             return video;
+        }
+
+        FileFormat? document = DocumentSignature.Match(head);
+        if (document is not null)
+        {
+            return document;
         }
 
         if (IsMp3(head))
