@@ -58,19 +58,20 @@ internal sealed class SingleConversion
         ConversionOptions callOptions = options ?? new ConversionOptions();
         IConversionEngine engine = ChooseEngine(from, target.FileFormat, callOptions);
         ToolStatus? tool = LocateTool(engine);
+        ToolStatus? probe = engine is IUsesProbe ? _locator.Locate("ffprobe") : null;
 
         await using OutputSink sink = await OutputSink.OpenAsync(target, input.Name, _settings, cancellationToken: cancellationToken).ConfigureAwait(false);
 
         progress?.Report(new ConversionProgress(0));
         ProgressGate? gate = progress is null ? null : new ProgressGate(progress);
         ConversionRequest request = new(
-            input.Stream, sink.Stream, from, target.FileFormat, callOptions, tool, _settings.TempFolder ?? Path.GetTempPath(), input.Path, gate is null ? null : gate.Report);
+            input.Stream, sink.Stream, from, target.FileFormat, callOptions, tool, _settings.TempFolder ?? Path.GetTempPath(), input.Path, gate is null ? null : gate.Report, probe);
         await RunEngineAsync(engine, request, cancellationToken).ConfigureAwait(false);
         SinkResult written = await sink.CommitAsync(cancellationToken).ConfigureAwait(false);
         progress?.Report(new ConversionProgress(100));
 
         watch.Stop();
-        return new ConversionResult(true, from, target.FileFormat, watch.Elapsed, written.OutputPath, written.Bytes, written.Stream);
+        return new ConversionResult(true, from, target.FileFormat, watch.Elapsed, written.OutputPath, written.Bytes, written.Stream, request.Reencoded);
     }
 
     // Тип определяется по начальным байтам; имя файла — только подсказка для сообщения, доказательством не служит.

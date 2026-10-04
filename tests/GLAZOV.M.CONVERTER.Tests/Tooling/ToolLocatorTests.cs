@@ -57,6 +57,44 @@ public sealed class ToolLocatorTests : IDisposable
     }
 
     [Fact]
+    public void Ffprobe_IsFoundBesideTheFoundFfmpeg_EvenOutsidePath()
+    {
+        string folder = Folder("pkg-bin");
+        MakeTool(folder, "ffmpeg");
+        string probe = MakeTool(folder, "ffprobe");
+        ConverterSettings settings = new();
+        settings.ToolPaths["ffmpeg"] = Path.Combine(folder, FileNameOf("ffmpeg"));
+
+        ToolStatus status = Locator(Env(), settings).Locate("ffprobe");
+
+        Assert.True(status.Found);
+        Assert.Equal(probe, status.Path);
+    }
+
+    [Fact]
+    public void Ffprobe_PathFromSettings_WinsOverTheOneBesideFfmpeg()
+    {
+        string folder = Folder("pkg-bin");
+        MakeTool(folder, "ffmpeg");
+        MakeTool(folder, "ffprobe");
+        string own = MakeTool(Folder("own"), "ffprobe");
+        ConverterSettings settings = new();
+        settings.ToolPaths["ffmpeg"] = Path.Combine(folder, FileNameOf("ffmpeg"));
+        settings.ToolPaths["ffprobe"] = own;
+
+        Assert.Equal(own, Locator(Env(), settings).Locate("ffprobe").Path);
+    }
+
+    [Fact]
+    public void Ffprobe_IsNotFound_WhenFfmpegIsNotFoundAndNothingElseHasIt()
+    {
+        ToolStatus status = Locator(Env()).Locate("ffprobe");
+
+        Assert.False(status.Found);
+        Assert.Null(status.Path);
+    }
+
+    [Fact]
     public void PathFromSettings_WinsOverPath()
     {
         string inPath = MakeTool(Folder("pathdir"), "ffmpeg");

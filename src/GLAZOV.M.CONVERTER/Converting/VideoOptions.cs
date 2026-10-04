@@ -80,6 +80,13 @@ public sealed class VideoOptions
     /// </summary>
     public bool Reencode { get; set; }
 
+    /// <summary>
+    /// <c>false</c> (default): a video track is copied as it is even when its pixel format is unusual (4:4:4, 10 bit).
+    /// <c>true</c>: such a track is re-encoded to the common 8-bit 4:2:0 that plays everywhere; a track already
+    /// in that format is still copied. Has no effect when the video is encoded anyway.
+    /// </summary>
+    public bool ConvertPixelFormat { get; set; }
+
     private static int? Positive(int? value, string name)
     {
         if (value is <= 0)

@@ -21,7 +21,8 @@ public sealed class ConversionRequest
         ToolStatus? tool,
         string tempFolder,
         string? inputPath = null,
-        Action<int>? onProgress = null)
+        Action<int>? onProgress = null,
+        ToolStatus? probe = null)
     {
         Input = input;
         Output = output;
@@ -32,6 +33,7 @@ public sealed class ConversionRequest
         TempFolder = tempFolder;
         InputPath = inputPath;
         _onProgress = onProgress;
+        Probe = probe;
     }
 
     /// <summary>
@@ -73,6 +75,16 @@ public sealed class ConversionRequest
     /// Path of the input file when the input is a file; <c>null</c> for a stream.
     /// </summary>
     public string? InputPath { get; }
+
+    /// <summary>
+    /// The ffprobe program for engines that read the tracks of an input; <c>null</c> when it was not asked for or not found.
+    /// </summary>
+    internal ToolStatus? Probe { get; }
+
+    /// <summary>
+    /// Set by the engine: <c>false</c> when every track of the result was copied, not encoded. Starts as <c>true</c>.
+    /// </summary>
+    internal bool Reencoded { get; set; } = true;
 
     /// <summary>
     /// Reports engine progress, 0–100. Out-of-range values are clamped; repeated and smaller values are ignored.

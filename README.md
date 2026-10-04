@@ -6,10 +6,12 @@
 - **Звук** — MP3, WAV, OGG (Vorbis; вход Opus принимается), FLAC, M4A (AAC) в любом направлении, включая перекодирование
   с другими параметрами.
 - **Изображения** — PNG, JPEG, WebP, BMP, GIF, TIFF, TGA (DDS и PSD — как вход) с поворотом, масштабом и качеством сжатия.
+- **Видео** — MP4, MKV, WebM, MOV, AVI между собой и в звук; дорожки переносятся без перекодирования, если можно;
+  качество, битрейт, размер кадра, частота кадров, поворот и масштаб.
 - **SVG** — в PNG, JPEG, WebP отдельным пакетом `GLAZOV.M.CONVERTER.Svg`; внешние ссылки внутри SVG не загружаются.
 - **Свои форматы** — расширениями, подключаемыми настройкой.
 
-Видео в звук и документы в PDF — следующие версии, вызовы будут теми же.
+Документы в PDF — следующая версия, вызовы будут теми же.
 
 ## Быстрый старт
 
@@ -45,6 +47,24 @@ await converter.ConvertAsync(
     });
 ```
 
+Видео: в звук, из контейнера в контейнер (без перекодирования, если кодеки подходят), с параметрами:
+
+```csharp
+await converter.ConvertAsync(Source.File("лекция.mp4"), Target.File("лекция.mp3", FileFormat.Mp3));
+
+ConversionResult video = await converter.ConvertAsync(Source.File("ролик.mkv"), Target.File("ролик.mp4", FileFormat.Mp4));
+Console.WriteLine(video.Reencoded ? "перекодировано" : "перенесено без перекодирования");
+
+await converter.ConvertAsync(
+    Source.File("ролик.mp4"), Target.File("ролик.webm", FileFormat.Webm),
+    new ConversionOptions
+    {
+        Video = new VideoOptions { Quality = 70, Width = 1280, FrameRate = 30 },
+        Audio = new AudioOptions { Bitrate = 96_000 },
+        Operations = { Operation.RotateRight, Operation.ScalePercent(50) },
+    });
+```
+
 SVG — расширением из пакета `GLAZOV.M.CONVERTER.Svg`:
 
 ```csharp
@@ -70,13 +90,14 @@ FileFormat type = await FileTypeDetector.DetectAsync(Source.File("загадка
 bool ok = converter.Capabilities.CanConvert(FileFormat.Ogg, FileFormat.Mp3);
 ```
 
-Подробнее — настройки, параметры звука и изображений, SVG, свои расширения, ошибки и их причины — в руководстве
+Подробнее — настройки, параметры звука, изображений и видео, SVG, свои расширения, ошибки и их причины — в руководстве
 (`GUIDE.md` документации проекта).
 
 ## Требования
 
 - .NET 10.
-- Для звука и изображений — программа **FFmpeg**, установленная отдельно (библиотека её не содержит):
+- Для звука, изображений и видео — программа **FFmpeg**, установленная отдельно (библиотека её не содержит); для видео нужен и
+  **ffprobe**, он ставится вместе с FFmpeg:
   - Windows: `winget install Gyan.FFmpeg`
   - Linux: `sudo apt install ffmpeg` (или пакет `ffmpeg` вашего дистрибутива)
   - macOS: `brew install ffmpeg`

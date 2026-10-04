@@ -5,7 +5,7 @@ using GLAZOV.M.CONVERTER.Settings;
 namespace GLAZOV.M.CONVERTER.Engines;
 
 /// <summary>
-/// Готовые возможности библиотеки — звук и изображения через FFmpeg — как расширение: подключаются тем же путём, что и чужие.
+/// Готовые возможности библиотеки — звук, изображения и видео через FFmpeg — как расширение: подключаются тем же путём, что и чужие.
 /// </summary>
 /// <param name="detectionWindow">Окно определения формата в байтах — настройка <c>ConverterSettings.DetectionWindow</c>.</param>
 internal sealed class BuiltInExtension(int detectionWindow = ConverterSettings.DefaultDetectionWindow) : IConverterExtension
@@ -17,5 +17,5 @@ internal sealed class BuiltInExtension(int detectionWindow = ConverterSettings.D
     public IReadOnlyList<IFormatDetector> Detectors { get; } = [new SignatureDetector(detectionWindow)];
 
     /// <inheritdoc />
-    public IReadOnlyList<IConversionEngine> Engines { get; } = [new FfmpegAudioEngine(), new FfmpegImageEngine()];
+    public IReadOnlyList<IConversionEngine> Engines { get; } = [new FfmpegAudioEngine(), new FfmpegImageEngine(), new FfmpegVideoEngine()];
 }

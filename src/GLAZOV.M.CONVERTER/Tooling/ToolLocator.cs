@@ -41,10 +41,23 @@ internal sealed class ToolLocator
                 : new ToolStatus(name, false, null, $"Путь из настроек (ToolPaths) не существует: {configured}. Исправьте путь или уберите запись, тогда поиск пойдёт по PATH.");
         }
 
-        string? found = FindInPath(name) ?? FindInUsualFolders(name) ?? FindInPackages(name);
+        string? found = FindInPath(name) ?? FindInUsualFolders(name) ?? FindInPackages(name) ?? FindBesideFfmpeg(name);
         return found is not null
             ? new ToolStatus(name, true, found, string.Empty)
             : new ToolStatus(name, false, null, InstallHint(name));
+    }
+
+    // ffprobe ships in the folder of ffmpeg, whichever way ffmpeg was found (settings, PATH, package folder).
+    private string? FindBesideFfmpeg(string name)
+    {
+        if (!string.Equals(name, "ffprobe", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        ToolStatus ffmpeg = Locate("ffmpeg");
+        string? folder = ffmpeg.Found ? Path.GetDirectoryName(ffmpeg.Path) : null;
+        return folder is null ? null : Candidate(folder, name);
     }
 
     private string? FindInPath(string name)

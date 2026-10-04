@@ -38,7 +38,7 @@ public class PublicSurfaceTests
         ["OperationKind"] = ["RotateRight", "ScalePercent"],
         ["Source"] = ["File", "Folder", "Stream"],
         ["Target"] = ["File", "Folder", "Memory", "Stream"],
-        ["VideoOptions"] = ["Bitrate", "FrameRate", "Height", "Quality", "Reencode", "Width"],
+        ["VideoOptions"] = ["Bitrate", "ConvertPixelFormat", "FrameRate", "Height", "Quality", "Reencode", "Width"],
         ["ToolStatus"] = ["Found", "InstallHint", "Name", "Path"],
     };
 

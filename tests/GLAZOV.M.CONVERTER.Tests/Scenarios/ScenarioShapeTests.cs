@@ -177,6 +177,7 @@ public class ScenarioShapeTests
         Assert.Null(video.Height);
         Assert.Null(video.FrameRate);
         Assert.False(video.Reencode);
+        Assert.False(video.ConvertPixelFormat);
         Assert.Null(new ConversionOptions().Video);
 
         video.Quality = 1;

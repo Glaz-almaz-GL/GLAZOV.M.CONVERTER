@@ -22,7 +22,7 @@ internal sealed class EngineRegistry
     internal IReadOnlyList<IConversionEngine> Engines => _engines;
 
     /// <summary>
-    /// Реестр по умолчанию: звук и изображения через FFmpeg.
+    /// Реестр по умолчанию: звук, изображения и видео через FFmpeg.
     /// </summary>
     internal static EngineRegistry CreateDefault()
     {

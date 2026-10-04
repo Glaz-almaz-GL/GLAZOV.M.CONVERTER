@@ -16,7 +16,7 @@ namespace GLAZOV.M.CONVERTER.Tests.Engines;
 /// stream and path input agree, no sound is an understandable failure, progress grows, cancellation leaves nothing behind.
 /// </summary>
 [Collection("FFmpeg")]
-public sealed class FfmpegVideoToAudioTests : IClassFixture<VideoToAudioFixture>, IDisposable
+public sealed class FfmpegVideoToAudioTests : IClassFixture<VideoSourcesFixture>, IDisposable
 {
     private static readonly (string Name, FileFormat Format, string Codec)[] Targets =
     [
@@ -27,11 +27,11 @@ public sealed class FfmpegVideoToAudioTests : IClassFixture<VideoToAudioFixture>
         ("m4a", FileFormat.M4a, "aac"),
     ];
 
-    private readonly VideoToAudioFixture _fixture;
+    private readonly VideoSourcesFixture _fixture;
     private readonly string _temp = Path.Combine(Path.GetTempPath(), "convtests-" + Guid.NewGuid().ToString("N"));
     private readonly FfmpegAudioEngine _engine = new();
 
-    public FfmpegVideoToAudioTests(VideoToAudioFixture fixture)
+    public FfmpegVideoToAudioTests(VideoSourcesFixture fixture)
     {
         _fixture = fixture;
         Directory.CreateDirectory(_temp);

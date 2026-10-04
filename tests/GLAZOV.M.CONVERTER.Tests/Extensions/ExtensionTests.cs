@@ -88,7 +88,7 @@ public sealed class ExtensionTests : IDisposable
     {
         ConverterCapabilities caps = With(new DemoExtension()).Capabilities;
 
-        Assert.Equal(107, caps.All.Count);
+        Assert.Equal(132, caps.All.Count);
         Conversion own = Assert.Single(caps.All, c => c.From.Equals(DemoExtension.Demo));
         Assert.Same(FileFormat.Wav, own.To);
         Assert.Equal(ConversionAvailability.Ready, own.Availability);
@@ -270,7 +270,7 @@ public sealed class ExtensionTests : IDisposable
 
         settings.Extensions.Add(new DemoExtension());
 
-        Assert.Equal(106, converter.Capabilities.All.Count);
+        Assert.Equal(131, converter.Capabilities.All.Count);
     }
 
     [Fact]
