@@ -17,6 +17,35 @@ public class FileFormatTests
     }
 
     [Fact]
+    public void DocumentFormats_CarryNameMimeAndExtension()
+    {
+        Assert.Equal(("PDF", "application/pdf", "pdf"), (FileFormat.Pdf.Name, FileFormat.Pdf.MimeType, FileFormat.Pdf.Extension));
+        Assert.Equal(("DOCX", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "docx"), (FileFormat.Docx.Name, FileFormat.Docx.MimeType, FileFormat.Docx.Extension));
+        Assert.Equal(("DOC", "application/msword", "doc"), (FileFormat.Doc.Name, FileFormat.Doc.MimeType, FileFormat.Doc.Extension));
+        Assert.Equal(("ODT", "application/vnd.oasis.opendocument.text", "odt"), (FileFormat.Odt.Name, FileFormat.Odt.MimeType, FileFormat.Odt.Extension));
+        Assert.Equal(("RTF", "application/rtf", "rtf"), (FileFormat.Rtf.Name, FileFormat.Rtf.MimeType, FileFormat.Rtf.Extension));
+        Assert.Equal(("XLSX", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "xlsx"), (FileFormat.Xlsx.Name, FileFormat.Xlsx.MimeType, FileFormat.Xlsx.Extension));
+        Assert.Equal(("XLS", "application/vnd.ms-excel", "xls"), (FileFormat.Xls.Name, FileFormat.Xls.MimeType, FileFormat.Xls.Extension));
+        Assert.Equal(("ODS", "application/vnd.oasis.opendocument.spreadsheet", "ods"), (FileFormat.Ods.Name, FileFormat.Ods.MimeType, FileFormat.Ods.Extension));
+        Assert.Equal(("PPTX", "application/vnd.openxmlformats-officedocument.presentationml.presentation", "pptx"), (FileFormat.Pptx.Name, FileFormat.Pptx.MimeType, FileFormat.Pptx.Extension));
+        Assert.Equal(("PPT", "application/vnd.ms-powerpoint", "ppt"), (FileFormat.Ppt.Name, FileFormat.Ppt.MimeType, FileFormat.Ppt.Extension));
+        Assert.Equal(("ODP", "application/vnd.oasis.opendocument.presentation", "odp"), (FileFormat.Odp.Name, FileFormat.Odp.MimeType, FileFormat.Odp.Extension));
+        Assert.Equal(("HTML", "text/html", "html"), (FileFormat.Html.Name, FileFormat.Html.MimeType, FileFormat.Html.Extension));
+        Assert.Equal(("Text", "text/plain", "txt"), (FileFormat.Text.Name, FileFormat.Text.MimeType, FileFormat.Text.Extension));
+    }
+
+    [Fact]
+    public void DocumentFormats_AreDistinctFromEachOtherAndFromTheOlderOnes()
+    {
+        FileFormat[] documents = [FileFormat.Pdf, FileFormat.Docx, FileFormat.Doc, FileFormat.Odt, FileFormat.Rtf, FileFormat.Xlsx, FileFormat.Xls,
+            FileFormat.Ods, FileFormat.Pptx, FileFormat.Ppt, FileFormat.Odp, FileFormat.Html, FileFormat.Text];
+
+        Assert.Equal(documents.Length, documents.Distinct().Count());
+        Assert.DoesNotContain(FileFormat.Unknown, documents);
+        Assert.All(documents, d => Assert.NotEqual(FileFormat.Svg, d));
+    }
+
+    [Fact]
     public void Unknown_IsTheDetectionResultForUnrecognizedData_AndCannotBeATarget()
     {
         Assert.Equal("Unknown", FileFormat.Unknown.Name);

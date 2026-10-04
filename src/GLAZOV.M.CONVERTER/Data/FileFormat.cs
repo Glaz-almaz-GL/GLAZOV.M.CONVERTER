@@ -115,6 +115,71 @@ public sealed class FileFormat : IEquatable<FileFormat>
     public static FileFormat Avi { get; } = new("AVI", "video/x-msvideo", "avi");
 
     /// <summary>
+    /// PDF: the result of documents and pictures.
+    /// </summary>
+    public static FileFormat Pdf { get; } = new("PDF", "application/pdf", "pdf");
+
+    /// <summary>
+    /// Word document, Office Open XML.
+    /// </summary>
+    public static FileFormat Docx { get; } = new("DOCX", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "docx");
+
+    /// <summary>
+    /// Word document, Office 97-2003.
+    /// </summary>
+    public static FileFormat Doc { get; } = new("DOC", "application/msword", "doc");
+
+    /// <summary>
+    /// OpenDocument text.
+    /// </summary>
+    public static FileFormat Odt { get; } = new("ODT", "application/vnd.oasis.opendocument.text", "odt");
+
+    /// <summary>
+    /// Rich Text Format.
+    /// </summary>
+    public static FileFormat Rtf { get; } = new("RTF", "application/rtf", "rtf");
+
+    /// <summary>
+    /// Excel workbook, Office Open XML.
+    /// </summary>
+    public static FileFormat Xlsx { get; } = new("XLSX", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "xlsx");
+
+    /// <summary>
+    /// Excel workbook, Office 97-2003.
+    /// </summary>
+    public static FileFormat Xls { get; } = new("XLS", "application/vnd.ms-excel", "xls");
+
+    /// <summary>
+    /// OpenDocument spreadsheet.
+    /// </summary>
+    public static FileFormat Ods { get; } = new("ODS", "application/vnd.oasis.opendocument.spreadsheet", "ods");
+
+    /// <summary>
+    /// PowerPoint presentation, Office Open XML.
+    /// </summary>
+    public static FileFormat Pptx { get; } = new("PPTX", "application/vnd.openxmlformats-officedocument.presentationml.presentation", "pptx");
+
+    /// <summary>
+    /// PowerPoint presentation, Office 97-2003.
+    /// </summary>
+    public static FileFormat Ppt { get; } = new("PPT", "application/vnd.ms-powerpoint", "ppt");
+
+    /// <summary>
+    /// OpenDocument presentation.
+    /// </summary>
+    public static FileFormat Odp { get; } = new("ODP", "application/vnd.oasis.opendocument.presentation", "odp");
+
+    /// <summary>
+    /// HTML page.
+    /// </summary>
+    public static FileFormat Html { get; } = new("HTML", "text/html", "html");
+
+    /// <summary>
+    /// Plain text. Confirmed by the content (valid text without control bytes); a name ending in .md only hints that it is laid out as Markdown and never proves the type.
+    /// </summary>
+    public static FileFormat Text { get; } = new("Text", "text/plain", "txt");
+
+    /// <summary>
     /// Тип не распознан: результат определения типа по начальным байтам. Целью конвертации быть не может.
     /// </summary>
     public static FileFormat Unknown { get; } = new("Unknown", "application/octet-stream", string.Empty);

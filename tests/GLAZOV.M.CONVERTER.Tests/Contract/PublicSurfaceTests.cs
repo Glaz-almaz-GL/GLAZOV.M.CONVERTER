@@ -33,7 +33,7 @@ public class PublicSurfaceTests
         ["ConverterCapabilities"] = ["All", "CanConvert", "Tool"],
         ["ConverterSettings"] = ["DetectionWindow", "Extensions", "MaxParallelTasks", "OverwriteExisting", "TempFolder", "ToolPaths"],
         ["FileTypeDetector"] = ["DetectAsync"],
-        ["FileFormat"] = ["Avi", "Bmp", "Create", "Dds", "Extension", "Flac", "Gif", "Jpeg", "M4a", "MimeType", "Mkv", "Mov", "Mp3", "Mp4", "Name", "Ogg", "Png", "Psd", "Svg", "Tga", "Tiff", "Unknown", "Wav", "Webm", "Webp"],
+        ["FileFormat"] = ["Avi", "Bmp", "Create", "Dds", "Doc", "Docx", "Extension", "Flac", "Gif", "Html", "Jpeg", "M4a", "MimeType", "Mkv", "Mov", "Mp3", "Mp4", "Name", "Odp", "Ods", "Odt", "Ogg", "Pdf", "Png", "Ppt", "Pptx", "Psd", "Rtf", "Svg", "Text", "Tga", "Tiff", "Unknown", "Wav", "Webm", "Webp", "Xls", "Xlsx"],
         ["Operation"] = ["Kind", "Percent", "RotateRight", "ScalePercent"],
         ["OperationKind"] = ["RotateRight", "ScalePercent"],
         ["Source"] = ["File", "Folder", "Stream"],
