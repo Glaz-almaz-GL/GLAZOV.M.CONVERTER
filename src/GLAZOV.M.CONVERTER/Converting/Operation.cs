@@ -1,24 +1,32 @@
 namespace GLAZOV.M.CONVERTER.Converting;
 
 /// <summary>
-/// Действие над изображением, выполняемое в том же вызове конвертации (следующие версии).
+/// Действие над изображением, выполняемое в том же вызове конвертации.
+/// Действия выполняются по порядку их добавления в <see cref="ConversionOptions.Operations"/>.
 /// </summary>
 public sealed class Operation
 {
-    private Operation(string name, int? percent)
+    private Operation(OperationKind kind, int? percent)
     {
-        Name = name;
+        Kind = kind;
         Percent = percent;
     }
 
-    internal string Name { get; }
+    /// <summary>
+    /// Вид действия.
+    /// </summary>
+    public OperationKind Kind { get; }
 
-    internal int? Percent { get; }
+    /// <summary>
+    /// Процент для <see cref="OperationKind.ScalePercent"/>, больше нуля;
+    /// для остальных видов — <c>null</c>.
+    /// </summary>
+    public int? Percent { get; }
 
     /// <summary>
     /// Повернуть вправо на 90 градусов.
     /// </summary>
-    public static Operation RotateRight { get; } = new("RotateRight", null);
+    public static Operation RotateRight { get; } = new(OperationKind.RotateRight, null);
 
     /// <summary>
     /// Изменить размер до заданного процента исходного.
@@ -27,6 +35,6 @@ public sealed class Operation
     public static Operation ScalePercent(int percent)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(percent);
-        return new Operation("ScalePercent", percent);
+        return new Operation(OperationKind.ScalePercent, percent);
     }
 }

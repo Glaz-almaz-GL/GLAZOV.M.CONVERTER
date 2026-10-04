@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>GLAZOV.M.CONVERTER.Svg</RootNamespace>
+    <Description>Расширение GLAZOV.M.CONVERTER: SVG в PNG, JPEG и WebP с поворотом и масштабом перерисовкой. Растеризация в процессе (SkiaSharp, Svg.Skia) на Windows, Linux и macOS; внешние ссылки внутри SVG не загружаются.</Description>
+    <Version>0.1.0</Version>
+    <Authors>Glaz-almaz-GL</Authors>
+    <Copyright>Copyright 2026 Glaz-almaz-GL</Copyright>
+    <PackageTags>convert;converter;svg;png;jpeg;webp;rasterize;skia</PackageTags>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RepositoryUrl>https://github.com/Glaz-almaz-GL/GLAZOV.M.CONVERTER</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageProjectUrl>https://github.com/Glaz-almaz-GL/GLAZOV.M.CONVERTER</PackageProjectUrl>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="" />
+    <None Include="..\..\NOTICE" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="GLAZOV.M.CONVERTER.Svg.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\GLAZOV.M.CONVERTER\GLAZOV.M.CONVERTER.csproj" />
+  </ItemGroup>
+
+  <!-- Лицензии зависимостей проверены (решение о проекте SVG в DECISIONS): все MIT, кроме Svg.Custom (MS-PL), который приходит с Svg.Skia.
+       Нативные файлы Skia для Windows и macOS приходят с SkiaSharp; для Linux подключаются явно. -->
+  <ItemGroup>
+    <PackageReference Include="SkiaSharp" Version="4.153.1" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="4.153.1" />
+    <PackageReference Include="Svg.Skia" Version="5.2.3" />
+  </ItemGroup>
+
+</Project>

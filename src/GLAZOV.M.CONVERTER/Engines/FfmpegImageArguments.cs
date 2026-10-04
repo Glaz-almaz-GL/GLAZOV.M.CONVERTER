@@ -101,18 +101,18 @@ internal static class FfmpegImageArguments
         List<string> filters = [];
         foreach (Operation operation in operations ?? [])
         {
-            if (operation.Name == Operation.RotateRight.Name)
+            if (operation.Kind == OperationKind.RotateRight)
             {
                 filters.Add("transpose=1");
             }
-            else if (operation.Name == "ScalePercent" && operation.Percent is int percent)
+            else if (operation.Kind == OperationKind.ScalePercent && operation.Percent is int percent)
             {
                 string p = percent.ToString(CultureInfo.InvariantCulture);
                 filters.Add($"scale=w='max(1,trunc(iw*{p}/100))':h='max(1,trunc(ih*{p}/100))'");
             }
             else
             {
-                throw new ArgumentException($"Действие «{operation.Name}» движок изображений не умеет.", nameof(operations));
+                throw new ArgumentException($"Действие «{operation.Kind}» движок изображений не умеет.", nameof(operations));
             }
         }
 

@@ -6,3 +6,11 @@ Copyright 2026 Glaz-almaz-GL
 Библиотека не содержит и не распространяет внешних программ. Для звука она запускает программу FFmpeg
 (https://ffmpeg.org), установленную отдельно на машине пользователя; FFmpeg — самостоятельный продукт
 со своей лицензией (LGPL или GPL в зависимости от сборки), и в этот пакет не входит.
+
+Пакет-расширение GLAZOV.M.CONVERTER.Svg подключает сторонние пакеты NuGet, которые устанавливаются
+вместе с ним и распространяются по своим лицензиям:
+- SkiaSharp, HarfBuzzSharp и их нативные файлы (Microsoft, MIT) — https://github.com/mono/SkiaSharp
+- Svg.Skia, Svg.Model, Svg.SceneGraph, Svg.Animation, ShimSkiaSharp (Wiesław Šoltés, MIT) — https://github.com/wieslawsoltes/Svg.Skia
+- Svg.Custom — сборка библиотеки SVG.NET (Microsoft Public License, MS-PL) — https://github.com/svg-net/SVG
+- ExCSS (MIT) — https://github.com/TylerBrinks/ExCSS
+Основной пакет GLAZOV.M.CONVERTER этих зависимостей не имеет.

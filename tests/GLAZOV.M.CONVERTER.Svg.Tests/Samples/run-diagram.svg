@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Диаграмма в духе draw.io и Graphviz: блоки, стрелки с маркерами, подписи, пунктир, стили CSS. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="300" viewBox="0 0 640 300" font-family="Arial, Helvetica, sans-serif">
+  <style>
+    .box { fill: #dae8fc; stroke: #6c8ebf; stroke-width: 2; }
+    .done { fill: #d5e8d4; stroke: #82b366; }
+    .label { font-size: 16px; fill: #1a1a1a; text-anchor: middle; }
+    .edge { stroke: #333333; stroke-width: 2; fill: none; marker-end: url(#arrow); }
+    .optional { stroke-dasharray: 6 4; }
+  </style>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#333333"/>
+    </marker>
+  </defs>
+  <rect width="640" height="300" fill="#ffffff"/>
+  <g id="nodes">
+    <rect class="box" x="20" y="40" width="160" height="60" rx="10"/>
+    <text class="label" x="100" y="76">Файл или поток</text>
+    <rect class="box" x="240" y="40" width="160" height="60" rx="10"/>
+    <text class="label" x="320" y="76">Определение типа</text>
+    <rect class="box done" x="460" y="40" width="160" height="60" rx="10"/>
+    <text class="label" x="540" y="76">Движок</text>
+    <rect class="box" x="240" y="200" width="160" height="60" rx="10"/>
+    <text class="label" x="320" y="236">Отчёт</text>
+  </g>
+  <g id="edges">
+    <path class="edge" d="M180,70 H236"/>
+    <path class="edge" d="M400,70 H456"/>
+    <path class="edge optional" d="M540,100 V230 H404"/>
+    <text x="560" y="170" font-size="13" fill="#666666">ошибка</text>
+  </g>
+</svg>
