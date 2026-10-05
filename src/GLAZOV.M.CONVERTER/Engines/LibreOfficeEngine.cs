@@ -48,7 +48,7 @@ internal sealed class LibreOfficeEngine : IConversionEngine
             string input = await PlaceInputAsync(request, work, cancellationToken).ConfigureAwait(false);
             request.ReportProgress(0);
 
-            ToolInvocation invocation = new(request.Tool!.Path!, LibreOfficeArguments.ToPdf(input, output, profile));
+            ToolInvocation invocation = Invocation(request.Tool!.Path!, input, output, profile);
             ToolResult result = await ToolRunner.RunAsync(invocation, cancellationToken).ConfigureAwait(false);
 
             string pdf = Path.Combine(output, Path.GetFileNameWithoutExtension(input) + ".pdf");
@@ -81,6 +81,15 @@ internal sealed class LibreOfficeEngine : IConversionEngine
         await using FileStream copy = new(path, FileMode.CreateNew, FileAccess.Write, FileShare.None, 4096, FileOptions.Asynchronous | FileOptions.SequentialScan);
         await request.Input.CopyToAsync(copy, cancellationToken).ConfigureAwait(false);
         return path;
+    }
+
+    /// <summary>
+    /// What to start. The program prints a progress line to its standard output; the output is taken and dropped,
+    /// otherwise those lines would land in the console of the application that uses the library.
+    /// </summary>
+    internal static ToolInvocation Invocation(string program, string input, string outputFolder, string profileFolder)
+    {
+        return new ToolInvocation(program, LibreOfficeArguments.ToPdf(input, outputFolder, profileFolder), OnOutputLine: _ => { });
     }
 
     private static string ExtensionFor(ConversionRequest request)

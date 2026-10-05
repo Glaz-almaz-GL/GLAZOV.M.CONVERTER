@@ -53,4 +53,14 @@ public sealed class LibreOfficeArgumentsTests
         Assert.Throws<ArgumentException>(() => LibreOfficeArguments.ToPdf("i", "", "p"));
         Assert.Throws<ArgumentException>(() => LibreOfficeArguments.ToPdf("i", "o", " "));
     }
+
+    [Fact]
+    public void Invocation_TakesTheStandardOutput_SoNothingReachesTheConsoleOfTheHost()
+    {
+        GLAZOV.M.CONVERTER.Tooling.ToolInvocation invocation = LibreOfficeEngine.Invocation("soffice", "a.docx", "out", "profile");
+
+        Assert.NotNull(invocation.OnOutputLine);
+        Assert.Null(invocation.StandardOutput);
+        invocation.OnOutputLine("convert a.docx -> out/a.pdf");
+    }
 }

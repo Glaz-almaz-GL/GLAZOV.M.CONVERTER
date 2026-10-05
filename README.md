@@ -9,10 +9,10 @@
 - **Видео** — MP4, MKV, WebM, MOV, AVI между собой и в звук; дорожки переносятся без перекодирования, если можно;
   качество, битрейт, размер кадра, частота кадров, поворот и масштаб.
 - **SVG** — в PNG, JPEG, WebP отдельным пакетом `GLAZOV.M.CONVERTER.Svg`; внешние ссылки внутри SVG не загружаются.
+- **Документы в PDF** — DOCX, DOC, ODT, RTF, XLSX, XLS, ODS, PPTX, PPT, ODP, HTML, текст и Markdown через LibreOffice
+  (устанавливается отдельно); макросы выключены, внешние ссылки документа не загружаются.
 - **Картинки в PDF** — PNG, JPEG, WebP, BMP, GIF в PDF одной страницей размером с картинку отдельным пакетом `GLAZOV.M.CONVERTER.Pdf`.
 - **Свои форматы** — расширениями, подключаемыми настройкой.
-
-Документы (Word, таблицы, презентации, текст) в PDF — следующая версия, вызовы будут теми же.
 
 ## Быстрый старт
 
@@ -34,6 +34,14 @@ await converter.ConvertAsync(Source.Stream(входнойПоток), Target.Str
 ConversionResult inMemory = await converter.ConvertAsync(Source.File("песня.ogg"), Target.Memory(FileFormat.Mp3));
 byte[] bytes = inMemory.Bytes!;
 ```
+
+Документ в PDF (нужен LibreOffice) и картинка в PDF (пакет `GLAZOV.M.CONVERTER.Pdf`, `Extensions = { new PdfExtension() }`):
+
+```csharp
+await converter.ConvertAsync(Source.File("отчёт.docx"), Target.File("отчёт.pdf", FileFormat.Pdf));
+```
+
+Файл `.md` оформляется как Markdown, любое другое имя и поток без имени — простой текст.
 
 Изображение с поворотом, масштабом и качеством:
 
@@ -91,7 +99,8 @@ FileFormat type = await FileTypeDetector.DetectAsync(Source.File("загадка
 bool ok = converter.Capabilities.CanConvert(FileFormat.Ogg, FileFormat.Mp3);
 ```
 
-Подробнее — настройки, параметры звука, изображений и видео, SVG, свои расширения, ошибки и их причины — в руководстве
+Подробнее — настройки, параметры звука, изображений и видео, SVG, документы в PDF (текст и Markdown, безопасность, скорость),
+картинки в PDF, свои расширения, ошибки и их причины — в руководстве
 (`GUIDE.md` документации проекта).
 
 ## Требования
@@ -105,9 +114,18 @@ bool ok = converter.Capabilities.CanConvert(FileFormat.Ogg, FileFormat.Mp3);
 
   Библиотека сама ищет FFmpeg (путь из настроек `ToolPaths`, затем `PATH`, затем привычные места) и, если не нашла,
   говорит, что установить (`converter.Capabilities.Tool("ffmpeg").InstallHint`).
+- Для документов в PDF — программа **LibreOffice**, установленная отдельно (библиотека её не содержит):
+  - Windows: `winget install TheDocumentFoundation.LibreOffice`
+  - Linux: `sudo apt install libreoffice-core libreoffice-writer libreoffice-calc libreoffice-impress` (или пакет вашего дистрибутива)
+  - macOS: `brew install --cask libreoffice`
+
+  Поиск тот же: `ToolPaths["soffice"]`, затем `PATH`, привычные места, папка пакетов WinGet;
+  подсказка — `converter.Capabilities.Tool("soffice").InstallHint`.
+- Для картинок в PDF LibreOffice не нужен: пакет `GLAZOV.M.CONVERTER.Pdf` (подключается ссылкой, `Extensions = { new PdfExtension() }`)
+  рисует сам на SkiaSharp, нативные файлы для Windows, Linux и macOS приходят с ним.
 - Для SVG FFmpeg не нужен: пакет `GLAZOV.M.CONVERTER.Svg` рисует сам (SkiaSharp и Svg.Skia, нативные файлы
   для Windows, Linux и macOS приходят с ним).
 
 ## Лицензия
 
-Apache License 2.0 — файл `LICENSE`; сведения об авторстве, о FFmpeg и о зависимостях пакета SVG — `NOTICE`.
+Apache License 2.0 — файл `LICENSE`; сведения об авторстве, о FFmpeg, LibreOffice и о зависимостях пакетов SVG и PDF — `NOTICE`.
