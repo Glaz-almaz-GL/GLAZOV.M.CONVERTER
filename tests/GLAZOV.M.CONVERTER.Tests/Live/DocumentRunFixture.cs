@@ -90,6 +90,18 @@ public sealed class DocumentRunFixture : IAsyncLifetime
 
     public Task DisposeAsync()
     {
+        // The sources go to the folder of the owner's run too, so a result can be set beside the file it came from.
+        string? keep = Environment.GetEnvironmentVariable("CONVERTER_RUN_KEEP");
+        if (!string.IsNullOrWhiteSpace(keep))
+        {
+            string folder = Path.Combine(keep, "documents", "исходники");
+            Directory.CreateDirectory(folder);
+            foreach ((_, string path, _) in Inputs)
+            {
+                File.Copy(path, Path.Combine(folder, Path.GetFileName(path)), overwrite: true);
+            }
+        }
+
         Directory.Delete(Folder, recursive: true);
         return Task.CompletedTask;
     }
