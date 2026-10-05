@@ -69,7 +69,7 @@ internal sealed class ToolLocator
 
         foreach (string folder in _environment.PathVariable.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
-            string? candidate = Candidate(folder, name);
+            string? candidate = CandidateByAnyName(folder, name);
             if (candidate is not null)
             {
                 return candidate;
@@ -83,7 +83,7 @@ internal sealed class ToolLocator
     {
         foreach (string folder in _environment.UsualFolders)
         {
-            string? candidate = Candidate(folder, name);
+            string? candidate = CandidateByAnyName(folder, name);
             if (candidate is not null)
             {
                 return candidate;
@@ -107,7 +107,7 @@ internal sealed class ToolLocator
         {
             foreach (string package in Directory.EnumerateDirectories(root).Order(StringComparer.Ordinal))
             {
-                if (!Path.GetFileName(package).Contains(name, StringComparison.OrdinalIgnoreCase))
+                if (!Path.GetFileName(package).Contains(PackageWord(name), StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
                 }
@@ -126,6 +126,18 @@ internal sealed class ToolLocator
         }
 
         return null;
+    }
+
+    // The program under its own name first, then under the other names it goes by on this system.
+    private string? CandidateByAnyName(string folder, string name)
+    {
+        string? found = Candidate(folder, name);
+        if (found is not null || _environment.Aliases is null || !_environment.Aliases.TryGetValue(name, out string[]? aliases))
+        {
+            return found;
+        }
+
+        return aliases.Select(alias => Candidate(folder, alias)).FirstOrDefault(path => path is not null);
     }
 
     private static string? Candidate(string folder, string name)
@@ -158,8 +170,19 @@ internal sealed class ToolLocator
         return (File.GetUnixFileMode(path) & anyExecute) != 0;
     }
 
+    // A package folder carries the name of the suite, not of the program (TheDocumentFoundation.LibreOffice holds soffice).
+    private static string PackageWord(string name)
+    {
+        return string.Equals(name, "soffice", StringComparison.OrdinalIgnoreCase) ? "LibreOffice" : name;
+    }
+
     private static string InstallHint(string name)
     {
+        if (string.Equals(name, "soffice", StringComparison.OrdinalIgnoreCase))
+        {
+            return LibreOfficeHint();
+        }
+
         if (!string.Equals(name, "ffmpeg", StringComparison.OrdinalIgnoreCase))
         {
             return $"Установите программу «{name}» и добавьте её в PATH или укажите путь в настройках (ToolPaths).";
@@ -173,5 +196,17 @@ internal sealed class ToolLocator
         return OperatingSystem.IsMacOS()
             ? "Установите: brew install ffmpeg либо укажите путь в настройках (ToolPaths)."
             : "Установите: sudo apt install ffmpeg (или пакет ffmpeg вашего дистрибутива) либо укажите путь в настройках (ToolPaths).";
+    }
+
+    private static string LibreOfficeHint()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return "Установите: winget install TheDocumentFoundation.LibreOffice либо укажите путь к soffice.exe в настройках (ToolPaths).";
+        }
+
+        return OperatingSystem.IsMacOS()
+            ? "Установите: brew install --cask libreoffice либо укажите путь к soffice в настройках (ToolPaths)."
+            : "Установите: sudo apt install libreoffice-core libreoffice-writer libreoffice-calc libreoffice-impress (или пакет вашего дистрибутива) либо укажите путь к soffice в настройках (ToolPaths).";
     }
 }
