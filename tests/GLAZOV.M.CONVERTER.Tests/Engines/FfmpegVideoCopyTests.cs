@@ -97,7 +97,7 @@ public sealed class FfmpegVideoCopyTests : IClassFixture<VideoSourcesFixture>, I
 
     private static ToolStatus Ffmpeg()
     {
-        return new ToolLocator(ConverterSettingsSnapshot.Create(new ConverterSettings())).Locate("ffmpeg");
+        return new ToolLocator(ConverterSettingsSnapshot.Create(new ConverterSettings())).Locate(FfmpegTools.Ffmpeg);
     }
 
     private async Task<(ConversionRequest Request, string ResultPath)> ConvertAsync(
@@ -111,7 +111,8 @@ public sealed class FfmpegVideoCopyTests : IClassFixture<VideoSourcesFixture>, I
         using MemoryStream output = new();
         FileFormat from = SignatureMatcher.Match(await File.ReadAllBytesAsync(sourcePath));
         ConversionRequest request = new(
-            input, output, from, to, options ?? new ConversionOptions(), tool ?? Ffmpeg(), _temp, sourcePath, null, probe);
+            input, output, from, to, options ?? new ConversionOptions(), tool ?? Ffmpeg(), _temp, sourcePath, null,
+            probe is null ? null : new Dictionary<string, ToolStatus>(StringComparer.OrdinalIgnoreCase) { [probe.Name] = probe });
 
         await _engine.ConvertAsync(request, CancellationToken.None);
 

@@ -41,7 +41,7 @@ public sealed class ConverterCapabilitiesTests : IDisposable
     private static ConverterCapabilities Capabilities(IEnumerable<IConversionEngine> engines, ConverterSettings? settings = null)
     {
         ConverterSettingsSnapshot snapshot = ConverterSettingsSnapshot.Create(settings ?? new ConverterSettings());
-        ToolLocator locator = new(snapshot, new ToolEnvironment(null, [], null));
+        ToolLocator locator = new(snapshot, new ToolEnvironment(null, null));
         return new ConverterCapabilities(new EngineRegistry(engines), locator);
     }
 
@@ -134,7 +134,7 @@ public sealed class ConverterCapabilitiesTests : IDisposable
 
     private sealed class Engine(string toolName, params (FileFormat From, FileFormat To)[] pairs) : IConversionEngine
     {
-        public string ToolName { get; } = toolName;
+        public IReadOnlyList<ToolSpec> Tools { get; } = [new ToolSpec(toolName)];
 
         public bool SupportsOperations => false;
 

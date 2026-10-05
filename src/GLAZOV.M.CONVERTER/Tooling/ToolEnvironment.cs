@@ -1,27 +1,39 @@
+using GLAZOV.M.CONVERTER.Extensions;
+
 namespace GLAZOV.M.CONVERTER.Tooling;
 
 /// <summary>
-/// Где искать внешние программы кроме явно заданного пути: переменная PATH и привычные места системы.
+/// Среда поиска внешних программ: переменная PATH, папка пакетов менеджера установки и система, чьи места поиска берутся из описаний.
 /// Вынесено отдельно, чтобы поиск проверялся на подставных папках, а не только на настоящей системе.
 /// </summary>
 /// <param name="PathVariable">Значение переменной PATH.</param>
-/// <param name="UsualFolders">Привычные папки установки программ на этой системе, по порядку поиска.</param>
 /// <param name="PackageFolder">Папка пакетов менеджера установки (WinGet на Windows), где искать подпапки с именем программы; пусто — нет такой.</param>
-/// <param name="Aliases">Other file names a program goes by on this system, by its name (<c>soffice</c> is <c>libreoffice</c> on Linux); <c>null</c> — none.</param>
-internal sealed record ToolEnvironment(
-    string? PathVariable,
-    IReadOnlyList<string> UsualFolders,
-    string? PackageFolder,
-    IReadOnlyDictionary<string, string[]>? Aliases = null)
+internal sealed record ToolEnvironment(string? PathVariable, string? PackageFolder)
 {
     /// <summary>
-    /// Expands a folder pattern whose last segment may end with <c>*</c> (<c>/opt/libreoffice*</c>) into the existing folders, in name order.
+    /// Система, по которой выбираются места поиска и подсказки установки из описаний программ.
     /// </summary>
-    /// <param name="parent">Folder holding the matches.</param>
-    /// <param name="prefix">Start of the folder name.</param>
-    /// <param name="inside">Subfolder of each match that holds the programs.</param>
-    internal static IEnumerable<string> ExpandFolders(string parent, string prefix, string inside)
+    internal ToolSystem System { get; init; } = CurrentSystem();
+
+    /// <summary>
+    /// Turns a place of a <see cref="ToolSpec"/> into existing-or-not folders: environment variables are expanded and a wildcard in a folder name
+    /// (<c>/opt/libreoffice*/program</c>) is replaced by every existing match, in name order. A missing or unreadable parent gives nothing.
+    /// </summary>
+    /// <param name="place">Folder pattern.</param>
+    internal static IEnumerable<string> ExpandPlace(string place)
     {
+        string expanded = Environment.ExpandEnvironmentVariables(place);
+        int star = expanded.IndexOf('*');
+        if (star < 0)
+        {
+            return [expanded];
+        }
+
+        int before = expanded.LastIndexOfAny([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar], star);
+        int after = expanded.IndexOfAny([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar], star);
+        string parent = before <= 0 ? Path.DirectorySeparatorChar.ToString() : expanded[..before];
+        string pattern = expanded[(before + 1)..(after < 0 ? expanded.Length : after)];
+        string rest = after < 0 ? string.Empty : expanded[after..];
         if (!Directory.Exists(parent))
         {
             return [];
@@ -29,9 +41,9 @@ internal sealed record ToolEnvironment(
 
         try
         {
-            return Directory.EnumerateDirectories(parent, prefix + "*")
+            return Directory.EnumerateDirectories(parent, pattern)
                 .Order(StringComparer.Ordinal)
-                .Select(folder => Path.Combine(folder, inside))
+                .SelectMany(folder => ExpandPlace(folder + rest))
                 .ToList();
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -41,36 +53,24 @@ internal sealed record ToolEnvironment(
     }
 
     /// <summary>
-    /// Окружение настоящей системы: Windows, Linux или macOS.
+    /// Среда настоящей системы: Windows, Linux или macOS.
     /// </summary>
     internal static ToolEnvironment ForThisSystem()
     {
         string? path = Environment.GetEnvironmentVariable("PATH");
+        string? packages = OperatingSystem.IsWindows()
+            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Microsoft", "WinGet", "Packages")
+            : null;
+        return new ToolEnvironment(path, packages);
+    }
 
+    private static ToolSystem CurrentSystem()
+    {
         if (OperatingSystem.IsWindows())
         {
-            string programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
-            string programFilesX86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
-            string local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            string[] folders =
-            [
-                Path.Combine(programFiles, "ffmpeg", "bin"),
-                Path.Combine(programFilesX86, "ffmpeg", "bin"),
-                Path.Combine(local, "Microsoft", "WinGet", "Links"),
-                Path.Combine(local, "Programs", "ffmpeg", "bin"),
-                Path.Combine(programFiles, "LibreOffice", "program"),
-                Path.Combine(programFilesX86, "LibreOffice", "program"),
-                @"C:\ffmpeg\bin",
-            ];
-            return new ToolEnvironment(path, folders, Path.Combine(local, "Microsoft", "WinGet", "Packages"));
+            return ToolSystem.Windows;
         }
 
-        if (OperatingSystem.IsMacOS())
-        {
-            return new ToolEnvironment(path, ["/opt/homebrew/bin", "/usr/local/bin", "/opt/local/bin", "/Applications/LibreOffice.app/Contents/MacOS"], null);
-        }
-
-        string[] linux = ["/usr/bin", "/usr/local/bin", "/snap/bin", "/opt/ffmpeg/bin", .. ExpandFolders("/opt", "libreoffice", "program")];
-        return new ToolEnvironment(path, linux, null, new Dictionary<string, string[]> { ["soffice"] = ["libreoffice"] });
+        return OperatingSystem.IsMacOS() ? ToolSystem.MacOS : ToolSystem.Linux;
     }
 }

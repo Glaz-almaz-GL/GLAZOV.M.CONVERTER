@@ -36,7 +36,7 @@ public sealed class FfmpegVideoOddSizeTests : IDisposable
     [InlineData("avi")]
     public async Task OddSizedSource_ConvertsToEveryContainer_WithoutSizeOptions(string to)
     {
-        ToolStatus tool = new ToolLocator(ConverterSettingsSnapshot.Create(new ConverterSettings())).Locate("ffmpeg");
+        ToolStatus tool = new ToolLocator(ConverterSettingsSnapshot.Create(new ConverterSettings())).Locate(FfmpegTools.Ffmpeg);
         string source = Path.Combine(_temp, "odd.mp4");
         // libx264 cannot write an odd frame, so the source is made by the encoder that can (mpeg4 in mp4 keeps 641x481).
         using (Process make = Process.Start(new ProcessStartInfo(tool.Path!, $"-v error -y -f lavfi -i testsrc=size=641x481:rate=25:duration=1 -c:v mpeg4 \"{source}\"") { CreateNoWindow = true })!)

@@ -50,7 +50,7 @@ public sealed class FfmpegImageEngineTests : IDisposable
 
     private static ToolStatus Ffmpeg()
     {
-        return new ToolLocator(ConverterSettingsSnapshot.Create(new ConverterSettings())).Locate("ffmpeg");
+        return new ToolLocator(ConverterSettingsSnapshot.Create(new ConverterSettings())).Locate(FfmpegTools.Ffmpeg);
     }
 
     private static string Ffprobe()
@@ -126,7 +126,7 @@ public sealed class FfmpegImageEngineTests : IDisposable
         Assert.False(_engine.CanConvert(FileFormat.Tga, FileFormat.Png));
         Assert.False(_engine.CanConvert(FileFormat.Svg, FileFormat.Png));
         Assert.False(_engine.CanConvert(FileFormat.Mp3, FileFormat.Png));
-        Assert.Equal("ffmpeg", _engine.ToolName);
+        Assert.Equal("ffmpeg", Assert.Single(_engine.Tools).Name);
     }
 
     [ExternalTheory]

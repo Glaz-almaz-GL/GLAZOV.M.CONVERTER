@@ -23,7 +23,7 @@ internal sealed class FfmpegImageEngine : IConversionEngine
     ];
 
     /// <inheritdoc />
-    public string ToolName => "ffmpeg";
+    public IReadOnlyList<ToolSpec> Tools { get; } = [FfmpegTools.Ffmpeg];
 
     /// <inheritdoc />
     public bool SupportsOperations => true;
@@ -63,7 +63,7 @@ internal sealed class FfmpegImageEngine : IConversionEngine
             ToolResult result = await ToolRunner.RunAsync(new ToolInvocation(request.Tool!.Path!, args), cancellationToken).ConfigureAwait(false);
             if (result.ExitCode != 0)
             {
-                throw Failures.ToolFailed(ToolName, result.ExitCode, result.ErrorOutput);
+                throw Failures.ToolFailed(request.Tool!.Name, result.ExitCode, result.ErrorOutput);
             }
 
             await using FileStream produced = new(outputPath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.Asynchronous | FileOptions.SequentialScan);

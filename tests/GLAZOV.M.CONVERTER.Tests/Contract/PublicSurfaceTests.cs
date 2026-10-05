@@ -20,8 +20,8 @@ public class PublicSurfaceTests
         ["ConversionException"] = ["Reason", "Stage", "ToolExitCode", "ToolName", "ToolOutput"],
         ["ConversionFailureReason"] = ["EngineFailed", "FileExists", "InputUnreadable", "OutputUnwritable", "ToolFailed", "ToolNotFound", "TypeNotConfirmed", "UnsupportedConversion"],
         ["ConversionPair"] = ["Deconstruct", "From", "To"],
-        ["ConversionRequest"] = ["From", "Input", "InputPath", "Options", "Output", "ReportProgress", "TempFolder", "To", "Tool"],
-        ["IConversionEngine"] = ["ConvertAsync", "Pairs", "SupportsOperations", "ToolName"],
+        ["ConversionRequest"] = ["From", "Input", "InputPath", "Options", "Output", "Reencoded", "ReportProgress", "TempFolder", "To", "Tool", "Tools"],
+        ["IConversionEngine"] = ["ConvertAsync", "Pairs", "SupportsOperations", "Tools"],
         ["IConverterExtension"] = ["Detectors", "Engines", "Formats", "Name"],
         ["IFormatDetector"] = ["ByContent", "Detect", "HeadLength"],
         ["IStreamFormatDetector"] = ["CanInspect", "Detect"],
@@ -41,6 +41,11 @@ public class PublicSurfaceTests
         ["Target"] = ["File", "Folder", "Memory", "Stream"],
         ["VideoOptions"] = ["Bitrate", "ConvertPixelFormat", "FrameRate", "Height", "Quality", "Reencode", "Width"],
         ["ToolStatus"] = ["Found", "InstallHint", "Name", "Path"],
+        ["ToolSpec"] = ["Aliases", "FoundBeside", "InstallHints", "Name", "PackageWord", "Required", "SearchPlaces"],
+        ["ToolSystem"] = ["Linux", "MacOS", "Windows"],
+        ["ToolRunner"] = ["KeptErrorLines", "RunAsync"],
+        ["ToolInvocation"] = ["Arguments", "Deconstruct", "OnErrorLine", "OnOutputLine", "OnStarted", "Path", "StandardInput", "StandardOutput", "WorkingDirectory"],
+        ["ToolResult"] = ["Deconstruct", "ErrorOutput", "ExitCode"],
     };
 
     [Fact]
@@ -64,6 +69,7 @@ public class PublicSurfaceTests
             .Select(m => m.Name)
             .Where(n => !(type.IsEnum && n == "value__"))
             .Where(n => n is not ("ToString" or "Equals" or "GetHashCode"))
+            .Where(n => !n.StartsWith('<'))
             .Distinct()
             .Order()];
 

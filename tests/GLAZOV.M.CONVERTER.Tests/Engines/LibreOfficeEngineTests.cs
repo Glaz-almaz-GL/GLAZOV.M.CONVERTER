@@ -60,7 +60,7 @@ public sealed partial class LibreOfficeEngineTests : IDisposable
     {
         LibreOfficeEngine engine = new();
 
-        Assert.Equal("soffice", engine.ToolName);
+        Assert.Equal("soffice", Assert.Single(engine.Tools).Name);
         Assert.False(engine.SupportsOperations);
         Assert.Equal(12, engine.Pairs.Count);
         Assert.All(engine.Pairs, pair => Assert.Equal(FileFormat.Pdf, pair.To));

@@ -57,15 +57,14 @@ internal sealed class SingleConversion
         FileFormat from = await ConfirmTypeAsync(input, cancellationToken).ConfigureAwait(false);
         ConversionOptions callOptions = options ?? new ConversionOptions();
         IConversionEngine engine = ChooseEngine(from, target.FileFormat, callOptions);
-        ToolStatus? tool = LocateTool(engine);
-        ToolStatus? probe = engine is IUsesProbe ? _locator.Locate("ffprobe") : null;
+        (ToolStatus? tool, IReadOnlyDictionary<string, ToolStatus> tools) = LocateTools(engine);
 
         await using OutputSink sink = await OutputSink.OpenAsync(target, input.Name, _settings, cancellationToken: cancellationToken).ConfigureAwait(false);
 
         progress?.Report(new ConversionProgress(0));
         ProgressGate? gate = progress is null ? null : new ProgressGate(progress);
         ConversionRequest request = new(
-            input.Stream, sink.Stream, from, target.FileFormat, callOptions, tool, _settings.TempFolder ?? Path.GetTempPath(), input.Path, gate is null ? null : gate.Report, probe);
+            input.Stream, sink.Stream, from, target.FileFormat, callOptions, tool, _settings.TempFolder ?? Path.GetTempPath(), input.Path, gate is null ? null : gate.Report, tools);
         await RunEngineAsync(engine, request, cancellationToken).ConfigureAwait(false);
         SinkResult written = await sink.CommitAsync(cancellationToken).ConfigureAwait(false);
         progress?.Report(new ConversionProgress(100));
@@ -98,16 +97,29 @@ internal sealed class SingleConversion
         return engine;
     }
 
-    // Программа нужна не каждому движку: расширение без внешней программы работает на своих библиотеках.
-    private ToolStatus? LocateTool(IConversionEngine engine)
+    // Программы нужны не каждому движку: расширение без внешней программы работает на своих библиотеках.
+    // Обязательная и не найденная — отказ до запуска; необязательная передаётся как есть, с признаком «не найдена».
+    private (ToolStatus? Tool, IReadOnlyDictionary<string, ToolStatus> Tools) LocateTools(IConversionEngine engine)
     {
-        if (engine.ToolName is null)
+        Dictionary<string, ToolStatus> tools = new(StringComparer.OrdinalIgnoreCase);
+        ToolStatus? first = null;
+        foreach (ToolSpec spec in engine.Tools)
         {
-            return null;
+            ToolStatus status = _locator.Locate(spec, engine.Tools);
+            if (spec.Required)
+            {
+                if (!status.Found)
+                {
+                    throw Failures.ToolNotFound(spec.Name, status.InstallHint);
+                }
+
+                first ??= status;
+            }
+
+            tools[spec.Name] = status;
         }
 
-        ToolStatus tool = _locator.Locate(engine.ToolName);
-        return tool.Found ? tool : throw Failures.ToolNotFound(engine.ToolName, tool.InstallHint);
+        return (first, tools);
     }
 
     // Любое непредвиденное исключение чужого движка становится ошибкой конвертации; свои ошибки и отмена проходят как есть.

@@ -37,7 +37,7 @@ public sealed class FfmpegAudioEngineTests : IDisposable
 
     private static ToolStatus Ffmpeg()
     {
-        return new ToolLocator(ConverterSettingsSnapshot.Create(new ConverterSettings())).Locate("ffmpeg");
+        return new ToolLocator(ConverterSettingsSnapshot.Create(new ConverterSettings())).Locate(FfmpegTools.Ffmpeg);
     }
 
     private async Task<byte[]> Convert(byte[] input, FileFormat to, AudioOptions? audio = null)
@@ -215,6 +215,6 @@ public sealed class FfmpegAudioEngineTests : IDisposable
         Assert.All(_engine.Pairs, p => Assert.True(_engine.CanConvert(p.From, p.To)));
         Assert.False(_engine.CanConvert(FileFormat.Mp3, FileFormat.Jpeg));
         Assert.False(_engine.CanConvert(FileFormat.Unknown, FileFormat.Mp3));
-        Assert.Equal("ffmpeg", _engine.ToolName);
+        Assert.Equal("ffmpeg", Assert.Single(_engine.Tools).Name);
     }
 }

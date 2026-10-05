@@ -1,3 +1,4 @@
+using GLAZOV.M.CONVERTER.Engines;
 using GLAZOV.M.CONVERTER.Settings;
 using GLAZOV.M.CONVERTER.Tooling;
 
@@ -35,7 +36,7 @@ public sealed class FfmpegProgressTests : IDisposable
 
     private static string Ffmpeg()
     {
-        return new ToolLocator(ConverterSettingsSnapshot.Create(new ConverterSettings())).Locate("ffmpeg").Path!;
+        return new ToolLocator(ConverterSettingsSnapshot.Create(new ConverterSettings())).Locate(FfmpegTools.Ffmpeg).Path!;
     }
 
     [Fact]

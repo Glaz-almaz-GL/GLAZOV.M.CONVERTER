@@ -55,7 +55,7 @@ public sealed class FfmpegVideoEngineTests : IClassFixture<VideoSourcesFixture>,
 
     private static ToolStatus Ffmpeg()
     {
-        return new ToolLocator(ConverterSettingsSnapshot.Create(new ConverterSettings())).Locate("ffmpeg");
+        return new ToolLocator(ConverterSettingsSnapshot.Create(new ConverterSettings())).Locate(FfmpegTools.Ffmpeg);
     }
 
     private static (FileFormat Format, string Video, string Audio) Container(string name)
@@ -103,7 +103,8 @@ public sealed class FfmpegVideoEngineTests : IClassFixture<VideoSourcesFixture>,
         Assert.Contains(new ConversionPair(FileFormat.Mp4, FileFormat.Mp4), _engine.Pairs);
         Assert.Contains(new ConversionPair(FileFormat.Avi, FileFormat.Webm), _engine.Pairs);
         Assert.DoesNotContain(new ConversionPair(FileFormat.Mp4, FileFormat.Mp3), _engine.Pairs);
-        Assert.Equal("ffmpeg", _engine.ToolName);
+        Assert.Equal("ffmpeg", Assert.Single(_engine.Tools, t => t.Required).Name);
+        Assert.False(Assert.Single(_engine.Tools, t => t.Name == "ffprobe").Required);
         Assert.True(_engine.SupportsOperations);
         Assert.Contains(new Converter().Capabilities.All, c => c.From.Equals(FileFormat.Mkv) && c.To.Equals(FileFormat.Webm));
     }

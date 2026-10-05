@@ -24,7 +24,7 @@ internal sealed class LibreOfficeEngine : IConversionEngine
     ];
 
     /// <inheritdoc />
-    public string ToolName => "soffice";
+    public IReadOnlyList<ToolSpec> Tools { get; } = [LibreOfficeTools.Soffice];
 
     /// <inheritdoc />
     public bool SupportsOperations => false;
@@ -56,7 +56,7 @@ internal sealed class LibreOfficeEngine : IConversionEngine
             {
                 // LibreOffice exits with 0 when it cannot load a file; the missing result is the failure.
                 string name = request.InputPath is null ? "документ" : Path.GetFileName(request.InputPath);
-                throw Failures.ToolFailed(ToolName, result.ExitCode, $"{result.ErrorOutput}\nLibreOffice не смог открыть файл «{name}»".TrimStart());
+                throw Failures.ToolFailed(request.Tool!.Name, result.ExitCode, $"{result.ErrorOutput}\nLibreOffice не смог открыть файл «{name}»".TrimStart());
             }
 
             await using FileStream produced = new(pdf, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.Asynchronous | FileOptions.SequentialScan);

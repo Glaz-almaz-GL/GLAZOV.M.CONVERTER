@@ -34,7 +34,7 @@ public sealed class PdfExtensionTests : IDisposable
     {
         IConversionEngine engine = Assert.Single(new PdfExtension().Engines);
 
-        Assert.Null(engine.ToolName);
+        Assert.Empty(engine.Tools);
         Assert.False(engine.SupportsOperations);
         Assert.Equal(5, engine.Pairs.Count);
         Assert.All(engine.Pairs, pair => Assert.Equal(FileFormat.Pdf, pair.To));

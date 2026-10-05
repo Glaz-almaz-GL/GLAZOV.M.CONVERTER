@@ -31,7 +31,7 @@ public sealed class ImageOperationsTests : IDisposable
 
     private static ToolStatus Ffmpeg()
     {
-        return new ToolLocator(ConverterSettingsSnapshot.Create(new ConverterSettings())).Locate("ffmpeg");
+        return new ToolLocator(ConverterSettingsSnapshot.Create(new ConverterSettings())).Locate(FfmpegTools.Ffmpeg);
     }
 
     private static string Ffprobe()

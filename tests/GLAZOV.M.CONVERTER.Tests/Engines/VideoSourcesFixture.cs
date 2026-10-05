@@ -1,3 +1,4 @@
+using GLAZOV.M.CONVERTER.Engines;
 using GLAZOV.M.CONVERTER.Settings;
 using GLAZOV.M.CONVERTER.Tooling;
 
@@ -78,7 +79,7 @@ public sealed class VideoSourcesFixture : IAsyncLifetime
     {
         Directory.CreateDirectory(Folder);
         ToolLocator locator = new(ConverterSettingsSnapshot.Create(new ConverterSettings()));
-        _ffmpeg = locator.Locate("ffmpeg").Path ?? throw new InvalidOperationException("FFmpeg не найден.");
+        _ffmpeg = locator.Locate(FfmpegTools.Ffmpeg).Path ?? throw new InvalidOperationException("FFmpeg не найден.");
         _ffprobe = Path.Combine(Path.GetDirectoryName(_ffmpeg)!, OperatingSystem.IsWindows() ? "ffprobe.exe" : "ffprobe");
 
         await Make("mp4", ["-c:v", "libx264", "-c:a", "aac"]);

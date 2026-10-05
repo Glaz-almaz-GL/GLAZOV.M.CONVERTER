@@ -44,14 +44,14 @@ public class EngineRegistryTests
     [Fact]
     public void Pairs_ListAllPairsWithToolName_InStableOrder()
     {
-        IReadOnlyList<(FileFormat From, FileFormat To, string? ToolName)> first = EngineRegistry.CreateDefault().Pairs();
-        IReadOnlyList<(FileFormat From, FileFormat To, string? ToolName)> second = EngineRegistry.CreateDefault().Pairs();
+        IReadOnlyList<(FileFormat From, FileFormat To, IReadOnlyList<ToolSpec> Tools)> first = EngineRegistry.CreateDefault().Pairs();
+        IReadOnlyList<(FileFormat From, FileFormat To, IReadOnlyList<ToolSpec> Tools)> second = EngineRegistry.CreateDefault().Pairs();
 
         Assert.Equal(143, first.Count);
-        Assert.Equal(131, first.Count(p => p.ToolName == "ffmpeg"));
-        Assert.Equal(12, first.Count(p => p.ToolName == "soffice"));
-        Assert.All(first.Where(p => p.ToolName == "soffice"), p => Assert.Equal(FileFormat.Pdf, p.To));
-        Assert.Equal(first, second);
+        Assert.Equal(131, first.Count(p => p.Tools.Any(t => t.Name == "ffmpeg")));
+        Assert.Equal(12, first.Count(p => p.Tools.Any(t => t.Name == "soffice")));
+        Assert.All(first.Where(p => p.Tools.Any(t => t.Name == "soffice")), p => Assert.Equal(FileFormat.Pdf, p.To));
+        Assert.Equal(first.Select(p => (p.From, p.To, string.Join(",", p.Tools.Select(t => t.Name)))), second.Select(p => (p.From, p.To, string.Join(",", p.Tools.Select(t => t.Name)))));
         Assert.Equal(first.Select(p => (p.From, p.To)).Distinct().Count(), first.Count);
     }
 

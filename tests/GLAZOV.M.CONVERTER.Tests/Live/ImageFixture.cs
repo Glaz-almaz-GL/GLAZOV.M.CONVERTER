@@ -1,3 +1,4 @@
+using GLAZOV.M.CONVERTER.Engines;
 using System.Buffers.Binary;
 using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Settings;
@@ -38,7 +39,7 @@ public sealed class ImageFixture : IAsyncLifetime
     public async Task InitializeAsync()
     {
         Directory.CreateDirectory(Folder);
-        Ffmpeg = new ToolLocator(ConverterSettingsSnapshot.Create(new ConverterSettings())).Locate("ffmpeg").Path
+        Ffmpeg = new ToolLocator(ConverterSettingsSnapshot.Create(new ConverterSettings())).Locate(FfmpegTools.Ffmpeg).Path
             ?? throw new InvalidOperationException("FFmpeg не найден.");
         Ffprobe = Path.Combine(Path.GetDirectoryName(Ffmpeg)!, OperatingSystem.IsWindows() ? "ffprobe.exe" : "ffprobe");
 

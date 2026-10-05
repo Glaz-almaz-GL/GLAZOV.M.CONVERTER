@@ -1,5 +1,6 @@
 using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Engines;
+using GLAZOV.M.CONVERTER.Extensions;
 using GLAZOV.M.CONVERTER.Tooling;
 
 namespace GLAZOV.M.CONVERTER.Capabilities;
@@ -37,7 +38,7 @@ public sealed class ConverterCapabilities
                 .. _registry.Pairs().Select(pair => new Conversion(
                     pair.From,
                     pair.To,
-                    pair.ToolName is null || _locator.Locate(pair.ToolName).Found ? ConversionAvailability.Ready : ConversionAvailability.ToolMissing)),
+                    pair.Tools.Where(tool => tool.Required).All(tool => _locator.Locate(tool, pair.Tools).Found) ? ConversionAvailability.Ready : ConversionAvailability.ToolMissing)),
             ];
         }
     }
@@ -62,12 +63,14 @@ public sealed class ConverterCapabilities
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
 
-        string[] known = [.. _registry.Engines.Select(engine => engine.ToolName).OfType<string>().Distinct(StringComparer.OrdinalIgnoreCase)];
-        if (!known.Contains(name, StringComparer.OrdinalIgnoreCase))
+        (IConversionEngine Engine, ToolSpec Spec)[] required = [.. _registry.Engines.SelectMany(engine => engine.Tools.Where(tool => tool.Required).Select(tool => (engine, tool)))];
+        string[] known = [.. required.Select(entry => entry.Spec.Name).Distinct(StringComparer.OrdinalIgnoreCase)];
+        (IConversionEngine engine, ToolSpec spec) = required.FirstOrDefault(entry => string.Equals(entry.Spec.Name, name, StringComparison.OrdinalIgnoreCase));
+        if (spec is null)
         {
             throw new ArgumentException($"Программа «{name}» библиотеке неизвестна. Известные: {string.Join(", ", known)}.", nameof(name));
         }
 
-        return _locator.Locate(name);
+        return _locator.Locate(spec, engine.Tools);
     }
 }

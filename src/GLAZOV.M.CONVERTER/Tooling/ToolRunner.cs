@@ -9,12 +9,12 @@ namespace GLAZOV.M.CONVERTER.Tooling;
 /// Запуск внешней программы: аргументы списком, каналы ввода и вывода, перехват сообщений об ошибках,
 /// отмена с завершением процесса вместе с дочерними. Общий механизм всех движков; о форматах ничего не знает.
 /// </summary>
-internal static class ToolRunner
+public static class ToolRunner
 {
     /// <summary>
     /// Сколько последних строк стандартного потока ошибок хранится в результате.
     /// </summary>
-    internal const int KeptErrorLines = 50;
+    public const int KeptErrorLines = 50;
 
     private const int MaxLineChars = 2000;
 
@@ -24,7 +24,7 @@ internal static class ToolRunner
     /// <param name="invocation">Что запустить.</param>
     /// <param name="cancellationToken">Отмена: процесс завершается вместе с дочерними, наружу — <see cref="OperationCanceledException"/>.</param>
     /// <exception cref="ConversionException">Программа не запустилась (этап «подготовка», причина «программа не найдена»).</exception>
-    internal static async Task<ToolResult> RunAsync(ToolInvocation invocation, CancellationToken cancellationToken = default)
+    public static async Task<ToolResult> RunAsync(ToolInvocation invocation, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(invocation);
         if (invocation.OnOutputLine is not null && invocation.StandardOutput is not null)

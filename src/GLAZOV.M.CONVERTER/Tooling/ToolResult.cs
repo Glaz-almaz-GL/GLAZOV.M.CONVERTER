@@ -6,4 +6,4 @@ namespace GLAZOV.M.CONVERTER.Tooling;
 /// </summary>
 /// <param name="ExitCode">Код выхода.</param>
 /// <param name="ErrorOutput">Последние строки стандартного потока ошибок (не больше <see cref="ToolRunner.KeptErrorLines"/>).</param>
-internal sealed record ToolResult(int ExitCode, string ErrorOutput);
+public sealed record ToolResult(int ExitCode, string ErrorOutput);

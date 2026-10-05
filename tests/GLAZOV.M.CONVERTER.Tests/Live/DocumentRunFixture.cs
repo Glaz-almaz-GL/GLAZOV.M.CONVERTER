@@ -1,3 +1,4 @@
+using GLAZOV.M.CONVERTER.Engines;
 using System.Text;
 using GLAZOV.M.CONVERTER.Settings;
 using GLAZOV.M.CONVERTER.Tooling;
@@ -29,7 +30,7 @@ public sealed class DocumentRunFixture : IAsyncLifetime
     public async Task InitializeAsync()
     {
         Directory.CreateDirectory(Folder);
-        Soffice = new ToolLocator(ConverterSettingsSnapshot.Create(new ConverterSettings())).Locate("soffice").Path
+        Soffice = new ToolLocator(ConverterSettingsSnapshot.Create(new ConverterSettings())).Locate(LibreOfficeTools.Soffice).Path
             ?? throw new InvalidOperationException("LibreOffice не найден.");
 
         string sources = Path.Combine(Folder, "исходники");

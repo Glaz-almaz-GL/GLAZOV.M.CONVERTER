@@ -1,3 +1,4 @@
+using GLAZOV.M.CONVERTER.Engines;
 using GLAZOV.M.CONVERTER.Settings;
 using GLAZOV.M.CONVERTER.Tooling;
 
@@ -11,7 +12,7 @@ public sealed class OfficeTheoryAttribute : TheoryAttribute
 {
     public OfficeTheoryAttribute()
     {
-        bool found = new ToolLocator(ConverterSettingsSnapshot.Create(new ConverterSettings())).Locate("soffice").Found;
+        bool found = new ToolLocator(ConverterSettingsSnapshot.Create(new ConverterSettings())).Locate(LibreOfficeTools.Soffice).Found;
         if (!found)
         {
             Skip = "LibreOffice не найден на этой машине: живая проверка не выполнена (не пройдена и не провалена).";

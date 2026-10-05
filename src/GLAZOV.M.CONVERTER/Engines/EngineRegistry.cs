@@ -41,12 +41,12 @@ internal sealed class EngineRegistry
     }
 
     /// <summary>
-    /// Пары всех движков с именем нужной программы (или <c>null</c>) — для каталога возможностей; порядок стабильный,
+    /// Пары всех движков с описаниями программ движка (пусто — программа не нужна) — для каталога возможностей; порядок стабильный,
     /// пара, заявленная несколькими движками, встречается один раз — с тем движком, который подключён раньше (он и победит при подборе).
     /// </summary>
-    internal IReadOnlyList<(FileFormat From, FileFormat To, string? ToolName)> Pairs()
+    internal IReadOnlyList<(FileFormat From, FileFormat To, IReadOnlyList<ToolSpec> Tools)> Pairs()
     {
-        List<(FileFormat From, FileFormat To, string? ToolName)> pairs = [];
+        List<(FileFormat From, FileFormat To, IReadOnlyList<ToolSpec> Tools)> pairs = [];
         HashSet<ConversionPair> seen = [];
         foreach (IConversionEngine engine in _engines)
         {
@@ -54,7 +54,7 @@ internal sealed class EngineRegistry
             {
                 if (seen.Add(pair))
                 {
-                    pairs.Add((pair.From, pair.To, engine.ToolName));
+                    pairs.Add((pair.From, pair.To, engine.Tools));
                 }
             }
         }

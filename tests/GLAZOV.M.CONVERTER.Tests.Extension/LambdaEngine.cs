@@ -8,7 +8,9 @@ namespace GLAZOV.M.CONVERTER.Tests.Extension;
 /// </summary>
 public sealed class LambdaEngine(string? toolName, IReadOnlyList<ConversionPair> pairs, bool supportsOperations = false, byte[]? marker = null) : IConversionEngine
 {
-    public string? ToolName { get; } = toolName;
+    public IReadOnlyList<ToolSpec>? Specs { get; init; }
+
+    public IReadOnlyList<ToolSpec> Tools => Specs ?? (toolName is null ? [] : [new ToolSpec(toolName)]);
 
     public bool SupportsOperations { get; } = supportsOperations;
 

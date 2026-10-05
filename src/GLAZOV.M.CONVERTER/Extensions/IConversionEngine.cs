@@ -8,10 +8,11 @@ namespace GLAZOV.M.CONVERTER.Extensions;
 public interface IConversionEngine
 {
     /// <summary>
-    /// Имя внешней программы, которая нужна движку (как в <c>ConverterSettings.ToolPaths</c>); <c>null</c> — программа не нужна.
-    /// Если задано, библиотека найдёт её общим поиском и передаст в <see cref="ConversionRequest.Tool"/>.
+    /// Внешние программы, которые нужны движку; пусто — программа не нужна. Библиотека найдёт их общим поиском по описаниям
+    /// и передаст в <see cref="ConversionRequest.Tools"/>; первая обязательная — в <see cref="ConversionRequest.Tool"/>.
+    /// Не найденная обязательная программа — отказ до запуска работы с подсказкой установки.
     /// </summary>
-    string? ToolName { get; }
+    IReadOnlyList<ToolSpec> Tools => [];
 
     /// <summary>
     /// Умеет ли движок действия над изображением (поворот, масштаб) из параметров вызова.

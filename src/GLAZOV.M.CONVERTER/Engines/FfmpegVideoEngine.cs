@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using GLAZOV.M.CONVERTER.Capabilities;
 using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Errors;
 using GLAZOV.M.CONVERTER.Extensions;
@@ -14,12 +15,12 @@ namespace GLAZOV.M.CONVERTER.Engines;
 /// index back to the start) and is then copied to the output. The first video and the first audio track are taken;
 /// subtitles, attachments and other tracks are dropped. Progress comes from FFmpeg's own output.
 /// </summary>
-internal sealed partial class FfmpegVideoEngine : IConversionEngine, IUsesProbe
+internal sealed partial class FfmpegVideoEngine : IConversionEngine
 {
     private static readonly FileFormat[] Supported = [FileFormat.Mp4, FileFormat.Mkv, FileFormat.Webm, FileFormat.Mov, FileFormat.Avi];
 
     /// <inheritdoc />
-    public string ToolName => "ffmpeg";
+    public IReadOnlyList<ToolSpec> Tools { get; } = [FfmpegTools.Ffmpeg, FfmpegTools.Ffprobe];
 
     /// <inheritdoc />
     public bool SupportsOperations => true;
@@ -42,7 +43,7 @@ internal sealed partial class FfmpegVideoEngine : IConversionEngine, IUsesProbe
             await using InputFile input = await InputFile.EnsureAsync(request, cancellationToken).ConfigureAwait(false);
             FfmpegProgress progress = new(request.ReportProgress);
 
-            TrackCodecs? codecs = request.Probe is { Found: true, Path: { } probePath }
+            TrackCodecs? codecs = request.Tools.TryGetValue(FfmpegTools.Ffprobe.Name, out ToolStatus? probe) && probe is { Found: true, Path: { } probePath }
                 ? await TrackProbe.ReadAsync(probePath, input.Path, cancellationToken).ConfigureAwait(false)
                 : null;
             CopyPlan plan = CopyPlan.Decide(request.To, request.Options.Video, request.Options.Audio, request.Options.Operations.Count > 0, codecs);
@@ -57,7 +58,7 @@ internal sealed partial class FfmpegVideoEngine : IConversionEngine, IUsesProbe
 
             if (result.ExitCode != 0)
             {
-                throw Failures.ToolFailed(ToolName, result.ExitCode, Explain(result.ErrorOutput));
+                throw Failures.ToolFailed(request.Tool!.Name, result.ExitCode, Explain(result.ErrorOutput));
             }
 
             request.Reencoded = !plan.CopiesEverything(codecs);

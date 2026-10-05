@@ -1,13 +1,14 @@
 using System.Collections.Concurrent;
 using GLAZOV.M.CONVERTER.Capabilities;
+using GLAZOV.M.CONVERTER.Extensions;
 using GLAZOV.M.CONVERTER.Settings;
 
 namespace GLAZOV.M.CONVERTER.Tooling;
 
 /// <summary>
-/// Поиск внешней программы: путь из настроек, затем PATH, затем привычные места системы.
-/// Путь из настроек, по которому файла нет, не откатывается молча на PATH: ответ — «не найдена» с причиной.
-/// Результат кэшируется на время жизни локатора (то есть конвертера).
+/// Поиск внешней программы по её описанию (<see cref="ToolSpec"/>): путь из настроек, затем PATH, затем привычные места системы,
+/// папки пакетов менеджера установки и папка другой программы. Путь из настроек, по которому файла нет, не откатывается молча на PATH:
+/// ответ — «не найдена» с причиной. Результат кэшируется на время жизни локатора (то есть конвертера); ядро ничего не знает о самих программах.
 /// </summary>
 internal sealed class ToolLocator
 {
@@ -23,44 +24,46 @@ internal sealed class ToolLocator
     }
 
     /// <summary>
-    /// Ищет программу по имени (без расширения: <c>ffmpeg</c>).
+    /// Ищет программу по описанию.
     /// </summary>
-    /// <param name="name">Имя программы.</param>
-    internal ToolStatus Locate(string name)
+    /// <param name="spec">Описание программы.</param>
+    /// <param name="siblings">Описания всех программ того же движка: среди них ищется программа, рядом с которой лежит эта (<see cref="ToolSpec.FoundBeside"/>).</param>
+    internal ToolStatus Locate(ToolSpec spec, IReadOnlyList<ToolSpec>? siblings = null)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(name);
-        return _cache.GetOrAdd(name, Find);
+        ArgumentNullException.ThrowIfNull(spec);
+        return _cache.GetOrAdd(spec.Name, _ => Find(spec, siblings ?? []));
     }
 
-    private ToolStatus Find(string name)
+    private ToolStatus Find(ToolSpec spec, IReadOnlyList<ToolSpec> siblings)
     {
-        if (_settings.ToolPaths.TryGetValue(name, out string? configured))
+        if (_settings.ToolPaths.TryGetValue(spec.Name, out string? configured))
         {
             return File.Exists(configured)
-                ? new ToolStatus(name, true, configured, string.Empty)
-                : new ToolStatus(name, false, null, $"Путь из настроек (ToolPaths) не существует: {configured}. Исправьте путь или уберите запись, тогда поиск пойдёт по PATH.");
+                ? new ToolStatus(spec.Name, true, configured, string.Empty)
+                : new ToolStatus(spec.Name, false, null, $"Путь из настроек (ToolPaths) не существует: {configured}. Исправьте путь или уберите запись, тогда поиск пойдёт по PATH.");
         }
 
-        string? found = FindInPath(name) ?? FindInUsualFolders(name) ?? FindInPackages(name) ?? FindBesideFfmpeg(name);
+        string? found = FindInPath(spec) ?? FindInPlaces(spec) ?? FindInPackages(spec) ?? FindBeside(spec, siblings);
         return found is not null
-            ? new ToolStatus(name, true, found, string.Empty)
-            : new ToolStatus(name, false, null, InstallHint(name));
+            ? new ToolStatus(spec.Name, true, found, string.Empty)
+            : new ToolStatus(spec.Name, false, null, InstallHint(spec));
     }
 
-    // ffprobe ships in the folder of ffmpeg, whichever way ffmpeg was found (settings, PATH, package folder).
-    private string? FindBesideFfmpeg(string name)
+    // A program may ship in the folder of another one (ffprobe with ffmpeg), whichever way that one was found (settings, PATH, package folder).
+    private string? FindBeside(ToolSpec spec, IReadOnlyList<ToolSpec> siblings)
     {
-        if (!string.Equals(name, "ffprobe", StringComparison.OrdinalIgnoreCase))
+        ToolSpec? other = spec.FoundBeside is null ? null : siblings.FirstOrDefault(s => string.Equals(s.Name, spec.FoundBeside, StringComparison.OrdinalIgnoreCase));
+        if (other is null)
         {
             return null;
         }
 
-        ToolStatus ffmpeg = Locate("ffmpeg");
-        string? folder = ffmpeg.Found ? Path.GetDirectoryName(ffmpeg.Path) : null;
-        return folder is null ? null : Candidate(folder, name);
+        ToolStatus status = Locate(other, siblings);
+        string? folder = status.Found ? Path.GetDirectoryName(status.Path) : null;
+        return folder is null ? null : Candidate(folder, spec.Name);
     }
 
-    private string? FindInPath(string name)
+    private string? FindInPath(ToolSpec spec)
     {
         if (string.IsNullOrWhiteSpace(_environment.PathVariable))
         {
@@ -69,7 +72,7 @@ internal sealed class ToolLocator
 
         foreach (string folder in _environment.PathVariable.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
-            string? candidate = CandidateByAnyName(folder, name);
+            string? candidate = CandidateByAnyName(folder, spec);
             if (candidate is not null)
             {
                 return candidate;
@@ -79,11 +82,16 @@ internal sealed class ToolLocator
         return null;
     }
 
-    private string? FindInUsualFolders(string name)
+    private string? FindInPlaces(ToolSpec spec)
     {
-        foreach (string folder in _environment.UsualFolders)
+        if (!spec.SearchPlaces.TryGetValue(_environment.System, out IReadOnlyList<string>? places))
         {
-            string? candidate = CandidateByAnyName(folder, name);
+            return null;
+        }
+
+        foreach (string folder in places.SelectMany(ToolEnvironment.ExpandPlace))
+        {
+            string? candidate = CandidateByAnyName(folder, spec);
             if (candidate is not null)
             {
                 return candidate;
@@ -95,7 +103,7 @@ internal sealed class ToolLocator
 
     // Пакеты менеджера установки: подпапки с именем программы (например, Gyan.FFmpeg_...), внутри — bin\ffmpeg.exe.
     // Нужно, потому что установка не обновляет PATH уже запущенных процессов.
-    private string? FindInPackages(string name)
+    private string? FindInPackages(ToolSpec spec)
     {
         string? root = _environment.PackageFolder;
         if (root is null || !Directory.Exists(root))
@@ -105,14 +113,16 @@ internal sealed class ToolLocator
 
         try
         {
+            // A package folder may carry the name of a suite, not of the program (TheDocumentFoundation.LibreOffice holds soffice).
+            string word = spec.PackageWord ?? spec.Name;
             foreach (string package in Directory.EnumerateDirectories(root).Order(StringComparer.Ordinal))
             {
-                if (!Path.GetFileName(package).Contains(PackageWord(name), StringComparison.OrdinalIgnoreCase))
+                if (!Path.GetFileName(package).Contains(word, StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
                 }
 
-                string? file = Directory.EnumerateFiles(package, ExecutableName(name), SearchOption.AllDirectories).FirstOrDefault();
+                string? file = Directory.EnumerateFiles(package, ExecutableName(spec.Name), SearchOption.AllDirectories).FirstOrDefault();
                 if (file is not null)
                 {
                     return file;
@@ -128,16 +138,10 @@ internal sealed class ToolLocator
         return null;
     }
 
-    // The program under its own name first, then under the other names it goes by on this system.
-    private string? CandidateByAnyName(string folder, string name)
+    // The program under its own name first, then under the other names it goes by.
+    private static string? CandidateByAnyName(string folder, ToolSpec spec)
     {
-        string? found = Candidate(folder, name);
-        if (found is not null || _environment.Aliases is null || !_environment.Aliases.TryGetValue(name, out string[]? aliases))
-        {
-            return found;
-        }
-
-        return aliases.Select(alias => Candidate(folder, alias)).FirstOrDefault(path => path is not null);
+        return Candidate(folder, spec.Name) ?? spec.Aliases.Select(alias => Candidate(folder, alias)).FirstOrDefault(path => path is not null);
     }
 
     private static string? Candidate(string folder, string name)
@@ -170,43 +174,10 @@ internal sealed class ToolLocator
         return (File.GetUnixFileMode(path) & anyExecute) != 0;
     }
 
-    // A package folder carries the name of the suite, not of the program (TheDocumentFoundation.LibreOffice holds soffice).
-    private static string PackageWord(string name)
+    private string InstallHint(ToolSpec spec)
     {
-        return string.Equals(name, "soffice", StringComparison.OrdinalIgnoreCase) ? "LibreOffice" : name;
-    }
-
-    private static string InstallHint(string name)
-    {
-        if (string.Equals(name, "soffice", StringComparison.OrdinalIgnoreCase))
-        {
-            return LibreOfficeHint();
-        }
-
-        if (!string.Equals(name, "ffmpeg", StringComparison.OrdinalIgnoreCase))
-        {
-            return $"Установите программу «{name}» и добавьте её в PATH или укажите путь в настройках (ToolPaths).";
-        }
-
-        if (OperatingSystem.IsWindows())
-        {
-            return "Установите: winget install Gyan.FFmpeg (затем перезапустите программу) либо укажите путь в настройках (ToolPaths).";
-        }
-
-        return OperatingSystem.IsMacOS()
-            ? "Установите: brew install ffmpeg либо укажите путь в настройках (ToolPaths)."
-            : "Установите: sudo apt install ffmpeg (или пакет ffmpeg вашего дистрибутива) либо укажите путь в настройках (ToolPaths).";
-    }
-
-    private static string LibreOfficeHint()
-    {
-        if (OperatingSystem.IsWindows())
-        {
-            return "Установите: winget install TheDocumentFoundation.LibreOffice либо укажите путь к soffice.exe в настройках (ToolPaths).";
-        }
-
-        return OperatingSystem.IsMacOS()
-            ? "Установите: brew install --cask libreoffice либо укажите путь к soffice в настройках (ToolPaths)."
-            : "Установите: sudo apt install libreoffice-core libreoffice-writer libreoffice-calc libreoffice-impress (или пакет вашего дистрибутива) либо укажите путь к soffice в настройках (ToolPaths).";
+        return spec.InstallHints.TryGetValue(_environment.System, out string? hint)
+            ? hint
+            : $"Установите программу «{spec.Name}» и добавьте её в PATH или укажите путь в настройках (ToolPaths).";
     }
 }

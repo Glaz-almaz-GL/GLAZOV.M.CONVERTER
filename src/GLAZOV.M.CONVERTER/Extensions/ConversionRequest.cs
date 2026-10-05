@@ -22,7 +22,7 @@ public sealed class ConversionRequest
         string tempFolder,
         string? inputPath = null,
         Action<int>? onProgress = null,
-        ToolStatus? probe = null)
+        IReadOnlyDictionary<string, ToolStatus>? tools = null)
     {
         Input = input;
         Output = output;
@@ -33,7 +33,7 @@ public sealed class ConversionRequest
         TempFolder = tempFolder;
         InputPath = inputPath;
         _onProgress = onProgress;
-        Probe = probe;
+        Tools = tools ?? (tool is null ? new Dictionary<string, ToolStatus>() : new Dictionary<string, ToolStatus>(StringComparer.OrdinalIgnoreCase) { [tool.Name] = tool });
     }
 
     /// <summary>
@@ -62,9 +62,14 @@ public sealed class ConversionRequest
     public ConversionOptions Options { get; }
 
     /// <summary>
-    /// Найденная внешняя программа движка; <c>null</c>, если движок её не заявлял (<see cref="IConversionEngine.ToolName"/> пусто).
+    /// Первая обязательная внешняя программа движка (найдена всегда); <c>null</c>, если движок их не заявлял (<see cref="IConversionEngine.Tools"/> пусто).
     /// </summary>
     public ToolStatus? Tool { get; }
+
+    /// <summary>
+    /// Все программы движка по имени (без учёта регистра), в том числе необязательные: у такой <see cref="ToolStatus.Found"/> может быть <c>false</c>.
+    /// </summary>
+    public IReadOnlyDictionary<string, ToolStatus> Tools { get; }
 
     /// <summary>
     /// Существующая папка для временных файлов движка.
@@ -77,14 +82,9 @@ public sealed class ConversionRequest
     public string? InputPath { get; }
 
     /// <summary>
-    /// The ffprobe program for engines that read the tracks of an input; <c>null</c> when it was not asked for or not found.
-    /// </summary>
-    internal ToolStatus? Probe { get; }
-
-    /// <summary>
     /// Set by the engine: <c>false</c> when every track of the result was copied, not encoded. Starts as <c>true</c>.
     /// </summary>
-    internal bool Reencoded { get; set; } = true;
+    public bool Reencoded { get; set; } = true;
 
     /// <summary>
     /// Reports engine progress, 0–100. Out-of-range values are clamped; repeated and smaller values are ignored.

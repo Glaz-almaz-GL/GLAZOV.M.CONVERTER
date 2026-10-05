@@ -34,7 +34,7 @@ public sealed class FfmpegVideoOperationsTests : IClassFixture<VideoSourcesFixtu
 
     private static ToolStatus Ffmpeg()
     {
-        return new ToolLocator(ConverterSettingsSnapshot.Create(new ConverterSettings())).Locate("ffmpeg");
+        return new ToolLocator(ConverterSettingsSnapshot.Create(new ConverterSettings())).Locate(FfmpegTools.Ffmpeg);
     }
 
     private async Task<string> ConvertAsync(string sourcePath, FileFormat to, ConversionOptions options)

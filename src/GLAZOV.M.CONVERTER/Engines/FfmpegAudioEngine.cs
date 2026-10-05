@@ -18,7 +18,7 @@ internal sealed class FfmpegAudioEngine : IConversionEngine
     private static readonly FileFormat[] VideoInputs = [FileFormat.Mp4, FileFormat.Mkv, FileFormat.Webm, FileFormat.Mov, FileFormat.Avi];
 
     /// <inheritdoc />
-    public string ToolName => "ffmpeg";
+    public IReadOnlyList<ToolSpec> Tools { get; } = [FfmpegTools.Ffmpeg];
 
     /// <inheritdoc />
     public bool SupportsOperations => false;
@@ -52,7 +52,7 @@ internal sealed class FfmpegAudioEngine : IConversionEngine
                 : await RunAudioAsync(request, tempPath, cancellationToken).ConfigureAwait(false);
             if (result.ExitCode != 0)
             {
-                throw Failures.ToolFailed(ToolName, result.ExitCode, fromVideo ? ExplainMissingSound(result.ErrorOutput) : result.ErrorOutput);
+                throw Failures.ToolFailed(request.Tool!.Name, result.ExitCode, fromVideo ? ExplainMissingSound(result.ErrorOutput) : result.ErrorOutput);
             }
 
             if (tempPath is not null)

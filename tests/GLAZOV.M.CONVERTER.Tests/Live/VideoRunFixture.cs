@@ -1,3 +1,4 @@
+using GLAZOV.M.CONVERTER.Engines;
 using GLAZOV.M.CONVERTER.Settings;
 using GLAZOV.M.CONVERTER.Tooling;
 
@@ -43,7 +44,7 @@ public sealed class VideoRunFixture : IAsyncLifetime
     {
         Directory.CreateDirectory(Folder);
         ToolLocator locator = new(ConverterSettingsSnapshot.Create(new ConverterSettings()));
-        Ffmpeg = locator.Locate("ffmpeg").Path ?? throw new InvalidOperationException("FFmpeg не найден.");
+        Ffmpeg = locator.Locate(FfmpegTools.Ffmpeg).Path ?? throw new InvalidOperationException("FFmpeg не найден.");
         Ffprobe = Path.Combine(Path.GetDirectoryName(Ffmpeg)!, OperatingSystem.IsWindows() ? "ffprobe.exe" : "ffprobe");
 
         string[] picture = ["-f", "lavfi", "-i", $"testsrc=size=320x240:rate=25:duration={Seconds}"];

@@ -55,7 +55,7 @@ public sealed class FfmpegVideoToAudioTests : IClassFixture<VideoSourcesFixture>
 
     private static ToolStatus Ffmpeg()
     {
-        return new ToolLocator(ConverterSettingsSnapshot.Create(new ConverterSettings())).Locate("ffmpeg");
+        return new ToolLocator(ConverterSettingsSnapshot.Create(new ConverterSettings())).Locate(FfmpegTools.Ffmpeg);
     }
 
     private static (FileFormat Format, string Codec) TargetOf(string name)

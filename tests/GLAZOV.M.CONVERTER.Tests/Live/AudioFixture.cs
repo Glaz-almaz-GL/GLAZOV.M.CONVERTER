@@ -1,3 +1,4 @@
+using GLAZOV.M.CONVERTER.Engines;
 using System.Globalization;
 using GLAZOV.M.CONVERTER.Settings;
 using GLAZOV.M.CONVERTER.Tooling;
@@ -31,7 +32,7 @@ public sealed class AudioFixture : IAsyncLifetime
     {
         Directory.CreateDirectory(Folder);
         ToolLocator locator = new(ConverterSettingsSnapshot.Create(new ConverterSettings()));
-        Ffmpeg = locator.Locate("ffmpeg").Path ?? throw new InvalidOperationException("FFmpeg не найден.");
+        Ffmpeg = locator.Locate(FfmpegTools.Ffmpeg).Path ?? throw new InvalidOperationException("FFmpeg не найден.");
         Ffprobe = Path.Combine(Path.GetDirectoryName(Ffmpeg)!, OperatingSystem.IsWindows() ? "ffprobe.exe" : "ffprobe");
 
         List<Input> inputs = [];

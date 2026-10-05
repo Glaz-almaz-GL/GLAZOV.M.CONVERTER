@@ -99,7 +99,7 @@ public sealed class SvgExtensionTests : IDisposable
         Assert.Equal("SVG", extension.Name);
         Assert.Empty(extension.Detectors);
         IConversionEngine engine = Assert.Single(extension.Engines);
-        Assert.Null(engine.ToolName);
+        Assert.Empty(engine.Tools);
         Assert.True(engine.SupportsOperations);
         Assert.All(engine.Pairs, p => Assert.Equal(FileFormat.Svg, p.From));
         Assert.Equal([FileFormat.Png, FileFormat.Jpeg, FileFormat.Webp], engine.Pairs.Select(p => p.To));
