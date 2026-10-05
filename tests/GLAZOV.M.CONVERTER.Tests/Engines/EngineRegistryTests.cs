@@ -47,8 +47,10 @@ public class EngineRegistryTests
         IReadOnlyList<(FileFormat From, FileFormat To, string? ToolName)> first = EngineRegistry.CreateDefault().Pairs();
         IReadOnlyList<(FileFormat From, FileFormat To, string? ToolName)> second = EngineRegistry.CreateDefault().Pairs();
 
-        Assert.Equal(131, first.Count);
-        Assert.All(first, p => Assert.Equal("ffmpeg", p.ToolName));
+        Assert.Equal(142, first.Count);
+        Assert.Equal(131, first.Count(p => p.ToolName == "ffmpeg"));
+        Assert.Equal(11, first.Count(p => p.ToolName == "soffice"));
+        Assert.All(first.Where(p => p.ToolName == "soffice"), p => Assert.Equal(FileFormat.Pdf, p.To));
         Assert.Equal(first, second);
         Assert.Equal(first.Select(p => (p.From, p.To)).Distinct().Count(), first.Count);
     }

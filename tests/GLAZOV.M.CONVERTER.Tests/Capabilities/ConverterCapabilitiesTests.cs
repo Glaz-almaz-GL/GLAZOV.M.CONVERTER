@@ -116,7 +116,7 @@ public sealed class ConverterCapabilitiesTests : IDisposable
 
         IReadOnlyList<Conversion> all = caps.All;
 
-        Assert.Equal(131, all.Count);
+        Assert.Equal(142, all.Count);
         Assert.True(caps.CanConvert(FileFormat.Ogg, FileFormat.Mp3));
         Assert.False(caps.CanConvert(FileFormat.Ogg, FileFormat.Jpeg));
         Assert.True(caps.CanConvert(FileFormat.Png, FileFormat.Jpeg));
@@ -128,7 +128,7 @@ public sealed class ConverterCapabilitiesTests : IDisposable
     {
         ConverterCapabilities caps = new Converter().Capabilities;
 
-        Assert.All(caps.All, c => Assert.Equal(ConversionAvailability.Ready, c.Availability));
+        Assert.All(caps.All.Where(c => !c.To.Equals(FileFormat.Pdf)), c => Assert.Equal(ConversionAvailability.Ready, c.Availability));
         Assert.True(caps.Tool("ffmpeg").Found);
     }
 

@@ -1,0 +1,98 @@
+using GLAZOV.M.CONVERTER.Data;
+using GLAZOV.M.CONVERTER.Errors;
+using GLAZOV.M.CONVERTER.Extensions;
+using GLAZOV.M.CONVERTER.Tooling;
+
+namespace GLAZOV.M.CONVERTER.Engines;
+
+/// <summary>
+/// Documents, spreadsheets and presentations to PDF through LibreOffice (<c>soffice</c>), an external program.
+/// Every run has its own work folder (copy of the input, profile, result) that is removed on success, failure and cancellation.
+/// The input goes under a name with the extension of its format, because LibreOffice picks the filter by the name.
+/// </summary>
+internal sealed class LibreOfficeEngine : IConversionEngine
+{
+    private static readonly FileFormat[] Inputs =
+    [
+        FileFormat.Docx, FileFormat.Doc, FileFormat.Odt, FileFormat.Rtf,
+        FileFormat.Xlsx, FileFormat.Xls, FileFormat.Ods,
+        FileFormat.Pptx, FileFormat.Ppt, FileFormat.Odp,
+        FileFormat.Html,
+    ];
+
+    /// <inheritdoc />
+    public string ToolName => "soffice";
+
+    /// <inheritdoc />
+    public bool SupportsOperations => false;
+
+    /// <inheritdoc />
+    public IReadOnlyList<ConversionPair> Pairs { get; } = [.. Inputs.Select(from => new ConversionPair(from, FileFormat.Pdf))];
+
+    /// <inheritdoc />
+    public async Task ConvertAsync(ConversionRequest request, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        string work = Path.Combine(request.TempFolder, $"office-{Guid.NewGuid():N}");
+        try
+        {
+            string output = Path.Combine(work, "out");
+            string profile = Path.Combine(work, "profile");
+            Directory.CreateDirectory(output);
+            LibreOfficeProfile.Write(profile);
+
+            string input = await PlaceInputAsync(request, work, cancellationToken).ConfigureAwait(false);
+            request.ReportProgress(0);
+
+            ToolInvocation invocation = new(request.Tool!.Path!, LibreOfficeArguments.ToPdf(input, output, profile));
+            ToolResult result = await ToolRunner.RunAsync(invocation, cancellationToken).ConfigureAwait(false);
+
+            string pdf = Path.Combine(output, Path.GetFileNameWithoutExtension(input) + ".pdf");
+            if (result.ExitCode != 0 || !File.Exists(pdf) || new FileInfo(pdf).Length == 0)
+            {
+                // LibreOffice exits with 0 when it cannot load a file; the missing result is the failure.
+                string name = request.InputPath is null ? "документ" : Path.GetFileName(request.InputPath);
+                throw Failures.ToolFailed(ToolName, result.ExitCode, $"{result.ErrorOutput}\nLibreOffice не смог открыть файл «{name}»".TrimStart());
+            }
+
+            await using FileStream produced = new(pdf, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.Asynchronous | FileOptions.SequentialScan);
+            await produced.CopyToAsync(request.Output, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            await RemoveAsync(work).ConfigureAwait(false);
+        }
+    }
+
+    // The real input file is used as it is when its name already carries the right extension; otherwise a copy is made.
+    private static async Task<string> PlaceInputAsync(ConversionRequest request, string work, CancellationToken cancellationToken)
+    {
+        string extension = "." + request.From.Extension;
+        if (request.InputPath is not null && string.Equals(Path.GetExtension(request.InputPath), extension, StringComparison.OrdinalIgnoreCase))
+        {
+            return request.InputPath;
+        }
+
+        string path = Path.Combine(work, "document" + extension);
+        await using FileStream copy = new(path, FileMode.CreateNew, FileAccess.Write, FileShare.None, 4096, FileOptions.Asynchronous | FileOptions.SequentialScan);
+        await request.Input.CopyToAsync(copy, cancellationToken).ConfigureAwait(false);
+        return path;
+    }
+
+    // The program may still hold the profile for a moment after it was killed, so removal is retried a few times.
+    private static async Task RemoveAsync(string folder)
+    {
+        for (int attempt = 0; attempt < 10 && Directory.Exists(folder); attempt++)
+        {
+            try
+            {
+                Directory.Delete(folder, recursive: true);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                await Task.Delay(100).ConfigureAwait(false);
+            }
+        }
+    }
+}

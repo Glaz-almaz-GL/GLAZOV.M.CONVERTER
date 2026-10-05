@@ -17,5 +17,5 @@ internal sealed class BuiltInExtension(int detectionWindow = ConverterSettings.D
     public IReadOnlyList<IFormatDetector> Detectors { get; } = [new SignatureDetector(detectionWindow)];
 
     /// <inheritdoc />
-    public IReadOnlyList<IConversionEngine> Engines { get; } = [new FfmpegAudioEngine(), new FfmpegImageEngine(), new FfmpegVideoEngine()];
+    public IReadOnlyList<IConversionEngine> Engines { get; } = [new FfmpegAudioEngine(), new FfmpegImageEngine(), new FfmpegVideoEngine(), new LibreOfficeEngine()];
 }
