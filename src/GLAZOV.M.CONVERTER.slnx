@@ -1,10 +1,12 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="GLAZOV.M.CONVERTER.Pdf/GLAZOV.M.CONVERTER.Pdf.csproj" />
     <Project Path="GLAZOV.M.CONVERTER.Svg/GLAZOV.M.CONVERTER.Svg.csproj" />
     <Project Path="GLAZOV.M.CONVERTER/GLAZOV.M.CONVERTER.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="../tests/GLAZOV.M.CONVERTER.Tests/GLAZOV.M.CONVERTER.Tests.csproj" />
+    <Project Path="../tests/GLAZOV.M.CONVERTER.Pdf.Tests/GLAZOV.M.CONVERTER.Pdf.Tests.csproj" />
     <Project Path="../tests/GLAZOV.M.CONVERTER.Svg.Tests/GLAZOV.M.CONVERTER.Svg.Tests.csproj" />
     <Project Path="../tests/GLAZOV.M.CONVERTER.Tests.Extension/GLAZOV.M.CONVERTER.Tests.Extension.csproj" />
   </Folder>

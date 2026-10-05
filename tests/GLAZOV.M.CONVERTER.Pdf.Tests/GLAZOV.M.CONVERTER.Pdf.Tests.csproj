@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="PdfPig" Version="0.1.16" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\GLAZOV.M.CONVERTER.Tests\Samples\sample.png" CopyToOutputDirectory="PreserveNewest" Link="Samples\sample.png" />
+    <None Include="..\GLAZOV.M.CONVERTER.Tests\Samples\sample.jpg" CopyToOutputDirectory="PreserveNewest" Link="Samples\sample.jpg" />
+    <None Include="..\GLAZOV.M.CONVERTER.Tests\Samples\sample.webp" CopyToOutputDirectory="PreserveNewest" Link="Samples\sample.webp" />
+    <None Include="..\GLAZOV.M.CONVERTER.Tests\Samples\sample.bmp" CopyToOutputDirectory="PreserveNewest" Link="Samples\sample.bmp" />
+    <None Include="..\GLAZOV.M.CONVERTER.Tests\Samples\sample.gif" CopyToOutputDirectory="PreserveNewest" Link="Samples\sample.gif" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\GLAZOV.M.CONVERTER\GLAZOV.M.CONVERTER.csproj" />
+    <ProjectReference Include="..\..\src\GLAZOV.M.CONVERTER.Pdf\GLAZOV.M.CONVERTER.Pdf.csproj" />
+  </ItemGroup>
+
+</Project>

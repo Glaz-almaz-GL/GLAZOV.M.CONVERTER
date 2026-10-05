@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>GLAZOV.M.CONVERTER.Pdf</RootNamespace>
+    <Description>Расширение GLAZOV.M.CONVERTER: изображения (PNG, JPEG, WebP, BMP, GIF) в PDF одной страницей размером с картинку. Работает в процессе (SkiaSharp) на Windows, Linux и macOS, без внешних программ.</Description>
+    <Version>0.1.0</Version>
+    <Authors>Glaz-almaz-GL</Authors>
+    <Copyright>Copyright 2026 Glaz-almaz-GL</Copyright>
+    <PackageTags>convert;converter;pdf;png;jpeg;webp;bmp;gif;skia</PackageTags>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RepositoryUrl>https://github.com/Glaz-almaz-GL/GLAZOV.M.CONVERTER</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageProjectUrl>https://github.com/Glaz-almaz-GL/GLAZOV.M.CONVERTER</PackageProjectUrl>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="" />
+    <None Include="..\..\NOTICE" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="GLAZOV.M.CONVERTER.Pdf.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\GLAZOV.M.CONVERTER\GLAZOV.M.CONVERTER.csproj" />
+  </ItemGroup>
+
+  <!-- SkiaSharp is MIT (Microsoft). Native files for Windows and macOS come with SkiaSharp; for Linux they are referenced explicitly. -->
+  <ItemGroup>
+    <PackageReference Include="SkiaSharp" Version="4.153.1" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="4.153.1" />
+  </ItemGroup>
+
+</Project>

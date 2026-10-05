@@ -13,4 +13,6 @@ Copyright 2026 Glaz-almaz-GL
 - Svg.Skia, Svg.Model, Svg.SceneGraph, Svg.Animation, ShimSkiaSharp (Wiesław Šoltés, MIT) — https://github.com/wieslawsoltes/Svg.Skia
 - Svg.Custom — сборка библиотеки SVG.NET (Microsoft Public License, MS-PL) — https://github.com/svg-net/SVG
 - ExCSS (MIT) — https://github.com/TylerBrinks/ExCSS
+Пакет-расширение GLAZOV.M.CONVERTER.Pdf подключает SkiaSharp и его нативные файлы (Microsoft, MIT) — https://github.com/mono/SkiaSharp;
+других зависимостей у него нет (PdfPig, Apache 2.0, используется только в тестах и в пакет не входит).
 Основной пакет GLAZOV.M.CONVERTER этих зависимостей не имеет.
