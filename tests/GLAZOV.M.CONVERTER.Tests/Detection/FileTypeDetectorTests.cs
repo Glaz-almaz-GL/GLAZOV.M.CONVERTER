@@ -60,12 +60,14 @@ public sealed class FileTypeDetectorTests : IDisposable
     }
 
     [Fact]
-    public async Task File_ThatIsNotAudio_AndEmptyFile_AreUnknown()
+    public async Task File_ThatIsNotAudio_IsText_BinaryJunkAndEmptyFile_AreUnknown()
     {
         string text = Put("текст.mp3", "Это текст, а не звук."u8.ToArray());
+        string junk = Put("мусор.mp3", [0x00, 0x01, 0x02, 0x03, 0x9F, 0xFF, 0x10]);
         string empty = Put("пусто.wav", []);
 
-        Assert.Same(FileFormat.Unknown, await FileTypeDetector.DetectAsync(Source.File(text)));
+        Assert.Same(FileFormat.Text, await FileTypeDetector.DetectAsync(Source.File(text)));
+        Assert.Same(FileFormat.Unknown, await FileTypeDetector.DetectAsync(Source.File(junk)));
         Assert.Same(FileFormat.Unknown, await FileTypeDetector.DetectAsync(Source.File(empty)));
     }
 

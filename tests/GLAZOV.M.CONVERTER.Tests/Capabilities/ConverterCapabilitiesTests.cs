@@ -116,7 +116,7 @@ public sealed class ConverterCapabilitiesTests : IDisposable
 
         IReadOnlyList<Conversion> all = caps.All;
 
-        Assert.Equal(142, all.Count);
+        Assert.Equal(143, all.Count);
         Assert.True(caps.CanConvert(FileFormat.Ogg, FileFormat.Mp3));
         Assert.False(caps.CanConvert(FileFormat.Ogg, FileFormat.Jpeg));
         Assert.True(caps.CanConvert(FileFormat.Png, FileFormat.Jpeg));

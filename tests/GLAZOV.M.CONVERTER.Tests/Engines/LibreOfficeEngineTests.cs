@@ -56,28 +56,27 @@ public sealed partial class LibreOfficeEngineTests : IDisposable
     }
 
     [Fact]
-    public void Engine_DeclaresElevenPairs_NeedsTheProgram_NoOperations()
+    public void Engine_DeclaresTwelvePairs_NeedsTheProgram_NoOperations()
     {
         LibreOfficeEngine engine = new();
 
         Assert.Equal("soffice", engine.ToolName);
         Assert.False(engine.SupportsOperations);
-        Assert.Equal(11, engine.Pairs.Count);
+        Assert.Equal(12, engine.Pairs.Count);
         Assert.All(engine.Pairs, pair => Assert.Equal(FileFormat.Pdf, pair.To));
-        Assert.DoesNotContain(engine.Pairs, pair => pair.From.Equals(FileFormat.Text));
         Assert.Equal(
-            [FileFormat.Docx, FileFormat.Doc, FileFormat.Odt, FileFormat.Rtf, FileFormat.Xlsx, FileFormat.Xls, FileFormat.Ods, FileFormat.Pptx, FileFormat.Ppt, FileFormat.Odp, FileFormat.Html],
+            [FileFormat.Docx, FileFormat.Doc, FileFormat.Odt, FileFormat.Rtf, FileFormat.Xlsx, FileFormat.Xls, FileFormat.Ods, FileFormat.Pptx, FileFormat.Ppt, FileFormat.Odp, FileFormat.Html, FileFormat.Text],
             engine.Pairs.Select(pair => pair.From));
     }
 
     [Fact]
-    public void Catalog_ShowsTheElevenPairs()
+    public void Catalog_ShowsTheTwelvePairs()
     {
         ConverterCapabilities caps = new Converter().Capabilities;
 
         Conversion[] documents = [.. caps.All.Where(c => c.To.Equals(FileFormat.Pdf))];
 
-        Assert.Equal(11, documents.Length);
+        Assert.Equal(12, documents.Length);
         Assert.True(caps.CanConvert(FileFormat.Docx, FileFormat.Pdf));
         Assert.False(caps.CanConvert(FileFormat.Pdf, FileFormat.Docx));
     }

@@ -169,13 +169,14 @@ public sealed class SvgSignatureTests : IDisposable
         Converter small = new(new ConverterSettings { DetectionWindow = SignatureMatcher.HeadLength });
         Converter standard = new();
 
-        // Окно мало — тип не распознан; окно по умолчанию — SVG распознан (движка SVG здесь нет, поэтому отказ уже по паре).
+        // Окно мало — SVG не распознан, остаётся простой текст; окно по умолчанию — SVG распознан (движка SVG здесь нет, поэтому отказ уже по паре).
         ConversionException notRecognised = await Assert.ThrowsAsync<ConversionException>(async () =>
             await small.ConvertAsync(Source.File(path), Target.Memory(FileFormat.Png)));
         ConversionException recognised = await Assert.ThrowsAsync<ConversionException>(async () =>
             await standard.ConvertAsync(Source.File(path), Target.Memory(FileFormat.Png)));
 
-        Assert.Equal(ConversionFailureReason.TypeNotConfirmed, notRecognised.Reason);
+        Assert.Equal(ConversionFailureReason.UnsupportedConversion, notRecognised.Reason);
+        Assert.DoesNotContain("SVG", notRecognised.Message);
         Assert.Equal(ConversionFailureReason.UnsupportedConversion, recognised.Reason);
         Assert.Contains("SVG", recognised.Message);
     }

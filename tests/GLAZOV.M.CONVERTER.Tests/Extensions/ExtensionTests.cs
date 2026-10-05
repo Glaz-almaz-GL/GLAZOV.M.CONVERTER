@@ -65,14 +65,15 @@ public sealed class ExtensionTests : IDisposable
     }
 
     [Fact]
-    public async Task WithoutTheExtension_TheSameFile_IsTypeNotConfirmed()
+    public async Task WithoutTheExtension_TheSameFile_IsJustText_ForWhichThereIsNoWav()
     {
         string input = Put("пример.dat", Demo());
 
         ConversionException ex = await Assert.ThrowsAsync<ConversionException>(async () =>
             await new Converter().ConvertAsync(Source.File(input), Target.Memory(FileFormat.Wav)));
 
-        Assert.Equal(ConversionFailureReason.TypeNotConfirmed, ex.Reason);
+        // Plain text is a type of its own now; only the extension knows this content as its format.
+        Assert.Equal(ConversionFailureReason.UnsupportedConversion, ex.Reason);
     }
 
     [Fact]
@@ -80,7 +81,7 @@ public sealed class ExtensionTests : IDisposable
     {
         string input = Put("пример.dat", Demo());
 
-        Assert.Same(FileFormat.Unknown, await FileTypeDetector.DetectAsync(Source.File(input)));
+        Assert.Same(FileFormat.Text, await FileTypeDetector.DetectAsync(Source.File(input)));
     }
 
     [Fact]
@@ -88,7 +89,7 @@ public sealed class ExtensionTests : IDisposable
     {
         ConverterCapabilities caps = With(new DemoExtension()).Capabilities;
 
-        Assert.Equal(143, caps.All.Count);
+        Assert.Equal(144, caps.All.Count);
         Conversion own = Assert.Single(caps.All, c => c.From.Equals(DemoExtension.Demo));
         Assert.Same(FileFormat.Wav, own.To);
         Assert.Equal(ConversionAvailability.Ready, own.Availability);
@@ -270,7 +271,7 @@ public sealed class ExtensionTests : IDisposable
 
         settings.Extensions.Add(new DemoExtension());
 
-        Assert.Equal(142, converter.Capabilities.All.Count);
+        Assert.Equal(143, converter.Capabilities.All.Count);
     }
 
     [Fact]

@@ -255,7 +255,8 @@ public sealed class PdfExtensionTests : IDisposable
     [Fact]
     public async Task NotAPicture_IsRefusedByTypeDetection()
     {
-        using MemoryStream input = new(Encoding.UTF8.GetBytes("just words, not a picture"));
+        // Plain text is a type of its own (documents), so the junk here is binary.
+        using MemoryStream input = new([0x00, 0x01, 0x02, 0x9F, 0xFF, 0x10, 0x00]);
 
         await Assert.ThrowsAsync<ConversionException>(async () =>
             await PdfKit.WithPdf().ConvertAsync(Source.Stream(input), Target.Memory(FileFormat.Pdf)));

@@ -5,7 +5,8 @@ namespace GLAZOV.M.CONVERTER.Detection;
 
 /// <summary>
 /// Цепочка определителей формата: опрашиваются по порядку, побеждает первый, кто назвал формат; никто — <see cref="FileFormat.Unknown"/>.
-/// Окно чтения — наибольшее из запрошенных.
+/// Окно чтения — наибольшее из запрошенных. Последним всегда стоит определитель текста: у текста нет своей метки,
+/// поэтому он не должен опережать ни готовые признаки, ни признаки расширений.
 /// </summary>
 internal sealed class DetectorChain
 {
@@ -14,8 +15,8 @@ internal sealed class DetectorChain
     internal DetectorChain(IEnumerable<IFormatDetector> detectors)
     {
         ArgumentNullException.ThrowIfNull(detectors);
-        _detectors = [.. detectors];
-        HeadLength = _detectors.Count == 0 ? 0 : _detectors.Max(d => d.HeadLength);
+        _detectors = [.. detectors, new TextDetector()];
+        HeadLength = _detectors.Max(d => d.HeadLength);
     }
 
     /// <summary>

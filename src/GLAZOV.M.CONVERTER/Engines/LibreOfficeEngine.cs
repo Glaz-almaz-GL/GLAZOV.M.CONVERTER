@@ -9,6 +9,8 @@ namespace GLAZOV.M.CONVERTER.Engines;
 /// Documents, spreadsheets and presentations to PDF through LibreOffice (<c>soffice</c>), an external program.
 /// Every run has its own work folder (copy of the input, profile, result) that is removed on success, failure and cancellation.
 /// The input goes under a name with the extension of its format, because LibreOffice picks the filter by the name.
+/// Text is the one format with two names: a file named <c>.md</c> or <c>.markdown</c> goes as <c>.md</c> so that it is laid out as Markdown,
+/// anything else as <c>.txt</c>; the name only hints the layout, it does not prove the type.
 /// </summary>
 internal sealed class LibreOfficeEngine : IConversionEngine
 {
@@ -18,6 +20,7 @@ internal sealed class LibreOfficeEngine : IConversionEngine
         FileFormat.Xlsx, FileFormat.Xls, FileFormat.Ods,
         FileFormat.Pptx, FileFormat.Ppt, FileFormat.Odp,
         FileFormat.Html,
+        FileFormat.Text,
     ];
 
     /// <inheritdoc />
@@ -68,7 +71,7 @@ internal sealed class LibreOfficeEngine : IConversionEngine
     // The real input file is used as it is when its name already carries the right extension; otherwise a copy is made.
     private static async Task<string> PlaceInputAsync(ConversionRequest request, string work, CancellationToken cancellationToken)
     {
-        string extension = "." + request.From.Extension;
+        string extension = ExtensionFor(request);
         if (request.InputPath is not null && string.Equals(Path.GetExtension(request.InputPath), extension, StringComparison.OrdinalIgnoreCase))
         {
             return request.InputPath;
@@ -78,6 +81,20 @@ internal sealed class LibreOfficeEngine : IConversionEngine
         await using FileStream copy = new(path, FileMode.CreateNew, FileAccess.Write, FileShare.None, 4096, FileOptions.Asynchronous | FileOptions.SequentialScan);
         await request.Input.CopyToAsync(copy, cancellationToken).ConfigureAwait(false);
         return path;
+    }
+
+    private static string ExtensionFor(ConversionRequest request)
+    {
+        if (request.From.Equals(FileFormat.Text) && request.InputPath is not null)
+        {
+            string name = Path.GetExtension(request.InputPath);
+            if (name.Equals(".md", StringComparison.OrdinalIgnoreCase) || name.Equals(".markdown", StringComparison.OrdinalIgnoreCase))
+            {
+                return ".md";
+            }
+        }
+
+        return "." + request.From.Extension;
     }
 
     // The program may still hold the profile for a moment after it was killed, so removal is retried a few times.

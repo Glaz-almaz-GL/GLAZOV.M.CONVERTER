@@ -85,7 +85,8 @@ public sealed class ConverterEndToEndTests : IDisposable
         ConversionException ex = await Assert.ThrowsAsync<ConversionException>(async () =>
             await new Converter().ConvertAsync(Source.File(text), Target.File(output, FileFormat.Wav)));
 
-        Assert.Equal(ConversionFailureReason.TypeNotConfirmed, ex.Reason);
+        // Plain text is a type of its own, with no way to sound.
+        Assert.Equal(ConversionFailureReason.UnsupportedConversion, ex.Reason);
         Assert.False(File.Exists(output));
     }
 }
