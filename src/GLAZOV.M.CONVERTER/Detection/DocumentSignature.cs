@@ -12,18 +12,18 @@ namespace GLAZOV.M.CONVERTER.Detection;
 /// </summary>
 internal static class DocumentSignature
 {
-    private static readonly byte[] ZipMagic = [0x50, 0x4B, 0x03, 0x04];
+    internal static readonly byte[] ZipMagic = [0x50, 0x4B, 0x03, 0x04];
     private static readonly byte[] DescriptorMagic = [0x50, 0x4B, 0x07, 0x08];
-    private static readonly byte[] CompoundMagic = [0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1];
+    internal static readonly byte[] CompoundMagic = [0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1];
 
     private const int ZipHeaderLength = 30;
-    private const int CompoundHeaderLength = 512;
-    private const int CompoundEntryLength = 128;
-    private const int MaxDirectoryEntries = 4096;
+    internal const int CompoundHeaderLength = 512;
+    internal const int CompoundEntryLength = 128;
+    internal const int MaxDirectoryEntries = 4096;
     private const byte StreamObject = 2;
 
     // The folder of an OOXML package names its kind; the entries come in no fixed order, so any entry inside the window shows it.
-    private const string ContentTypesPart = "[Content_Types].xml";
+    internal const string ContentTypesPart = "[Content_Types].xml";
     private const string WordFolder = "word/";
     private const string ExcelFolder = "xl/";
     private const string PowerPointFolder = "ppt/";
@@ -122,6 +122,14 @@ internal static class DocumentSignature
             offset += next;
         }
 
+        return ChooseOffice(contentTypes, mainParts, folders);
+    }
+
+    /// <summary>
+    /// Decides the Office Open XML kind from what an archive holds: one main part, or the content types entry with one kind of folder.
+    /// </summary>
+    internal static FileFormat? ChooseOffice(bool contentTypes, HashSet<FileFormat> mainParts, HashSet<FileFormat> folders)
+    {
         if (mainParts.Count == 1)
         {
             return mainParts.Single();
@@ -182,7 +190,7 @@ internal static class DocumentSignature
         return MatchMimeType(head, dataStart, size);
     }
 
-    private static FileFormat? MainPart(string name)
+    internal static FileFormat? MainPart(string name)
     {
         return name switch
         {
@@ -193,7 +201,7 @@ internal static class DocumentSignature
         };
     }
 
-    private static FileFormat? Folder(string name)
+    internal static FileFormat? Folder(string name)
     {
         if (name.StartsWith(WordFolder, StringComparison.Ordinal))
         {
@@ -215,7 +223,14 @@ internal static class DocumentSignature
             return null;
         }
 
-        string mime = Encoding.ASCII.GetString(header.Slice(dataStart, (int)size));
+        return OdfFormat(Encoding.ASCII.GetString(header.Slice(dataStart, (int)size)));
+    }
+
+    /// <summary>
+    /// Maps the content of the "mimetype" entry of an OpenDocument package to a format.
+    /// </summary>
+    internal static FileFormat? OdfFormat(string mime)
+    {
         return mime switch
         {
             "application/vnd.oasis.opendocument.text" => FileFormat.Odt,
@@ -249,8 +264,21 @@ internal static class DocumentSignature
             return null;
         }
 
-        ReadOnlySpan<byte> directory = head[(int)offset..];
+        return MatchDirectory(head[(int)offset..]);
+    }
+
+    /// <summary>
+    /// Names the old Office format by the streams that are direct children of the root of a compound file directory.
+    /// </summary>
+    /// <param name="directory">Directory entries from entry 0 (the root) on.</param>
+    internal static FileFormat? MatchDirectory(ReadOnlySpan<byte> directory)
+    {
         int count = Math.Min(directory.Length / CompoundEntryLength, MaxDirectoryEntries);
+        if (count == 0)
+        {
+            return null;
+        }
+
         HashSet<string> streams = [];
         Stack<uint> pending = new();
         HashSet<uint> seen = [];

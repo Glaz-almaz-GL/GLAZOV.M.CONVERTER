@@ -115,9 +115,7 @@ public sealed class DocumentRunTests(DocumentRunFixture fixture) : IClassFixture
     [OfficeFact]
     public async Task EveryInputFormat_File_ToFile_ReadsBack()
     {
-        // The directory of an old PPT made by LibreOffice sits at the very end of the file, outside the default window (the finding is
-        // recorded as a change request), so the run widens the window.
-        Converter converter = new(new ConverterSettings { DetectionWindow = 4 * 1024 * 1024 });
+        Converter converter = new(new ConverterSettings());
         int done = 0;
 
         foreach ((string label, string path, string kind) in fixture.Inputs)

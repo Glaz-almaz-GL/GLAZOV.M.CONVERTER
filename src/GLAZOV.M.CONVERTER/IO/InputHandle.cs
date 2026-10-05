@@ -58,6 +58,33 @@ internal sealed class InputHandle : IAsyncDisposable
             : HeadFromBufferedAsync(count, cancellationToken);
     }
 
+    /// <summary>
+    /// Whether the input can be read at any place (a stream that can seek, a file): only then <see cref="Probe{T}"/> works.
+    /// </summary>
+    internal bool CanProbe => _canRewind;
+
+    /// <summary>
+    /// Runs a read of the structure of the input at any place and puts the read position back. The reads are counted against the limit.
+    /// </summary>
+    /// <param name="limit">How many bytes the work may read in all.</param>
+    /// <param name="work">The reader; it gets a view whose position 0 is the start of the input.</param>
+    internal T Probe<T>(long limit, Func<Stream, T> work)
+    {
+        if (!_canRewind)
+        {
+            throw new InvalidOperationException("The input cannot be read at any place.");
+        }
+
+        try
+        {
+            return work(new BudgetedStream(_inner, _startPosition, limit));
+        }
+        finally
+        {
+            _inner.Position = _startPosition;
+        }
+    }
+
     // Поток умеет искать: читаем и возвращаем позицию, где она была.
     private async ValueTask<ReadOnlyMemory<byte>> HeadFromSeekableAsync(int count, CancellationToken cancellationToken)
     {

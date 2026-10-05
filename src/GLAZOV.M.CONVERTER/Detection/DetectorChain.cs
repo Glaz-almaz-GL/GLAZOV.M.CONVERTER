@@ -12,11 +12,12 @@ internal sealed class DetectorChain
 {
     private readonly IReadOnlyList<IFormatDetector> _detectors;
 
-    internal DetectorChain(IEnumerable<IFormatDetector> detectors)
+    internal DetectorChain(IEnumerable<IFormatDetector> detectors, long containerProbeLimit = ContainerProbe.DefaultBudget)
     {
         ArgumentNullException.ThrowIfNull(detectors);
         _detectors = [.. detectors, new TextDetector()];
         HeadLength = _detectors.Max(d => d.HeadLength);
+        ContainerProbeLimit = containerProbeLimit;
     }
 
     /// <summary>
@@ -29,6 +30,11 @@ internal sealed class DetectorChain
     /// Сколько начальных байтов читать, чтобы хватило каждому определителю.
     /// </summary>
     internal int HeadLength { get; }
+
+    /// <summary>
+    /// How many bytes the second look at a container may read in all.
+    /// </summary>
+    internal long ContainerProbeLimit { get; }
 
     /// <summary>
     /// Определяет формат по началу данных.

@@ -66,6 +66,14 @@ public static class FileTypeDetector
         ArgumentNullException.ThrowIfNull(handle);
         ArgumentNullException.ThrowIfNull(chain);
         ReadOnlyMemory<byte> head = await handle.HeadAsync(chain.HeadLength, cancellationToken).ConfigureAwait(false);
-        return chain.Detect(head.Span);
+        FileFormat found = chain.Detect(head.Span);
+        if (!found.Equals(FileFormat.Unknown) || !handle.CanProbe || !ContainerProbe.IsContainer(head.Span))
+        {
+            return found;
+        }
+
+        // The leading bytes did not settle a container; its directory may lie anywhere, so it is read where it is.
+        FileFormat? probed = await Task.Run(() => handle.Probe(chain.ContainerProbeLimit, ContainerProbe.Match), cancellationToken).ConfigureAwait(false);
+        return probed ?? FileFormat.Unknown;
     }
 }
