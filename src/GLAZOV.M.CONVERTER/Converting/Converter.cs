@@ -43,10 +43,11 @@ public sealed class Converter
         Settings = settings;
         IConverterExtension[] extensions = [new BuiltInExtension(settings.DetectionWindow), .. settings.Extensions];
         EngineRegistry engines = registry ?? new EngineRegistry(extensions.SelectMany(e => e.Engines));
-        DetectorChain chain = new(extensions.SelectMany(e => e.Detectors));
+        IReadOnlyList<FileFormat> formats = FormatDeclarations.Collect(extensions);
+        _chain = new DetectorChain(extensions.SelectMany(e => e.Detectors), settings.DetectionWindow);
         ToolLocator locator = new(Settings, environment);
-        Capabilities = new ConverterCapabilities(engines, locator);
-        _single = new SingleConversion(Settings, engines, locator, chain);
+        Capabilities = new ConverterCapabilities(engines, locator, formats);
+        _single = new SingleConversion(Settings, engines, locator, _chain);
         _batch = new BatchConversion(Settings, _single);
     }
 
@@ -58,6 +59,8 @@ public sealed class Converter
     internal ConverterSettingsSnapshot Settings { get; }
 
     private readonly SingleConversion _single;
+
+    private readonly DetectorChain _chain;
 
     private readonly BatchConversion _batch;
 
@@ -79,6 +82,19 @@ public sealed class Converter
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(target);
         return _single.RunAsync(source, target, options, progress, cancellationToken);
+    }
+
+    /// <summary>
+    /// Определяет тип файла или потока без конвертации: тот же ряд определителей и то же окно, что перед конвертацией.
+    /// Поток с перемоткой после определения возвращается на исходную позицию; поток без перемотки не принимается.
+    /// </summary>
+    /// <param name="source">Файл или поток.</param>
+    /// <param name="cancellationToken">Отмена.</param>
+    /// <exception cref="ArgumentException">Папка вместо файла или поток без перемотки.</exception>
+    /// <exception cref="ConversionException">Вход не удалось прочитать (этап «определение типа»).</exception>
+    public Task<FileFormat> DetectAsync(Source source, CancellationToken cancellationToken = default)
+    {
+        return FileTypeDetector.DetectAsync(source, _chain, cancellationToken);
     }
 
     /// <summary>

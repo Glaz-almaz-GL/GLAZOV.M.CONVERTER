@@ -20,7 +20,7 @@ public sealed class ContainerProbeTests
     {
         using MemoryStream stream = new(bytes);
         await using InputHandle input = new("test", stream, ownsInner: false);
-        return await FileTypeDetector.DetectAsync(input, new DetectorChain([new SignatureDetector()], limit));
+        return await FileTypeDetector.DetectAsync(input, new DetectorChain([new SignatureDetector(), new ContainerDetector()], inspectBudget: limit));
     }
 
     private static byte[] BigPackage(params (string Name, byte[] Content)[] entries)
@@ -145,21 +145,5 @@ public sealed class ContainerProbeTests
 
         Assert.False(input.CanProbe);
         Assert.Same(FileFormat.Unknown, await FileTypeDetector.DetectAsync(input, CancellationToken.None));
-    }
-
-    private sealed class ForwardReadStream(byte[] bytes) : Stream
-    {
-        private readonly MemoryStream _inner = new(bytes);
-
-        public override bool CanRead => true;
-        public override bool CanSeek => false;
-        public override bool CanWrite => false;
-        public override long Length => throw new NotSupportedException();
-        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
-        public override void Flush() { }
-        public override int Read(byte[] buffer, int offset, int count) => _inner.Read(buffer, offset, count);
-        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
-        public override void SetLength(long value) => throw new NotSupportedException();
-        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
     }
 }

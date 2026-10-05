@@ -12,6 +12,9 @@ internal sealed class TextDetector : IFormatDetector
     public int HeadLength => SignatureMatcher.HeadLength;
 
     /// <inheritdoc />
+    public bool ByContent => true;
+
+    /// <inheritdoc />
     public FileFormat? Detect(ReadOnlySpan<byte> head)
     {
         return TextSignature.Matches(head) ? FileFormat.Text : null;

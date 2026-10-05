@@ -18,7 +18,18 @@ public static class FileTypeDetector
     /// <param name="cancellationToken">Отмена.</param>
     /// <exception cref="ArgumentException">Папка вместо файла или поток без перемотки.</exception>
     /// <exception cref="ConversionException">Вход не удалось прочитать (этап «определение типа»).</exception>
-    public static async Task<FileFormat> DetectAsync(Source source, CancellationToken cancellationToken = default)
+    public static Task<FileFormat> DetectAsync(Source source, CancellationToken cancellationToken = default)
+    {
+        return DetectAsync(source, DetectorChain.BuiltIn, cancellationToken);
+    }
+
+    /// <summary>
+    /// Определяет тип файла или потока рядом определителей (готовые и расширений конвертера).
+    /// </summary>
+    /// <param name="source">Файл или поток.</param>
+    /// <param name="chain">Ряд определителей.</param>
+    /// <param name="cancellationToken">Отмена.</param>
+    internal static async Task<FileFormat> DetectAsync(Source source, DetectorChain chain, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(source);
         if (source.Kind == SourceKind.Folder)
@@ -36,7 +47,7 @@ public static class FileTypeDetector
         try
         {
             await using InputHandle handle = await InputReader.OpenAsync(source, cancellationToken).ConfigureAwait(false);
-            return await DetectAsync(handle, cancellationToken).ConfigureAwait(false);
+            return await DetectAsync(handle, chain, cancellationToken).ConfigureAwait(false);
         }
         catch (ConversionException ex) when (ex.Stage != ConversionStage.Detection)
         {
@@ -56,24 +67,16 @@ public static class FileTypeDetector
     }
 
     /// <summary>
-    /// Определяет тип по уже открытому входу цепочкой определителей (готовые и расширений конвертера).
+    /// Определяет тип по уже открытому входу рядом определителей (готовые и расширений конвертера).
     /// </summary>
     /// <param name="handle">Открытый вход.</param>
-    /// <param name="chain">Цепочка определителей.</param>
+    /// <param name="chain">Ряд определителей.</param>
     /// <param name="cancellationToken">Отмена.</param>
     internal static async Task<FileFormat> DetectAsync(InputHandle handle, DetectorChain chain, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(handle);
         ArgumentNullException.ThrowIfNull(chain);
         ReadOnlyMemory<byte> head = await handle.HeadAsync(chain.HeadLength, cancellationToken).ConfigureAwait(false);
-        FileFormat found = chain.Detect(head.Span);
-        if (!found.Equals(FileFormat.Unknown) || !handle.CanProbe || !ContainerProbe.IsContainer(head.Span))
-        {
-            return found;
-        }
-
-        // The leading bytes did not settle a container; its directory may lie anywhere, so it is read where it is.
-        FileFormat? probed = await Task.Run(() => handle.Probe(chain.ContainerProbeLimit, ContainerProbe.Match), cancellationToken).ConfigureAwait(false);
-        return probed ?? FileFormat.Unknown;
+        return await chain.DetectAsync(head, handle, cancellationToken).ConfigureAwait(false);
     }
 }

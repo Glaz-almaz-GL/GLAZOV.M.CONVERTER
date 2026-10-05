@@ -11,12 +11,19 @@ public sealed class ConverterCapabilities
 {
     private readonly EngineRegistry _registry;
     private readonly ToolLocator _locator;
+    private readonly IReadOnlyList<FileFormat> _formats;
 
-    internal ConverterCapabilities(EngineRegistry registry, ToolLocator locator)
+    internal ConverterCapabilities(EngineRegistry registry, ToolLocator locator, IReadOnlyList<FileFormat>? formats = null)
     {
         _registry = registry;
         _locator = locator;
+        _formats = formats ?? [];
     }
+
+    /// <summary>
+    /// Все форматы, объявленные подключёнными расширениями, без повторов, по порядку подключения.
+    /// </summary>
+    public IReadOnlyList<FileFormat> Formats => _formats;
 
     /// <summary>
     /// Все поддерживаемые конвертации с пометкой «готово» или «нужна программа»; порядок стабильный.

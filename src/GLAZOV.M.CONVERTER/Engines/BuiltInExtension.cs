@@ -1,3 +1,4 @@
+using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Detection;
 using GLAZOV.M.CONVERTER.Extensions;
 using GLAZOV.M.CONVERTER.Settings;
@@ -14,7 +15,10 @@ internal sealed class BuiltInExtension(int detectionWindow = ConverterSettings.D
     public string Name => "Встроенные";
 
     /// <inheritdoc />
-    public IReadOnlyList<IFormatDetector> Detectors { get; } = [new SignatureDetector(detectionWindow)];
+    public IReadOnlyList<FileFormat> Formats => [.. Engines.SelectMany(engine => engine.Pairs).SelectMany(pair => new[] { pair.From, pair.To }).Append(FileFormat.Svg).Distinct()];
+
+    /// <inheritdoc />
+    public IReadOnlyList<IFormatDetector> Detectors { get; } = [new SignatureDetector(detectionWindow), new ContainerDetector()];
 
     /// <inheritdoc />
     public IReadOnlyList<IConversionEngine> Engines { get; } = [new FfmpegAudioEngine(), new FfmpegImageEngine(), new FfmpegVideoEngine(), new LibreOfficeEngine()];

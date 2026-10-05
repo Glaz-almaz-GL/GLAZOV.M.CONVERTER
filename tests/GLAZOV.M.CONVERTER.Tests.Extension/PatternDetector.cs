@@ -10,8 +10,13 @@ public sealed class PatternDetector(byte[] pattern, FileFormat format, int headL
 {
     public int HeadLength { get; } = headLength;
 
+    public bool ByContent { get; init; }
+
+    public int Calls { get; private set; }
+
     public FileFormat? Detect(ReadOnlySpan<byte> head)
     {
+        Calls++;
         return head.Length >= offset + pattern.Length && head.Slice(offset, pattern.Length).SequenceEqual(pattern) ? format : null;
     }
 }
