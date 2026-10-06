@@ -36,7 +36,7 @@ public sealed class EngineInputAndProgressTests : IDisposable
 
     private static LambdaEngine Engine(Action<ConversionRequest>? inspect = null)
     {
-        return new LambdaEngine(null, [new ConversionPair(Demo, FileFormat.Wav)]) { Inspect = inspect };
+        return new LambdaEngine(null, [new ConversionPair(Demo, TestFormats.Beta)]) { Inspect = inspect };
     }
 
     private string Put(string name)
@@ -62,9 +62,9 @@ public sealed class EngineInputAndProgressTests : IDisposable
         string path = Put("a.dat");
         string relative = Path.GetRelativePath(Environment.CurrentDirectory, path);
 
-        await converter.ConvertAsync(Source.File(path), Target.Memory(FileFormat.Wav));
-        await converter.ConvertAsync(Source.File(relative), Target.Memory(FileFormat.Wav));
-        await converter.ConvertAsync(Source.Stream(new MemoryStream("DEMO x"u8.ToArray())), Target.Memory(FileFormat.Wav));
+        await converter.ConvertAsync(Source.File(path), Target.Memory(TestFormats.Beta));
+        await converter.ConvertAsync(Source.File(relative), Target.Memory(TestFormats.Beta));
+        await converter.ConvertAsync(Source.Stream(new MemoryStream("DEMO x"u8.ToArray())), Target.Memory(TestFormats.Beta));
 
         Assert.Equal(new string?[] { path, path, null }, seen);
         Assert.Equal([new FileInfo(path).Length, new FileInfo(path).Length], sizes);
@@ -78,7 +78,7 @@ public sealed class EngineInputAndProgressTests : IDisposable
         string a = Put("a.dat");
         string b = Put("b.dat");
 
-        await converter.ConvertBatchAsync(Source.Folder(_folder, "*.dat"), Target.Folder(Path.Combine(_folder, "out"), FileFormat.Wav));
+        await converter.ConvertBatchAsync(Source.Folder(_folder, "*.dat"), Target.Folder(Path.Combine(_folder, "out"), TestFormats.Beta));
 
         Assert.Equal(new string?[] { a, b }, seen.Order().ToArray());
     }
@@ -95,7 +95,7 @@ public sealed class EngineInputAndProgressTests : IDisposable
             }
         }));
 
-        await converter.ConvertAsync(Source.File(Put("a.dat")), Target.Memory(FileFormat.Wav), progress: recorder);
+        await converter.ConvertAsync(Source.File(Put("a.dat")), Target.Memory(TestFormats.Beta), progress: recorder);
 
         Assert.Equal([0, 10, 40, 100], recorder.Values);
     }
@@ -111,7 +111,7 @@ public sealed class EngineInputAndProgressTests : IDisposable
             request.ReportProgress(55);
         }));
 
-        await converter.ConvertAsync(Source.File(Put("a.dat")), Target.Memory(FileFormat.Wav), progress: recorder);
+        await converter.ConvertAsync(Source.File(Put("a.dat")), Target.Memory(TestFormats.Beta), progress: recorder);
 
         Assert.Equal([0, 55, 100], recorder.Values);
     }
@@ -121,7 +121,7 @@ public sealed class EngineInputAndProgressTests : IDisposable
     {
         Converter converter = With(Engine(request => request.ReportProgress(50)));
 
-        ConversionResult result = await converter.ConvertAsync(Source.File(Put("a.dat")), Target.Memory(FileFormat.Wav));
+        ConversionResult result = await converter.ConvertAsync(Source.File(Put("a.dat")), Target.Memory(TestFormats.Beta));
 
         Assert.True(result.Succeeded);
     }
@@ -132,7 +132,7 @@ public sealed class EngineInputAndProgressTests : IDisposable
         Recorder recorder = new();
         Converter converter = With(Engine(request => Parallel.For(1, 100, percent => request.ReportProgress(percent))));
 
-        await converter.ConvertAsync(Source.File(Put("a.dat")), Target.Memory(FileFormat.Wav), progress: recorder);
+        await converter.ConvertAsync(Source.File(Put("a.dat")), Target.Memory(TestFormats.Beta), progress: recorder);
 
         Assert.Equal(recorder.Values.Order().ToArray(), recorder.Values);
         Assert.Equal(recorder.Values.Distinct().Count(), recorder.Values.Length);

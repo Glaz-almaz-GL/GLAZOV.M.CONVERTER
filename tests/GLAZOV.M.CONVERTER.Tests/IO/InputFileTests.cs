@@ -2,6 +2,7 @@ using GLAZOV.M.CONVERTER.Converting;
 using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Extensions;
 using GLAZOV.M.CONVERTER.IO;
+using GLAZOV.M.CONVERTER.Tests.Extension;
 
 namespace GLAZOV.M.CONVERTER.Tests.IO;
 
@@ -24,7 +25,7 @@ public sealed class InputFileTests : IDisposable
 
     private ConversionRequest Request(Stream input, string? inputPath = null)
     {
-        return new ConversionRequest(input, new MemoryStream(), FileFormat.Wav, FileFormat.Wav, new ConversionOptions(), null, _folder, inputPath);
+        return new ConversionRequest(input, new MemoryStream(), TestFormats.Beta, TestFormats.Beta, new ConversionOptions(), null, _folder, inputPath);
     }
 
     [Fact]

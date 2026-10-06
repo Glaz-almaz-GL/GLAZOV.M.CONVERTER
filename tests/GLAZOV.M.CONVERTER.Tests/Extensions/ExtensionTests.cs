@@ -47,30 +47,50 @@ public sealed class ExtensionTests : IDisposable
         return path;
     }
 
-    private static byte[] Demo(string tail = " содержимое")
+    private static readonly FileFormat Alpha = TestFormats.Alpha;
+
+    private static readonly FileFormat Beta = TestFormats.Beta;
+
+    private static byte[] AlphaFile()
     {
-        return [.. "DEMO"u8.ToArray(), .. Encoding.UTF8.GetBytes(tail)];
+        return TestFormats.Sample(Alpha);
+    }
+
+    private static byte[] AlphaText()
+    {
+        return [.. TestFormats.Header(Alpha), .. Encoding.UTF8.GetBytes(" содержимое")];
+    }
+
+    private static LambdaEngine AlphaToBeta(byte[]? marker = null, bool supportsOperations = false, string? toolName = null)
+    {
+        return new LambdaEngine(toolName, [new ConversionPair(Alpha, Beta)], supportsOperations, marker);
+    }
+
+    private static int BuiltInPairs()
+    {
+        return new Converter().Capabilities.All.Count;
     }
 
     [Fact]
-    public async Task DemoExtension_FromAnotherAssembly_ConvertsItsOwnFormat_WithoutFfmpeg()
+    public async Task Extension_FromAnotherAssembly_ConvertsItsOwnFormat_WithoutAnExternalProgram()
     {
-        string input = Put("пример.dat", Demo());
+        byte[] data = AlphaFile();
+        string input = Put("пример.dat", data);
 
-        ConversionResult result = await With(new DemoExtension()).ConvertAsync(Source.File(input), Target.Memory(FileFormat.Wav));
+        ConversionResult result = await With(TestExtensions.Create(AlphaToBeta())).ConvertAsync(Source.File(input), Target.Memory(Beta));
 
         Assert.True(result.Succeeded);
-        Assert.Same(DemoExtension.Demo, result.SourceType);
-        Assert.Equal(Demo(), result.Bytes);
+        Assert.Same(Alpha, result.SourceType);
+        Assert.Equal(data, result.Bytes);
     }
 
     [Fact]
-    public async Task WithoutTheExtension_TheSameFile_IsJustText_ForWhichThereIsNoWav()
+    public async Task WithoutTheExtension_TheSameFile_IsJustText_ForWhichThereIsNoStandInTarget()
     {
-        string input = Put("пример.dat", Demo());
+        string input = Put("пример.dat", AlphaText());
 
         ConversionException ex = await Assert.ThrowsAsync<ConversionException>(async () =>
-            await new Converter().ConvertAsync(Source.File(input), Target.Memory(FileFormat.Wav)));
+            await new Converter().ConvertAsync(Source.File(input), Target.Memory(Beta)));
 
         // Plain text is a type of its own now; only the extension knows this content as its format.
         Assert.Equal(ConversionFailureReason.UnsupportedConversion, ex.Reason);
@@ -79,30 +99,31 @@ public sealed class ExtensionTests : IDisposable
     [Fact]
     public async Task ThePublicStaticDetector_KnowsOnlyTheBuiltInTypes()
     {
-        string input = Put("пример.dat", Demo());
+        string input = Put("пример.dat", AlphaText());
 
-        Assert.Same(FileFormat.Text, await FileTypeDetector.DetectAsync(Source.File(input)));
+        FileFormat detected = await FileTypeDetector.DetectAsync(Source.File(input));
+
+        Assert.DoesNotContain(detected, TestFormats.All);
     }
 
     [Fact]
     public void Catalog_ShowsTheExtensionPairs_NextToTheBuiltInOnes_AndCanConvertKnowsThem()
     {
-        ConverterCapabilities caps = With(new DemoExtension()).Capabilities;
+        ConverterCapabilities caps = With(TestExtensions.Create(AlphaToBeta())).Capabilities;
 
-        Assert.Equal(144, caps.All.Count);
-        Conversion own = Assert.Single(caps.All, c => c.From.Equals(DemoExtension.Demo));
-        Assert.Same(FileFormat.Wav, own.To);
+        Assert.Equal(BuiltInPairs() + 1, caps.All.Count);
+        Conversion own = Assert.Single(caps.All, c => c.From.Equals(Alpha));
+        Assert.Same(Beta, own.To);
         Assert.Equal(ConversionAvailability.Ready, own.Availability);
-        Assert.True(caps.CanConvert(DemoExtension.Demo, FileFormat.Wav));
-        Assert.False(caps.CanConvert(DemoExtension.Demo, FileFormat.Mp3));
-        Assert.True(caps.CanConvert(FileFormat.Ogg, FileFormat.Mp3));
+        Assert.True(caps.CanConvert(Alpha, Beta));
+        Assert.False(caps.CanConvert(Alpha, TestFormats.Gamma));
     }
 
     [Fact]
     public async Task BuiltInDetectionComesFirst_AnExtensionCannotStealABuiltInType()
     {
-        LambdaEngine engine = new(null, [new ConversionPair(DemoExtension.Demo, FileFormat.Wav)]);
-        ConfigurableExtension greedy = new("жадное", [new PatternDetector("ID3"u8.ToArray(), DemoExtension.Demo)], [engine]);
+        LambdaEngine engine = AlphaToBeta();
+        ConfigurableExtension greedy = new("жадное", [new PatternDetector("ID3"u8.ToArray(), Alpha)], [engine]);
         string mp3 = Put("a.mp3", File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Samples", "sample-id3.mp3")));
 
         // Файл с тегом ID3 — MP3 по готовым признакам; расширение «жадное» не перехватывает; MP3 → WAV без FFmpeg невозможен, поэтому ждём лишь, что формат не DEMO.
@@ -117,15 +138,14 @@ public sealed class ExtensionTests : IDisposable
     [Fact]
     public async Task TwoExtensionsForOnePair_TheEarlierWins_AndTheCatalogShowsThePairOnce()
     {
-        LambdaEngine first = new(null, [new ConversionPair(DemoExtension.Demo, FileFormat.Wav)], marker: "ПЕРВЫЙ:"u8.ToArray());
-        LambdaEngine second = new(null, [new ConversionPair(DemoExtension.Demo, FileFormat.Wav)], marker: "ВТОРОЙ:"u8.ToArray());
-        PatternDetector detector = new("DEMO"u8.ToArray(), DemoExtension.Demo);
-        Converter converter = With(new ConfigurableExtension("а", [detector], [first]), new ConfigurableExtension("б", [], [second]));
+        LambdaEngine first = AlphaToBeta("ПЕРВЫЙ:"u8.ToArray());
+        LambdaEngine second = AlphaToBeta("ВТОРОЙ:"u8.ToArray());
+        Converter converter = With(TestExtensions.Create(first), new ConfigurableExtension("б", [], [second]));
 
-        ConversionResult result = await converter.ConvertAsync(Source.File(Put("x.dat", Demo(":x"))), Target.Memory(FileFormat.Wav));
+        ConversionResult result = await converter.ConvertAsync(Source.File(Put("x.dat", AlphaFile())), Target.Memory(Beta));
 
-        Assert.StartsWith("ПЕРВЫЙ:DEMO", Encoding.UTF8.GetString(result.Bytes!));
-        Assert.Equal(1, converter.Capabilities.All.Count(c => c.From.Equals(DemoExtension.Demo)));
+        Assert.StartsWith("ПЕРВЫЙ:~TST-ALPHA", Encoding.UTF8.GetString(result.Bytes!));
+        Assert.Equal(1, converter.Capabilities.All.Count(c => c.From.Equals(Alpha)));
         Assert.Equal(0, second.Calls);
     }
 
@@ -135,10 +155,10 @@ public sealed class ExtensionTests : IDisposable
         FileFormat late = FileFormat.Create("LATE", "application/x-late", "late");
         byte[] data = new byte[9000];
         "МЕТКА"u8.CopyTo(data.AsSpan(8000));
-        LambdaEngine engine = new(null, [new ConversionPair(late, FileFormat.Wav)]);
+        LambdaEngine engine = new(null, [new ConversionPair(late, Beta)]);
         ConfigurableExtension extension = new("поздний", [new PatternDetector("МЕТКА"u8.ToArray(), late, headLength: 9000, offset: 8000)], [engine]);
 
-        ConversionResult result = await With(extension).ConvertAsync(Source.File(Put("late.bin", data)), Target.Memory(FileFormat.Wav));
+        ConversionResult result = await With(extension).ConvertAsync(Source.File(Put("late.bin", data)), Target.Memory(Beta));
 
         Assert.Same(late, result.SourceType);
         Assert.Equal(data, result.Bytes);
@@ -147,15 +167,15 @@ public sealed class ExtensionTests : IDisposable
     [Fact]
     public async Task EngineRequest_CarriesInputOutputFormatsOptionsAndTempFolder()
     {
-        LambdaEngine engine = new(null, [new ConversionPair(DemoExtension.Demo, FileFormat.Wav)]);
-        Converter converter = With(new ConfigurableExtension("а", [new PatternDetector("DEMO"u8.ToArray(), DemoExtension.Demo)], [engine]));
+        LambdaEngine engine = AlphaToBeta();
+        Converter converter = With(TestExtensions.Create(engine));
         AudioOptions audio = new() { Bitrate = 64_000 };
 
-        await converter.ConvertAsync(Source.File(Put("x.dat", Demo())), Target.Memory(FileFormat.Wav), new ConversionOptions { Audio = audio });
+        await converter.ConvertAsync(Source.File(Put("x.dat", AlphaFile())), Target.Memory(Beta), new ConversionOptions { Audio = audio });
 
         ConversionRequest request = engine.Last!;
-        Assert.Same(DemoExtension.Demo, request.From);
-        Assert.Same(FileFormat.Wav, request.To);
+        Assert.Same(Alpha, request.From);
+        Assert.Same(Beta, request.To);
         Assert.Same(audio, request.Options.Audio);
         Assert.Null(request.Tool);
         Assert.True(Directory.Exists(request.TempFolder));
@@ -164,10 +184,10 @@ public sealed class ExtensionTests : IDisposable
     [Fact]
     public async Task EngineWithoutOptions_StillGetsANonNullOptionsObject()
     {
-        LambdaEngine engine = new(null, [new ConversionPair(DemoExtension.Demo, FileFormat.Wav)]);
-        Converter converter = With(new ConfigurableExtension("а", [new PatternDetector("DEMO"u8.ToArray(), DemoExtension.Demo)], [engine]));
+        LambdaEngine engine = AlphaToBeta();
+        Converter converter = With(TestExtensions.Create(engine));
 
-        await converter.ConvertAsync(Source.File(Put("x.dat", Demo())), Target.Memory(FileFormat.Wav));
+        await converter.ConvertAsync(Source.File(Put("x.dat", AlphaFile())), Target.Memory(Beta));
 
         Assert.NotNull(engine.Last!.Options);
         Assert.Empty(engine.Last.Options.Operations);
@@ -182,19 +202,18 @@ public sealed class ExtensionTests : IDisposable
             File.SetUnixFileMode(tool, UnixFileMode.UserRead | UnixFileMode.UserExecute);
         }
 
-        LambdaEngine engine = new("мой", [new ConversionPair(DemoExtension.Demo, FileFormat.Wav)]);
-        ConfigurableExtension extension = new("с программой", [new PatternDetector("DEMO"u8.ToArray(), DemoExtension.Demo)], [engine]);
+        LambdaEngine engine = AlphaToBeta(toolName: "мой");
         ConverterSettings withTool = new() { ToolPaths = { ["мой"] = tool } };
-        withTool.Extensions.Add(extension);
+        withTool.Extensions.Add(TestExtensions.Create(engine));
 
-        await new Converter(withTool).ConvertAsync(Source.File(Put("x.dat", Demo())), Target.Memory(FileFormat.Wav));
+        await new Converter(withTool).ConvertAsync(Source.File(Put("x.dat", AlphaFile())), Target.Memory(Beta));
 
         Assert.Equal(tool, engine.Last!.Tool!.Path);
 
-        LambdaEngine other = new("нет-такой-программы", [new ConversionPair(DemoExtension.Demo, FileFormat.Wav)]);
+        LambdaEngine other = AlphaToBeta(toolName: "нет-такой-программы");
         ConversionException ex = await Assert.ThrowsAsync<ConversionException>(async () =>
-            await With(new ConfigurableExtension("без программы", [new PatternDetector("DEMO"u8.ToArray(), DemoExtension.Demo)], [other]))
-                .ConvertAsync(Source.File(Put("y.dat", Demo())), Target.Memory(FileFormat.Wav)));
+            await With(TestExtensions.Create(other))
+                .ConvertAsync(Source.File(Put("y.dat", AlphaFile())), Target.Memory(Beta)));
         Assert.Equal(ConversionFailureReason.ToolNotFound, ex.Reason);
         Assert.Equal(0, other.Calls);
     }
@@ -202,15 +221,14 @@ public sealed class ExtensionTests : IDisposable
     [Fact]
     public async Task OperationsAreRefusedBeforeWork_ForAnEngineThatDoesNotDeclareThem_AndPassedToOneThatDoes()
     {
-        string input = Put("x.dat", Demo());
-        PatternDetector detector = new("DEMO"u8.ToArray(), DemoExtension.Demo);
-        LambdaEngine plain = new(null, [new ConversionPair(DemoExtension.Demo, FileFormat.Wav)]);
-        LambdaEngine capable = new(null, [new ConversionPair(DemoExtension.Demo, FileFormat.Wav)], supportsOperations: true);
+        string input = Put("x.dat", AlphaFile());
+        LambdaEngine plain = AlphaToBeta();
+        LambdaEngine capable = AlphaToBeta(supportsOperations: true);
         ConversionOptions options = new() { Operations = { Operation.RotateRight } };
 
         ConversionException refused = await Assert.ThrowsAsync<ConversionException>(async () =>
-            await With(new ConfigurableExtension("а", [detector], [plain])).ConvertAsync(Source.File(input), Target.Memory(FileFormat.Wav), options));
-        await With(new ConfigurableExtension("б", [detector], [capable])).ConvertAsync(Source.File(input), Target.Memory(FileFormat.Wav), options);
+            await With(TestExtensions.Create(plain)).ConvertAsync(Source.File(input), Target.Memory(Beta), options));
+        await With(TestExtensions.Create(capable)).ConvertAsync(Source.File(input), Target.Memory(Beta), options);
 
         Assert.Equal(ConversionFailureReason.UnsupportedConversion, refused.Reason);
         Assert.Equal(0, plain.Calls);
@@ -221,27 +239,27 @@ public sealed class ExtensionTests : IDisposable
     public async Task UnexpectedExceptionOfAnExtensionEngine_BecomesEngineFailed_WithTheOriginalInside()
     {
         InvalidOperationException original = new("чужой сбой");
-        LambdaEngine engine = new(null, [new ConversionPair(DemoExtension.Demo, FileFormat.Wav)]) { Crash = original };
-        Converter converter = With(new ConfigurableExtension("а", [new PatternDetector("DEMO"u8.ToArray(), DemoExtension.Demo)], [engine]));
+        LambdaEngine engine = new(null, [new ConversionPair(Alpha, Beta)]) { Crash = original };
+        Converter converter = With(TestExtensions.Create(engine));
 
         ConversionException ex = await Assert.ThrowsAsync<ConversionException>(async () =>
-            await converter.ConvertAsync(Source.File(Put("x.dat", Demo())), Target.File(Path.Combine(_folder, "o.wav"), FileFormat.Wav)));
+            await converter.ConvertAsync(Source.File(Put("x.dat", AlphaFile())), Target.File(Path.Combine(_folder, "o.beta"), Beta)));
 
         Assert.Equal(ConversionStage.Conversion, ex.Stage);
         Assert.Equal(ConversionFailureReason.EngineFailed, ex.Reason);
         Assert.Same(original, ex.InnerException);
         Assert.Contains("чужой сбой", ex.Message);
         Assert.Contains(nameof(LambdaEngine), ex.Message);
-        Assert.False(File.Exists(Path.Combine(_folder, "o.wav")));
+        Assert.False(File.Exists(Path.Combine(_folder, "o.beta")));
     }
 
     [Fact]
     public async Task CancellationOfAnExtensionEngine_StaysCancellation()
     {
-        LambdaEngine engine = new(null, [new ConversionPair(DemoExtension.Demo, FileFormat.Wav)]) { WaitForCancel = true };
-        Converter converter = With(new ConfigurableExtension("а", [new PatternDetector("DEMO"u8.ToArray(), DemoExtension.Demo)], [engine]));
+        LambdaEngine engine = new(null, [new ConversionPair(Alpha, Beta)]) { WaitForCancel = true };
+        Converter converter = With(TestExtensions.Create(engine));
         using CancellationTokenSource cts = new();
-        Task<ConversionResult> run = converter.ConvertAsync(Source.File(Put("x.dat", Demo())), Target.Memory(FileFormat.Wav), cancellationToken: cts.Token);
+        Task<ConversionResult> run = converter.ConvertAsync(Source.File(Put("x.dat", AlphaFile())), Target.Memory(Beta), cancellationToken: cts.Token);
 
         await Task.Delay(300);
         await cts.CancelAsync();
@@ -252,15 +270,15 @@ public sealed class ExtensionTests : IDisposable
     [Fact]
     public async Task ExtensionInABatch_WorksAndAnEngineCrashIsAnItemNotALostBatch()
     {
-        LambdaEngine ok = new(null, [new ConversionPair(DemoExtension.Demo, FileFormat.Wav)]);
-        string a = Put("a.dat", Demo(" один"));
-        string b = Put("b.dat", Demo(" два"));
-        Converter converter = With(new ConfigurableExtension("а", [new PatternDetector("DEMO"u8.ToArray(), DemoExtension.Demo)], [ok]));
+        LambdaEngine ok = AlphaToBeta();
+        string a = Put("a.dat", TestFormats.Sample(Alpha, 10));
+        string b = Put("b.dat", TestFormats.Sample(Alpha, 20));
+        Converter converter = With(TestExtensions.Create(ok));
 
-        BatchReport report = await converter.ConvertBatchAsync([Source.File(a), Source.File(b)], Target.Folder(Path.Combine(_folder, "out"), FileFormat.Wav));
+        BatchReport report = await converter.ConvertBatchAsync([Source.File(a), Source.File(b)], Target.Folder(Path.Combine(_folder, "out"), Beta));
 
         Assert.Equal(2, report.Succeeded);
-        Assert.True(File.Exists(Path.Combine(_folder, "out", "a.wav")));
+        Assert.True(File.Exists(Path.Combine(_folder, "out", "a.beta")));
     }
 
     [Fact]
@@ -269,22 +287,22 @@ public sealed class ExtensionTests : IDisposable
         ConverterSettings settings = new();
         Converter converter = new(settings);
 
-        settings.Extensions.Add(new DemoExtension());
+        settings.Extensions.Add(TestExtensions.Create(AlphaToBeta()));
 
-        Assert.Equal(143, converter.Capabilities.All.Count);
+        Assert.Equal(BuiltInPairs(), converter.Capabilities.All.Count);
     }
 
     [Fact]
     public void BadExtensions_AreRefusedAtCreation_WithAClearText()
     {
-        PatternDetector detector = new("X"u8.ToArray(), DemoExtension.Demo);
-        LambdaEngine engine = new(null, [new ConversionPair(DemoExtension.Demo, FileFormat.Wav)]);
+        PatternDetector detector = new("X"u8.ToArray(), Alpha);
+        LambdaEngine engine = AlphaToBeta();
 
-        ArgumentException twice = Assert.Throws<ArgumentException>(() => With(new DemoExtension(), new DemoExtension()));
+        ArgumentException twice = Assert.Throws<ArgumentException>(() => With(TestExtensions.Create(), TestExtensions.Create()));
         ArgumentException empty = Assert.Throws<ArgumentException>(() => With(new ConfigurableExtension(" ", [detector], [engine])));
         ArgumentException nullLists = Assert.Throws<ArgumentException>(() => With(new ConfigurableExtension("а", null!, [engine])));
         ArgumentException nullItem = Assert.Throws<ArgumentException>(() => With(new ConfigurableExtension("б", [null!], [engine])));
-        ArgumentException zeroWindow = Assert.Throws<ArgumentException>(() => With(new ConfigurableExtension("в", [new PatternDetector("X"u8.ToArray(), DemoExtension.Demo, headLength: 0)], [engine])));
+        ArgumentException zeroWindow = Assert.Throws<ArgumentException>(() => With(new ConfigurableExtension("в", [new PatternDetector("X"u8.ToArray(), Alpha, headLength: 0)], [engine])));
         ConverterSettings withNull = new();
         withNull.Extensions.Add(null!);
         ArgumentException nullEntry = Assert.Throws<ArgumentException>(() => new Converter(withNull));

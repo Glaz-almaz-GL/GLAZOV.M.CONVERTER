@@ -28,8 +28,8 @@ public sealed class FormatDeclarationsTests
     {
         FileFormat first = FileFormat.Create("JSON", "application/json", "json");
         FileFormat second = FileFormat.Create("json", "Application/JSON", "json");
-        LambdaEngine engineA = new(null, [new ConversionPair(first, FileFormat.Wav)], marker: "A:"u8.ToArray());
-        LambdaEngine engineB = new(null, [new ConversionPair(second, FileFormat.Wav)], marker: "B:"u8.ToArray());
+        LambdaEngine engineA = new(null, [new ConversionPair(first, TestFormats.Beta)], marker: "A:"u8.ToArray());
+        LambdaEngine engineB = new(null, [new ConversionPair(second, TestFormats.Beta)], marker: "B:"u8.ToArray());
         Converter converter = With(
             new ConfigurableExtension("первое", [new PatternDetector("{"u8.ToArray(), first)], [engineA]),
             new ConfigurableExtension("второе", [new PatternDetector("{"u8.ToArray(), second)], [engineB]));
@@ -38,7 +38,7 @@ public sealed class FormatDeclarationsTests
 
         try
         {
-            ConversionResult result = await converter.ConvertAsync(Source.File(path), Target.Memory(FileFormat.Wav));
+            ConversionResult result = await converter.ConvertAsync(Source.File(path), Target.Memory(TestFormats.Beta));
 
             Assert.Equal(first, result.SourceType);
             Assert.StartsWith("A:", Encoding.UTF8.GetString(result.Bytes!));
@@ -81,16 +81,18 @@ public sealed class FormatDeclarationsTests
 
         Assert.Equal(formats.Distinct().Count(), formats.Count);
         Assert.True(formats.ToList().IndexOf(one) < formats.ToList().IndexOf(two));
-        Assert.Contains(FileFormat.Mp3, formats);
+        Assert.Contains(one, formats);
+        Assert.Contains(two, formats);
+        Assert.True(formats.Count > 2, "the built-in formats are listed too");
     }
 
     [Fact]
     public void ByDefault_AnExtensionDeclaresTheFormatsOfItsPairs()
     {
         FileFormat only = FileFormat.Create("ONLY", "application/x-only", "only");
-        ConfigurableExtension extension = new("пары", [], [new LambdaEngine(null, [new ConversionPair(only, FileFormat.Wav)])]);
+        ConfigurableExtension extension = new("пары", [], [new LambdaEngine(null, [new ConversionPair(only, TestFormats.Beta)])]);
 
-        Assert.Equal([only, FileFormat.Wav], extension.Formats);
+        Assert.Equal([only, TestFormats.Beta], extension.Formats);
         Assert.Contains(only, With(extension).Capabilities.Formats);
     }
 }

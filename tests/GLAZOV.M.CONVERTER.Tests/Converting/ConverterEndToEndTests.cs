@@ -1,15 +1,16 @@
 using GLAZOV.M.CONVERTER.Converting;
 using GLAZOV.M.CONVERTER.Data;
-using GLAZOV.M.CONVERTER.Detection;
 using GLAZOV.M.CONVERTER.Errors;
+using GLAZOV.M.CONVERTER.Extensions;
+using GLAZOV.M.CONVERTER.Settings;
+using GLAZOV.M.CONVERTER.Tests.Extension;
 
 namespace GLAZOV.M.CONVERTER.Tests.Converting;
 
 /// <summary>
-/// Сквозные проверки публичного вызова на настоящем FFmpeg и настоящих файлах: файл, поток, память.
-/// Нет FFmpeg — проверки пропускаются, а не проходят.
+/// Сквозные проверки публичного вызова на подставных форматах и подставном движке: файл, поток, память.
+/// Движок пишет заголовок целевого формата, поэтому результат узнаёт сама библиотека.
 /// </summary>
-[Collection("FFmpeg")]
 public sealed class ConverterEndToEndTests : IDisposable
 {
     private readonly string _folder = Path.Combine(Path.GetTempPath(), "convtests-" + Guid.NewGuid().ToString("N"));
@@ -24,69 +25,92 @@ public sealed class ConverterEndToEndTests : IDisposable
         Directory.Delete(_folder, recursive: true);
     }
 
-    private static string SamplePath(string name)
+    // The engine converts Alpha to Beta: the Beta header followed by the input.
+    private static LambdaEngine NewEngine(Action<ConversionRequest>? inspect = null)
     {
-        return Path.Combine(AppContext.BaseDirectory, "Samples", name);
+        return new LambdaEngine(null, [new ConversionPair(TestFormats.Alpha, TestFormats.Beta)], marker: TestFormats.Header(TestFormats.Beta)) { Inspect = inspect };
     }
 
-    [ExternalFact]
-    public async Task WavFile_ToMp3File_IsAnMp3_ThatTheLibraryItselfRecognizes()
+    private static Converter NewConverter(LambdaEngine engine)
     {
-        string output = Path.Combine(_folder, "result.mp3");
+        ConverterSettings settings = new();
+        settings.Extensions.Add(TestExtensions.Create(engine));
+        return new Converter(settings);
+    }
 
-        ConversionResult result = await new Converter().ConvertAsync(Source.File(SamplePath("sample.wav")), Target.File(output, FileFormat.Mp3));
+    [Fact]
+    public async Task AlphaFile_ToBetaFile_IsABeta_ThatTheLibraryItselfRecognizes()
+    {
+        string input = Path.Combine(_folder, "source.alpha");
+        await File.WriteAllBytesAsync(input, TestFormats.Sample(TestFormats.Alpha));
+        string output = Path.Combine(_folder, "result.beta");
+        Converter converter = NewConverter(NewEngine());
+
+        ConversionResult result = await converter.ConvertAsync(Source.File(input), Target.File(output, TestFormats.Beta));
 
         Assert.True(result.Succeeded);
-        Assert.Same(FileFormat.Wav, result.SourceType);
-        Assert.Same(FileFormat.Mp3, await FileTypeDetector.DetectAsync(Source.File(output)));
+        Assert.Same(TestFormats.Alpha, result.SourceType);
+        Assert.Same(TestFormats.Beta, await converter.DetectAsync(Source.File(output)));
     }
 
-    [ExternalFact]
-    public async Task OggStream_ToWavStream_WorksFromAndToStreams()
+    [Fact]
+    public async Task AlphaStream_ToBetaStream_WorksFromAndToStreams()
     {
-        using FileStream input = File.OpenRead(SamplePath("sample-vorbis.ogg"));
+        Converter converter = NewConverter(NewEngine());
+        using MemoryStream input = new(TestFormats.Sample(TestFormats.Alpha));
         using MemoryStream output = new();
 
-        await new Converter().ConvertAsync(Source.Stream(input), Target.Stream(output, FileFormat.Wav));
+        await converter.ConvertAsync(Source.Stream(input), Target.Stream(output, TestFormats.Beta));
 
         output.Position = 0;
-        Assert.Same(FileFormat.Wav, await FileTypeDetector.DetectAsync(Source.Stream(output)));
+        Assert.Same(TestFormats.Beta, await converter.DetectAsync(Source.Stream(output)));
     }
 
-    [ExternalFact]
-    public async Task Mp3File_ToMemory_GivesBytesOfTheTargetType()
+    [Fact]
+    public async Task AlphaFile_ToMemory_GivesBytesOfTheTargetType()
     {
-        ConversionResult result = await new Converter().ConvertAsync(Source.File(SamplePath("sample-id3.mp3")), Target.Memory(FileFormat.Ogg));
+        string input = Path.Combine(_folder, "source.alpha");
+        await File.WriteAllBytesAsync(input, TestFormats.Sample(TestFormats.Alpha));
+        Converter converter = NewConverter(NewEngine());
+
+        ConversionResult result = await converter.ConvertAsync(Source.File(input), Target.Memory(TestFormats.Beta));
 
         Assert.NotNull(result.Bytes);
         using MemoryStream bytes = new(result.Bytes);
-        Assert.Same(FileFormat.Ogg, await FileTypeDetector.DetectAsync(Source.Stream(bytes)));
+        Assert.Same(TestFormats.Beta, await converter.DetectAsync(Source.Stream(bytes)));
     }
 
-    [ExternalFact]
-    public async Task WavWithParameters_AppliedToTheResult()
+    [Fact]
+    public async Task OptionsWithParameters_ReachTheEngine()
     {
-        ConversionResult result = await new Converter().ConvertAsync(
-            Source.File(SamplePath("sample.wav")),
-            Target.Memory(FileFormat.Wav),
+        AudioOptions? seen = null;
+        Converter converter = NewConverter(NewEngine(request => seen = request.Options.Audio));
+        using MemoryStream input = new(TestFormats.Sample(TestFormats.Alpha));
+
+        await converter.ConvertAsync(
+            Source.Stream(input),
+            Target.Memory(TestFormats.Beta),
             new ConversionOptions { Audio = new AudioOptions { SampleRate = 8000, Channels = 1 } });
 
-        Assert.Equal(1, BitConverter.ToUInt16(result.Bytes!, 22));
-        Assert.Equal(8000, BitConverter.ToInt32(result.Bytes!, 24));
+        Assert.NotNull(seen);
+        Assert.Equal(8000, seen.SampleRate);
+        Assert.Equal(1, seen.Channels);
     }
 
-    [ExternalFact]
-    public async Task NotAudioFile_IsRefusedBeforeFfmpegIsEvenStarted()
+    [Fact]
+    public async Task NotAFormatOfTheEngine_IsRefusedBeforeTheEngineIsEvenStarted()
     {
-        string text = Path.Combine(_folder, "текст.mp3");
-        await File.WriteAllTextAsync(text, "Это не звук.");
-        string output = Path.Combine(_folder, "never.wav");
+        string text = Path.Combine(_folder, "текст.alpha");
+        await File.WriteAllTextAsync(text, "Это не ALPHA.");
+        string output = Path.Combine(_folder, "never.beta");
+        LambdaEngine engine = NewEngine();
 
         ConversionException ex = await Assert.ThrowsAsync<ConversionException>(async () =>
-            await new Converter().ConvertAsync(Source.File(text), Target.File(output, FileFormat.Wav)));
+            await NewConverter(engine).ConvertAsync(Source.File(text), Target.File(output, TestFormats.Beta)));
 
-        // Plain text is a type of its own, with no way to sound.
+        // Plain text is a type of its own, with no way to Beta.
         Assert.Equal(ConversionFailureReason.UnsupportedConversion, ex.Reason);
+        Assert.Equal(0, engine.Calls);
         Assert.False(File.Exists(output));
     }
 }

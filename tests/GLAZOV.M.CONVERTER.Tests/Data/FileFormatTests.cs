@@ -1,4 +1,5 @@
 using GLAZOV.M.CONVERTER.Data;
+using GLAZOV.M.CONVERTER.Tests.Extension;
 
 namespace GLAZOV.M.CONVERTER.Tests.Data;
 
@@ -43,6 +44,14 @@ public class FileFormatTests
         Assert.Equal(documents.Length, documents.Distinct().Count());
         Assert.DoesNotContain(FileFormat.Unknown, documents);
         Assert.All(documents, d => Assert.NotEqual(FileFormat.Svg, d));
+    }
+
+    [Fact]
+    public void StandInFormats_CarryNameMimeAndExtension_AndAreDistinct()
+    {
+        Assert.Equal(("ALPHA", "application/x-test-alpha", "alpha"), (TestFormats.Alpha.Name, TestFormats.Alpha.MimeType, TestFormats.Alpha.Extension));
+        Assert.Equal(TestFormats.All.Count, TestFormats.All.Distinct().Count());
+        Assert.DoesNotContain(FileFormat.Unknown, TestFormats.All);
     }
 
     [Fact]
@@ -99,30 +108,30 @@ public class FileFormatTests
     [Fact]
     public void Create_MakesAFormatForAnUnregisteredType_AndNormalizesTheExtension()
     {
-        FileFormat flac = FileFormat.Create("FLAC", "audio/flac", ".FLAC");
+        FileFormat custom = FileFormat.Create("CUSTOM", "application/x-custom", ".CUSTOM");
 
-        Assert.Equal("FLAC", flac.Name);
-        Assert.Equal("audio/flac", flac.MimeType);
-        Assert.Equal("flac", flac.Extension);
-        Assert.Equal("FLAC", flac.ToString());
+        Assert.Equal("CUSTOM", custom.Name);
+        Assert.Equal("application/x-custom", custom.MimeType);
+        Assert.Equal("custom", custom.Extension);
+        Assert.Equal("CUSTOM", custom.ToString());
     }
 
     [Fact]
     public void Equality_IsByValue_NotByReference()
     {
-        Assert.Equal(FileFormat.Create("MP3", "audio/mpeg", "mp3"), FileFormat.Mp3);
-        Assert.Equal(FileFormat.Create("mp3", "AUDIO/MPEG", ".MP3").GetHashCode(), FileFormat.Mp3.GetHashCode());
-        Assert.NotEqual(FileFormat.Mp3, FileFormat.Wav);
-        Assert.False(FileFormat.Mp3.Equals(null));
+        Assert.Equal(FileFormat.Create("ALPHA", "application/x-test-alpha", "alpha"), TestFormats.Alpha);
+        Assert.Equal(FileFormat.Create("alpha", "APPLICATION/X-TEST-ALPHA", ".ALPHA").GetHashCode(), TestFormats.Alpha.GetHashCode());
+        Assert.NotEqual(TestFormats.Alpha, TestFormats.Beta);
+        Assert.False(TestFormats.Alpha.Equals(null));
     }
 
     [Theory]
-    [InlineData("", "audio/flac", "flac")]
-    [InlineData("FLAC", " ", "flac")]
-    [InlineData("FLAC", "audio/flac", "")]
-    [InlineData("FLAC", "audio/flac", ".")]
-    [InlineData("FLAC", "audio/flac", "tar.gz")]
-    [InlineData("FLAC", "audio/flac", "fl/ac")]
+    [InlineData("", "application/x-custom", "custom")]
+    [InlineData("CUSTOM", " ", "custom")]
+    [InlineData("CUSTOM", "application/x-custom", "")]
+    [InlineData("CUSTOM", "application/x-custom", ".")]
+    [InlineData("CUSTOM", "application/x-custom", "tar.gz")]
+    [InlineData("CUSTOM", "application/x-custom", "cu/stom")]
     public void Create_RejectsEmptyAndUnsuitableParts(string name, string mime, string extension)
     {
         Assert.ThrowsAny<ArgumentException>(() => FileFormat.Create(name, mime, extension));

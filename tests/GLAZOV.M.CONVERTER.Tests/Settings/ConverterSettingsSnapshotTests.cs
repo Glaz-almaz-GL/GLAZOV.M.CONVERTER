@@ -41,7 +41,7 @@ public sealed class ConverterSettingsSnapshotTests : IDisposable
             MaxParallelTasks = 64,
             TempFolder = _folder,
             OverwriteExisting = true,
-            ToolPaths = { ["ffmpeg"] = "C:/tools/ffmpeg.exe" },
+            ToolPaths = { ["утилита"] = "C:/tools/tool.exe" },
         };
 
         ConverterSettingsSnapshot snapshot = ConverterSettingsSnapshot.Create(settings);
@@ -49,7 +49,7 @@ public sealed class ConverterSettingsSnapshotTests : IDisposable
         Assert.Equal(64, snapshot.MaxParallelTasks);
         Assert.Equal(_folder, snapshot.TempFolder);
         Assert.True(snapshot.OverwriteExisting);
-        Assert.Equal("C:/tools/ffmpeg.exe", snapshot.ToolPaths["FFMPEG"]);
+        Assert.Equal("C:/tools/tool.exe", snapshot.ToolPaths["УТИЛИТА"]);
     }
 
     [Theory]
@@ -87,28 +87,28 @@ public sealed class ConverterSettingsSnapshotTests : IDisposable
     [Fact]
     public void EmptyToolPath_IsRejectedWithToolName()
     {
-        ConverterSettings settings = new() { ToolPaths = { ["ffmpeg"] = " " } };
+        ConverterSettings settings = new() { ToolPaths = { ["утилита"] = " " } };
 
         ArgumentException ex = Assert.Throws<ArgumentException>(() => ConverterSettingsSnapshot.Create(settings));
 
-        Assert.Contains("ffmpeg", ex.Message);
+        Assert.Contains("утилита", ex.Message);
         Assert.Contains("ToolPaths", ex.Message);
     }
 
     [Fact]
     public void ChangingTheOriginalAfterCreation_DoesNotChangeTheSnapshot()
     {
-        ConverterSettings settings = new() { MaxParallelTasks = 4, ToolPaths = { ["ffmpeg"] = "a.exe" } };
+        ConverterSettings settings = new() { MaxParallelTasks = 4, ToolPaths = { ["утилита"] = "a.exe" } };
         ConverterSettingsSnapshot snapshot = ConverterSettingsSnapshot.Create(settings);
 
         settings.MaxParallelTasks = 99;
         settings.OverwriteExisting = true;
-        settings.ToolPaths["ffmpeg"] = "b.exe";
+        settings.ToolPaths["утилита"] = "b.exe";
         settings.ToolPaths["other"] = "c.exe";
 
         Assert.Equal(4, snapshot.MaxParallelTasks);
         Assert.False(snapshot.OverwriteExisting);
-        Assert.Equal("a.exe", snapshot.ToolPaths["ffmpeg"]);
+        Assert.Equal("a.exe", snapshot.ToolPaths["утилита"]);
         Assert.False(snapshot.ToolPaths.ContainsKey("other"));
     }
 

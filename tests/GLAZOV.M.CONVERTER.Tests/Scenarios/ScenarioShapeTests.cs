@@ -5,6 +5,7 @@ using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Detection;
 using GLAZOV.M.CONVERTER.Errors;
 using GLAZOV.M.CONVERTER.Settings;
+using GLAZOV.M.CONVERTER.Tests.Extension;
 
 namespace GLAZOV.M.CONVERTER.Tests.Scenarios;
 
@@ -25,20 +26,20 @@ public class ScenarioShapeTests
 
         Func<Task<ConversionResult>>[] calls =
         [
-            () => converter.ConvertAsync(Source.File("песня.ogg"), Target.File("песня.mp3", FileFormat.Mp3)),
-            () => converter.ConvertAsync(Source.Stream(input), Target.Stream(output, FileFormat.Wav)),
-            () => converter.ConvertAsync(Source.File("песня.ogg"), Target.Memory(FileFormat.Mp3)),
+            () => converter.ConvertAsync(Source.File("песня.ogg"), Target.File("песня.mp3", TestFormats.Alpha)),
+            () => converter.ConvertAsync(Source.Stream(input), Target.Stream(output, TestFormats.Beta)),
+            () => converter.ConvertAsync(Source.File("песня.ogg"), Target.Memory(TestFormats.Alpha)),
             () => converter.ConvertAsync(
                 Source.File("фото.png"),
-                Target.File("фото.jpg", FileFormat.Jpeg),
+                Target.File("фото.jpg", TestFormats.Delta),
                 new ConversionOptions { Operations = { Operation.RotateRight, Operation.ScalePercent(75) } }),
             () => converter.ConvertAsync(
                 Source.File("песня.wav"),
-                Target.File("песня.mp3", FileFormat.Mp3),
+                Target.File("песня.mp3", TestFormats.Alpha),
                 new ConversionOptions { Audio = new AudioOptions { Bitrate = 192_000, SampleRate = 44_100, Channels = 2 } }),
             () => converter.ConvertAsync(
                 Source.File("песня.ogg"),
-                Target.File("песня.mp3", FileFormat.Mp3),
+                Target.File("песня.mp3", TestFormats.Alpha),
                 options: null,
                 progress: new Progress<ConversionProgress>(p => _ = p.Percent),
                 cancellationToken: token),
@@ -58,12 +59,12 @@ public class ScenarioShapeTests
         [
             () => converter.ConvertBatchAsync(
                 Source.Folder("музыка", pattern: "*.ogg", recursive: true),
-                Target.Folder("готово", FileFormat.Mp3),
+                Target.Folder("готово", TestFormats.Alpha),
                 progress: new Progress<BatchProgress>(p => _ = (p.Completed, p.Total, p.CurrentName)),
                 cancellationToken: token),
             () => converter.ConvertBatchAsync(
                 new[] { Source.File("a.ogg"), Source.File("b.wav") },
-                Target.Folder("готово", FileFormat.Mp3)),
+                Target.Folder("готово", TestFormats.Alpha)),
         ];
         Assert.All(calls, Assert.NotNull);
 
@@ -88,9 +89,9 @@ public class ScenarioShapeTests
         var converter = new Converter();
 
         var caps = converter.Capabilities;
-        Func<bool> can = () => caps.CanConvert(FileFormat.Ogg, FileFormat.Mp3);
+        Func<bool> can = () => caps.CanConvert(TestFormats.Gamma, TestFormats.Alpha);
         Func<IReadOnlyList<Conversion>> all = () => caps.All;
-        Func<ToolStatus> tool = () => caps.Tool("ffmpeg");
+        Func<ToolStatus> tool = () => caps.Tool("sometool");
         Assert.NotNull(can);
         Assert.NotNull(all);
         Assert.NotNull(tool);
@@ -104,9 +105,9 @@ public class ScenarioShapeTests
     [Fact]
     public void FileTypeNames_CarryNameMimeAndExtension()
     {
-        Assert.Equal("OGG", FileFormat.Ogg.Name);
-        Assert.Equal("audio/ogg", FileFormat.Ogg.MimeType);
-        Assert.Equal("ogg", FileFormat.Ogg.Extension);
+        Assert.Equal("GAMMA", TestFormats.Gamma.Name);
+        Assert.Equal("application/x-test-gamma", TestFormats.Gamma.MimeType);
+        Assert.Equal("gamma", TestFormats.Gamma.Extension);
         Assert.Equal(string.Empty, FileFormat.Unknown.Extension);
     }
 
@@ -117,12 +118,12 @@ public class ScenarioShapeTests
         {
             MaxParallelTasks = 8,
             TempFolder = "D:/tmp/convert",
-            ToolPaths = { ["ffmpeg"] = "C:/tools/ffmpeg/bin/ffmpeg.exe" },
+            ToolPaths = { ["sometool"] = "C:/tools/sometool/bin/sometool.exe" },
             OverwriteExisting = false,
         };
 
         Assert.Equal(8, settings.MaxParallelTasks);
-        Assert.Equal("C:/tools/ffmpeg/bin/ffmpeg.exe", settings.ToolPaths["ffmpeg"]);
+        Assert.Equal("C:/tools/sometool/bin/sometool.exe", settings.ToolPaths["sometool"]);
         Assert.Equal(Environment.ProcessorCount, new ConverterSettings().MaxParallelTasks);
         Assert.False(new ConverterSettings().OverwriteExisting);
         // Создание Converter с этим объектом отвергнет несуществующую папку (проверка настроек) — это проверяется в тестах настроек.
@@ -222,11 +223,11 @@ public class ScenarioShapeTests
 
         Func<Task<ConversionResult>>[] calls =
         [
-            () => converter.ConvertAsync(Source.File("песня.flac"), Target.File("песня.m4a", FileFormat.M4a)),
-            () => converter.ConvertAsync(Source.File("фото.png"), Target.File("фото.jpg", FileFormat.Jpeg)),
+            () => converter.ConvertAsync(Source.File("песня.flac"), Target.File("песня.m4a", TestFormats.Epsilon)),
+            () => converter.ConvertAsync(Source.File("фото.png"), Target.File("фото.jpg", TestFormats.Delta)),
             () => converter.ConvertAsync(
                 Source.File("фото.png"),
-                Target.File("фото-75.jpg", FileFormat.Jpeg),
+                Target.File("фото-75.jpg", TestFormats.Delta),
                 new ConversionOptions
                 {
                     Operations = { Operation.RotateRight, Operation.ScalePercent(75) },

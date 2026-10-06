@@ -1,6 +1,7 @@
 using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Detection;
 using GLAZOV.M.CONVERTER.Errors;
+using GLAZOV.M.CONVERTER.Tests.Extension;
 
 namespace GLAZOV.M.CONVERTER.Tests.Errors;
 
@@ -12,11 +13,11 @@ public class FailuresTests
     [Fact]
     public void TypeNotConfirmed_NamedByExtension_SaysWhatTheBytesShow()
     {
-        var ex = Failures.TypeNotConfirmed("a.mp3", "MP3", FileFormat.Wav);
+        var ex = Failures.TypeNotConfirmed("a.alpha", "ALPHA", TestFormats.Beta);
 
         Assert.Equal(ConversionStage.Detection, ex.Stage);
         Assert.Equal(ConversionFailureReason.TypeNotConfirmed, ex.Reason);
-        Assert.Equal("Файл «a.mp3» не является MP3: по начальным байтам это WAV.", ex.Message);
+        Assert.Equal("Файл «a.alpha» не является ALPHA: по начальным байтам это BETA.", ex.Message);
     }
 
     [Fact]
@@ -30,12 +31,12 @@ public class FailuresTests
     [Fact]
     public void ToolNotFound_CarriesToolNameAndInstallHint()
     {
-        var ex = Failures.ToolNotFound("ffmpeg", "Установите: winget install Gyan.FFmpeg");
+        var ex = Failures.ToolNotFound("утилита", "Установите: winget install Утилита");
 
         Assert.Equal(ConversionStage.Preparation, ex.Stage);
         Assert.Equal(ConversionFailureReason.ToolNotFound, ex.Reason);
-        Assert.Equal("ffmpeg", ex.ToolName);
-        Assert.Equal("Программа «ffmpeg» не найдена. Установите: winget install Gyan.FFmpeg", ex.Message);
+        Assert.Equal("утилита", ex.ToolName);
+        Assert.Equal("Программа «утилита» не найдена. Установите: winget install Утилита", ex.Message);
     }
 
     [Theory]
@@ -56,23 +57,33 @@ public class FailuresTests
     }
 
     [Fact]
+    public void UnsupportedOperations_ForAFormatNotInTheSoundSet_NamesNeitherSoundNorImage()
+    {
+        ConversionException ex = Failures.UnsupportedOperations(TestFormats.Alpha, TestFormats.Beta);
+
+        Assert.Equal("Действия не поддерживаются для ALPHA → BETA.", ex.Message);
+        Assert.Equal(ConversionFailureReason.UnsupportedConversion, ex.Reason);
+        Assert.Equal(ConversionStage.Preparation, ex.Stage);
+    }
+
+    [Fact]
     public void UnsupportedConversion_NamesBothSides()
     {
-        var ex = Failures.UnsupportedConversion(FileFormat.Ogg, FileFormat.Jpeg);
+        var ex = Failures.UnsupportedConversion(TestFormats.Gamma, TestFormats.Delta);
 
         Assert.Equal(ConversionStage.Preparation, ex.Stage);
         Assert.Equal(ConversionFailureReason.UnsupportedConversion, ex.Reason);
-        Assert.Equal("Конвертация OGG → JPEG не поддерживается.", ex.Message);
+        Assert.Equal("Конвертация GAMMA → DELTA не поддерживается.", ex.Message);
     }
 
     [Fact]
     public void ToolFailed_KeepsExitCodeLastLinesAndShowsTheLastOneInMessage()
     {
-        var ex = Failures.ToolFailed("ffmpeg", 1, "версия...\nпредупреждение\nInvalid data found when processing input\n");
+        var ex = Failures.ToolFailed("утилита", 1, "версия...\nпредупреждение\nInvalid data found when processing input\n");
 
         Assert.Equal(ConversionStage.Conversion, ex.Stage);
         Assert.Equal(ConversionFailureReason.ToolFailed, ex.Reason);
-        Assert.Equal("ffmpeg", ex.ToolName);
+        Assert.Equal("утилита", ex.ToolName);
         Assert.Equal(1, ex.ToolExitCode);
         Assert.Contains("Invalid data found", ex.Message);
         Assert.Contains("(код 1)", ex.Message);
@@ -82,9 +93,9 @@ public class FailuresTests
     [Fact]
     public void ToolFailed_WithoutOutput_StillSaysExitCode()
     {
-        var ex = Failures.ToolFailed("ffmpeg", 137, null);
+        var ex = Failures.ToolFailed("утилита", 137, null);
 
-        Assert.Equal("Программа «ffmpeg» завершилась с ошибкой (код 137).", ex.Message);
+        Assert.Equal("Программа «утилита» завершилась с ошибкой (код 137).", ex.Message);
         Assert.Equal(string.Empty, ex.ToolOutput);
     }
 
@@ -114,11 +125,11 @@ public class FailuresTests
     [Fact]
     public void FileExists_ShowsOnlyFileName_NotTheFullPath()
     {
-        var ex = Failures.FileExists(Path.Combine("C:", "Users", "Секрет", "музыка", "песня.mp3"));
+        var ex = Failures.FileExists(Path.Combine("C:", "Users", "Секрет", "музыка", "песня.alpha"));
 
         Assert.Equal(ConversionStage.Preparation, ex.Stage);
         Assert.Equal(ConversionFailureReason.FileExists, ex.Reason);
-        Assert.Contains("«песня.mp3»", ex.Message);
+        Assert.Contains("«песня.alpha»", ex.Message);
         Assert.DoesNotContain("Секрет", ex.Message);
     }
 
@@ -127,18 +138,18 @@ public class FailuresTests
     {
         var inner = new IOException("занято");
 
-        var ex = Failures.InputUnreadable("a.wav", inner);
+        var ex = Failures.InputUnreadable("a.beta", inner);
 
         Assert.Equal(ConversionStage.Preparation, ex.Stage);
         Assert.Equal(ConversionFailureReason.InputUnreadable, ex.Reason);
         Assert.Same(inner, ex.InnerException);
-        Assert.Equal("Не удалось прочитать вход «a.wav»: файл занят другой программой или недоступен.", ex.Message);
+        Assert.Equal("Не удалось прочитать вход «a.beta»: файл занят другой программой или недоступен.", ex.Message);
     }
 
     [Fact]
     public void InputUnreadable_NeverShowsTheFullPathOfTheSystemMessage()
     {
-        string secret = Path.Combine("C:", "Users", "Секрет", "музыка", "a.mp3");
+        string secret = Path.Combine("C:", "Users", "Секрет", "музыка", "a.alpha");
 
         foreach (Exception inner in new Exception[]
         {
@@ -148,7 +159,7 @@ public class FailuresTests
             new IOException($"The process cannot access the file '{secret}' because it is being used."),
         })
         {
-            ConversionException ex = Failures.InputUnreadable("a.mp3", inner);
+            ConversionException ex = Failures.InputUnreadable("a.alpha", inner);
 
             Assert.DoesNotContain("Секрет", ex.Message);
             Assert.DoesNotContain("Users", ex.Message);

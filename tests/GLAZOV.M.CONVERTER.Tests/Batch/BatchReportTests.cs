@@ -1,6 +1,7 @@
 using GLAZOV.M.CONVERTER.Batch;
 using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Errors;
+using GLAZOV.M.CONVERTER.Tests.Extension;
 
 namespace GLAZOV.M.CONVERTER.Tests.Batch;
 
@@ -12,17 +13,17 @@ public class BatchReportTests
     // 10 входов: 0–5 удались, 6, 7, 8 — ошибки, 9 — отменён.
     private static (BatchReport Report, Source[] Sources) Ten()
     {
-        Source[] sources = Enumerable.Range(0, 10).Select(i => Source.File($"f{i}.mp3")).ToArray();
+        Source[] sources = Enumerable.Range(0, 10).Select(i => Source.File($"f{i}.alpha")).ToArray();
         List<BatchItemResult> items = [];
         for (int i = 0; i < 6; i++)
         {
-            items.Add(BatchItemResult.Success($"f{i}.mp3", $"out{i}.wav"));
+            items.Add(BatchItemResult.Success($"f{i}.alpha", $"out{i}.beta"));
         }
 
-        items.Add(BatchItemResult.Failure("f6.mp3", Failures.TypeNotConfirmed("f6.mp3", "MP3", FileFormat.Unknown)));
-        items.Add(BatchItemResult.Failure("f7.mp3", Failures.ToolFailed("ffmpeg", 1, "сломалось")));
-        items.Add(BatchItemResult.Failure("f8.mp3", Failures.FileExists("out8.wav")));
-        items.Add(BatchItemResult.Cancelled("f9.mp3"));
+        items.Add(BatchItemResult.Failure("f6.alpha", Failures.TypeNotConfirmed("f6.alpha", "ALPHA", FileFormat.Unknown)));
+        items.Add(BatchItemResult.Failure("f7.alpha", Failures.ToolFailed("faketool", 1, "сломалось")));
+        items.Add(BatchItemResult.Failure("f8.alpha", Failures.FileExists("out8.beta")));
+        items.Add(BatchItemResult.Cancelled("f9.alpha"));
 
         return (new BatchReport(items, sources), sources);
     }
@@ -59,8 +60,8 @@ public class BatchReportTests
 
         Assert.True(item.Succeeded);
         Assert.False(item.Canceled);
-        Assert.Equal("f2.mp3", item.SourceName);
-        Assert.Equal("out2.wav", item.OutputPath);
+        Assert.Equal("f2.alpha", item.SourceName);
+        Assert.Equal("out2.beta", item.OutputPath);
         Assert.Null(item.Stage);
         Assert.Null(item.Reason);
         Assert.Null(item.Message);
@@ -75,7 +76,7 @@ public class BatchReportTests
         Assert.False(item.Canceled);
         Assert.Equal(ConversionStage.Conversion, item.Stage);
         Assert.Equal(ConversionFailureReason.ToolFailed, item.Reason);
-        Assert.Contains("ffmpeg", item.Message);
+        Assert.Contains("faketool", item.Message);
         Assert.Null(item.OutputPath);
     }
 

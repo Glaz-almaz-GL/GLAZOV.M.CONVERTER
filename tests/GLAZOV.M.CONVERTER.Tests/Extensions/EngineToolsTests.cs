@@ -54,13 +54,13 @@ public sealed class EngineToolsTests : IDisposable
     public async Task EngineGetsEveryDescribedProgram_TheFirstRequiredAsTool_AndAnOptionalMissingOneIsNotAnError()
     {
         string main = MakeProgram("главная");
-        LambdaEngine engine = new(null, [new ConversionPair(DemoExtension.Demo, FileFormat.Wav)])
+        LambdaEngine engine = new(null, [new ConversionPair(DemoExtension.Demo, TestFormats.Beta)])
         {
             Specs = [new ToolSpec("Главная"), new ToolSpec("помощница") { Required = false }],
         };
         ConverterSettings settings = new() { ToolPaths = { ["главная"] = main } };
 
-        await With(settings, engine).ConvertAsync(Source.File(Input()), Target.Memory(FileFormat.Wav));
+        await With(settings, engine).ConvertAsync(Source.File(Input()), Target.Memory(TestFormats.Beta));
 
         ConversionRequest request = engine.Last!;
         Assert.Equal(main, request.Tool!.Path);
@@ -74,13 +74,13 @@ public sealed class EngineToolsTests : IDisposable
     {
         string main = MakeProgram("главная");
         string helper = MakeProgram("помощница");
-        LambdaEngine engine = new(null, [new ConversionPair(DemoExtension.Demo, FileFormat.Wav)])
+        LambdaEngine engine = new(null, [new ConversionPair(DemoExtension.Demo, TestFormats.Beta)])
         {
             Specs = [new ToolSpec("главная"), new ToolSpec("помощница") { Required = false }],
         };
         ConverterSettings settings = new() { ToolPaths = { ["главная"] = main, ["помощница"] = helper } };
 
-        await With(settings, engine).ConvertAsync(Source.File(Input()), Target.Memory(FileFormat.Wav));
+        await With(settings, engine).ConvertAsync(Source.File(Input()), Target.Memory(TestFormats.Beta));
 
         Assert.Equal(helper, engine.Last!.Tools["помощница"].Path);
     }
@@ -95,11 +95,11 @@ public sealed class EngineToolsTests : IDisposable
             second.InstallHints[system] = "Поставьте вторую.";
         }
 
-        LambdaEngine engine = new(null, [new ConversionPair(DemoExtension.Demo, FileFormat.Wav)]) { Specs = [new ToolSpec("главная"), second] };
+        LambdaEngine engine = new(null, [new ConversionPair(DemoExtension.Demo, TestFormats.Beta)]) { Specs = [new ToolSpec("главная"), second] };
         ConverterSettings settings = new() { ToolPaths = { ["главная"] = main } };
 
         ConversionException ex = await Assert.ThrowsAsync<ConversionException>(async () =>
-            await With(settings, engine).ConvertAsync(Source.File(Input()), Target.Memory(FileFormat.Wav)));
+            await With(settings, engine).ConvertAsync(Source.File(Input()), Target.Memory(TestFormats.Beta)));
 
         Assert.Equal(ConversionFailureReason.ToolNotFound, ex.Reason);
         Assert.Equal("вторая", ex.ToolName);
@@ -110,9 +110,9 @@ public sealed class EngineToolsTests : IDisposable
     [Fact]
     public async Task EngineFromAnotherPackage_CanReportThatItCopiedInsteadOfEncoding()
     {
-        LambdaEngine engine = new(null, [new ConversionPair(DemoExtension.Demo, FileFormat.Wav)]) { Inspect = request => request.Reencoded = false };
+        LambdaEngine engine = new(null, [new ConversionPair(DemoExtension.Demo, TestFormats.Beta)]) { Inspect = request => request.Reencoded = false };
 
-        ConversionResult result = await With(new ConverterSettings(), engine).ConvertAsync(Source.File(Input()), Target.Memory(FileFormat.Wav));
+        ConversionResult result = await With(new ConverterSettings(), engine).ConvertAsync(Source.File(Input()), Target.Memory(TestFormats.Beta));
 
         Assert.False(result.Reencoded);
     }
@@ -120,9 +120,9 @@ public sealed class EngineToolsTests : IDisposable
     [Fact]
     public async Task EngineThatDoesNotReport_LeavesReencodedTrue()
     {
-        LambdaEngine engine = new(null, [new ConversionPair(DemoExtension.Demo, FileFormat.Wav)]);
+        LambdaEngine engine = new(null, [new ConversionPair(DemoExtension.Demo, TestFormats.Beta)]);
 
-        ConversionResult result = await With(new ConverterSettings(), engine).ConvertAsync(Source.File(Input()), Target.Memory(FileFormat.Wav));
+        ConversionResult result = await With(new ConverterSettings(), engine).ConvertAsync(Source.File(Input()), Target.Memory(TestFormats.Beta));
 
         Assert.True(result.Reencoded);
     }
@@ -131,7 +131,7 @@ public sealed class EngineToolsTests : IDisposable
     public void CatalogAvailability_ReadsRequiredProgramsOnly_AndToolAnswersByDescription()
     {
         string main = MakeProgram("главная");
-        LambdaEngine engine = new(null, [new ConversionPair(DemoExtension.Demo, FileFormat.Wav)])
+        LambdaEngine engine = new(null, [new ConversionPair(DemoExtension.Demo, TestFormats.Beta)])
         {
             Specs = [new ToolSpec("главная"), new ToolSpec("помощница") { Required = false }],
         };

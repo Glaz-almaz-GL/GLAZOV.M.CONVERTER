@@ -1,6 +1,7 @@
 using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Errors;
 using GLAZOV.M.CONVERTER.IO;
+using GLAZOV.M.CONVERTER.Tests.Extension;
 
 namespace GLAZOV.M.CONVERTER.Tests.IO;
 
@@ -15,8 +16,6 @@ public sealed class InputReaderTests : IDisposable
 
     public void Dispose() => Directory.Delete(_folder, recursive: true);
 
-    private static byte[] Sample(string name) =>
-        File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Samples", name));
 
     private string Put(string relative, byte[]? data = null)
     {
@@ -36,7 +35,7 @@ public sealed class InputReaderTests : IDisposable
     [Fact]
     public async Task OpenFile_NameIsFileName_ContentIsWhole()
     {
-        var expected = Sample("sample.wav");
+        var expected = TestFormats.Sample(TestFormats.Beta, 200);
         var path = Put("a.wav", expected);
 
         await using var handle = await InputReader.OpenAsync(Source.File(path));
@@ -48,7 +47,7 @@ public sealed class InputReaderTests : IDisposable
     [Fact]
     public async Task OpenFile_HeadDoesNotConsumeBytes()
     {
-        var expected = Sample("sample-vorbis.ogg");
+        var expected = TestFormats.Sample(TestFormats.Gamma, 200);
         var path = Put("b.ogg", expected);
 
         await using var handle = await InputReader.OpenAsync(Source.File(path));
@@ -72,7 +71,7 @@ public sealed class InputReaderTests : IDisposable
     [Fact]
     public async Task SeekableStream_HeadReturnsPositionAndLeavesStreamOpen()
     {
-        var data = Sample("sample.wav");
+        var data = TestFormats.Sample(TestFormats.Beta, 200);
         var source = new MemoryStream(data) { Position = 5 };
 
         await using (var handle = await InputReader.OpenAsync(Source.Stream(source)))
@@ -90,7 +89,7 @@ public sealed class InputReaderTests : IDisposable
     [Fact]
     public async Task NonSeekableStream_HeadTwiceGivesSameBytes_AndReaderSeesEverything()
     {
-        var data = Sample("sample-id3.mp3");
+        var data = TestFormats.Sample(TestFormats.Alpha, 200);
         var source = new NonSeekableStream(data);
 
         await using (var handle = await InputReader.OpenAsync(Source.Stream(source)))
@@ -111,7 +110,7 @@ public sealed class InputReaderTests : IDisposable
     [Fact]
     public async Task NonSeekableStream_HeadAfterReadStarted_IsRefused()
     {
-        var source = new NonSeekableStream(Sample("sample.wav"));
+        var source = new NonSeekableStream(TestFormats.Sample(TestFormats.Beta, 200));
         await using var handle = await InputReader.OpenAsync(Source.Stream(source));
         var read = await handle.Stream.ReadAsync(new byte[10]);
         Assert.True(read > 0);

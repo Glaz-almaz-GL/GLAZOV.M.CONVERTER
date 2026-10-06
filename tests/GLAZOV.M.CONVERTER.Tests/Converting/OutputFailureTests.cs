@@ -2,6 +2,7 @@ using GLAZOV.M.CONVERTER.Batch;
 using GLAZOV.M.CONVERTER.Converting;
 using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Errors;
+using GLAZOV.M.CONVERTER.Extensions;
 using GLAZOV.M.CONVERTER.Settings;
 using GLAZOV.M.CONVERTER.Tests.Extension;
 
@@ -10,9 +11,8 @@ namespace GLAZOV.M.CONVERTER.Tests.Converting;
 /// <summary>
 /// A result that cannot be written is a ConversionException with the reason OutputUnwritable (file, folder, stream, batch),
 /// with the file name only in the message, the system error inside, no temp files left, and cancellation still a cancellation.
-/// The engine of the demo extension (no FFmpeg) copies the input to the output.
+/// The engine of the test extension copies the input to the output.
 /// </summary>
-[Collection("FFmpeg")]
 public sealed class OutputFailureTests : IDisposable
 {
     private readonly string _folder = Path.Combine(Path.GetTempPath(), "convtests-" + Guid.NewGuid().ToString("N"));
@@ -35,14 +35,14 @@ public sealed class OutputFailureTests : IDisposable
     private static Converter With(ConverterSettings? settings = null)
     {
         settings ??= new ConverterSettings();
-        settings.Extensions.Add(new DemoExtension());
+        settings.Extensions.Add(TestExtensions.Create(new LambdaEngine(null, [new ConversionPair(TestFormats.Alpha, TestFormats.Beta)])));
         return new Converter(settings);
     }
 
-    private string Input(string name = "вход.dat")
+    private string Input(string name = "вход.alpha")
     {
         string path = Path.Combine(_folder, name);
-        File.WriteAllBytes(path, "DEMO данные"u8.ToArray());
+        File.WriteAllBytes(path, TestFormats.Sample(TestFormats.Alpha));
         return path;
     }
 
@@ -51,14 +51,14 @@ public sealed class OutputFailureTests : IDisposable
     {
         string blocker = Path.Combine(_folder, "файл-вместо-папки");
         File.WriteAllText(blocker, "x");
-        string target = Path.Combine(blocker, "вложенная", "результат.wav");
+        string target = Path.Combine(blocker, "вложенная", "результат.beta");
 
         ConversionException ex = await Assert.ThrowsAsync<ConversionException>(() =>
-            With().ConvertAsync(Source.File(Input()), Target.File(target, FileFormat.Wav)));
+            With().ConvertAsync(Source.File(Input()), Target.File(target, TestFormats.Beta)));
 
         Assert.Equal(ConversionFailureReason.OutputUnwritable, ex.Reason);
         Assert.Equal(ConversionStage.Preparation, ex.Stage);
-        Assert.Contains("результат.wav", ex.Message);
+        Assert.Contains("результат.beta", ex.Message);
         Assert.DoesNotContain(_folder, ex.Message);
         Assert.NotNull(ex.InnerException);
     }
@@ -66,13 +66,13 @@ public sealed class OutputFailureTests : IDisposable
     [Fact]
     public async Task ReadOnlyFileToOverwrite_IsOutputUnwritable_AtConversion_AndNoTempFileStays()
     {
-        string target = Path.Combine(_folder, "готово.wav");
+        string target = Path.Combine(_folder, "готово.beta");
         File.WriteAllText(target, "старое");
         File.SetAttributes(target, FileAttributes.ReadOnly);
         Converter converter = With(new ConverterSettings { OverwriteExisting = true });
 
         ConversionException ex = await Assert.ThrowsAsync<ConversionException>(() =>
-            converter.ConvertAsync(Source.File(Input()), Target.File(target, FileFormat.Wav)));
+            converter.ConvertAsync(Source.File(Input()), Target.File(target, TestFormats.Beta)));
 
         Assert.Equal(ConversionFailureReason.OutputUnwritable, ex.Reason);
         Assert.Equal(ConversionStage.Conversion, ex.Stage);
@@ -89,10 +89,10 @@ public sealed class OutputFailureTests : IDisposable
             return;
         }
 
-        string target = Path.Combine(_folder, "плохое|имя.wav");
+        string target = Path.Combine(_folder, "плохое|имя.beta");
 
         ConversionException ex = await Assert.ThrowsAsync<ConversionException>(() =>
-            With().ConvertAsync(Source.File(Input()), Target.File(target, FileFormat.Wav)));
+            With().ConvertAsync(Source.File(Input()), Target.File(target, TestFormats.Beta)));
 
         Assert.Equal(ConversionFailureReason.OutputUnwritable, ex.Reason);
         Assert.Equal(ConversionStage.Preparation, ex.Stage);
@@ -104,7 +104,7 @@ public sealed class OutputFailureTests : IDisposable
         await using FailingTarget target = new(new IOException("диск полон"));
 
         ConversionException ex = await Assert.ThrowsAsync<ConversionException>(() =>
-            With().ConvertAsync(Source.File(Input()), Target.Stream(target, FileFormat.Wav)));
+            With().ConvertAsync(Source.File(Input()), Target.Stream(target, TestFormats.Beta)));
 
         Assert.Equal(ConversionFailureReason.OutputUnwritable, ex.Reason);
         Assert.Equal(ConversionStage.Conversion, ex.Stage);
@@ -120,24 +120,23 @@ public sealed class OutputFailureTests : IDisposable
         await using FailingTarget target = new(diskFull);
 
         ConversionException ex = await Assert.ThrowsAsync<ConversionException>(() =>
-            With().ConvertAsync(Source.File(Input()), Target.Stream(target, FileFormat.Wav)));
+            With().ConvertAsync(Source.File(Input()), Target.Stream(target, TestFormats.Beta)));
 
         Assert.Contains("нет места на диске", ex.Message);
     }
 
-    [ExternalFact]
-    public async Task FfmpegWritingToAFailingStream_DoesNotHang_AndIsOutputUnwritable()
+    [Fact]
+    public async Task LargeResultToAFailingStream_DoesNotHang_AndIsOutputUnwritable()
     {
         await using FailingTarget target = new(new IOException("диск полон"));
-        string wav = Path.Combine(AppContext.BaseDirectory, "Samples", "sample.wav");
+        string input = Path.Combine(_folder, "большой.alpha");
+        File.WriteAllBytes(input, TestFormats.Sample(TestFormats.Alpha, 4 * 1024 * 1024));
 
-        // OGG is written by FFmpeg to the standard output, so the failure happens in the pipe copy.
+        // The first write fails in the middle of a long copy.
         ConversionException ex = await Assert.ThrowsAsync<ConversionException>(() =>
-            new Converter().ConvertAsync(Source.File(wav), Target.Stream(target, FileFormat.Ogg)).WaitAsync(TimeSpan.FromSeconds(30)));
+            With().ConvertAsync(Source.File(input), Target.Stream(target, TestFormats.Beta)).WaitAsync(TimeSpan.FromSeconds(30)));
 
         Assert.Equal(ConversionFailureReason.OutputUnwritable, ex.Reason);
-        await Task.Delay(1000);
-        Assert.Empty(System.Diagnostics.Process.GetProcessesByName("ffmpeg"));
     }
 
     [Fact]
@@ -146,7 +145,7 @@ public sealed class OutputFailureTests : IDisposable
         await using FailingTarget target = new(new OperationCanceledException());
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-            With().ConvertAsync(Source.File(Input()), Target.Stream(target, FileFormat.Wav)));
+            With().ConvertAsync(Source.File(Input()), Target.Stream(target, TestFormats.Beta)));
     }
 
     [Fact]
@@ -154,23 +153,23 @@ public sealed class OutputFailureTests : IDisposable
     {
         string folder = Path.Combine(_folder, "вход");
         Directory.CreateDirectory(folder);
-        File.WriteAllBytes(Path.Combine(folder, "а.dat"), "DEMO один"u8.ToArray());
-        File.WriteAllBytes(Path.Combine(folder, "б.dat"), "DEMO два"u8.ToArray());
+        File.WriteAllBytes(Path.Combine(folder, "а.alpha"), TestFormats.Sample(TestFormats.Alpha, 10));
+        File.WriteAllBytes(Path.Combine(folder, "б.alpha"), TestFormats.Sample(TestFormats.Alpha, 20));
         string target = Path.Combine(_folder, "выход");
         Directory.CreateDirectory(target);
-        string blocked = Path.Combine(target, "а.wav");
+        string blocked = Path.Combine(target, "а.beta");
         File.WriteAllText(blocked, "старое");
         File.SetAttributes(blocked, FileAttributes.ReadOnly);
         Converter converter = With(new ConverterSettings { OverwriteExisting = true, MaxParallelTasks = 1 });
 
-        BatchReport report = await converter.ConvertBatchAsync(Source.Folder(folder, "*.dat"), Target.Folder(target, FileFormat.Wav));
+        BatchReport report = await converter.ConvertBatchAsync(Source.Folder(folder, "*.alpha"), Target.Folder(target, TestFormats.Beta));
 
         Assert.Equal(2, report.Total);
         Assert.Equal(1, report.Succeeded);
         BatchItemResult failed = Assert.Single(report.Items, i => !i.Succeeded);
-        Assert.Equal("а.dat", failed.SourceName);
+        Assert.Equal("а.alpha", failed.SourceName);
         Assert.Equal(ConversionFailureReason.OutputUnwritable, failed.Reason);
-        Assert.True(File.Exists(Path.Combine(target, "б.wav")));
+        Assert.True(File.Exists(Path.Combine(target, "б.beta")));
     }
 
     // A stream that accepts writes and then refuses them with the given exception.
