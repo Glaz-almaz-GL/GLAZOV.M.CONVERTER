@@ -10,6 +10,7 @@
   <Folder Name="/tests/">
     <Project Path="../tests/GLAZOV.M.CONVERTER.Tests/GLAZOV.M.CONVERTER.Tests.csproj" />
     <Project Path="../tests/GLAZOV.M.CONVERTER.Formats.Tests/GLAZOV.M.CONVERTER.Formats.Tests.csproj" />
+    <Project Path="../tests/GLAZOV.M.CONVERTER.Composition.Tests/GLAZOV.M.CONVERTER.Composition.Tests.csproj" />
     <Project Path="../tests/GLAZOV.M.CONVERTER.Ffmpeg.Tests/GLAZOV.M.CONVERTER.Ffmpeg.Tests.csproj" />
     <Project Path="../tests/GLAZOV.M.CONVERTER.Office.Tests/GLAZOV.M.CONVERTER.Office.Tests.csproj" />
     <Project Path="../tests/GLAZOV.M.CONVERTER.Pdf.Tests/GLAZOV.M.CONVERTER.Pdf.Tests.csproj" />
