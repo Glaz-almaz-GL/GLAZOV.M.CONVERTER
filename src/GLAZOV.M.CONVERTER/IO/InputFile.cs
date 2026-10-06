@@ -6,7 +6,7 @@ namespace GLAZOV.M.CONVERTER.IO;
 /// The input of a request as a file on disk: the real input file when there is one,
 /// otherwise a copy made in the temp folder and deleted on dispose (also after failure and cancellation).
 /// </summary>
-internal sealed class InputFile : IAsyncDisposable
+public sealed class InputFile : IAsyncDisposable
 {
     private readonly bool _owned;
 
@@ -19,7 +19,7 @@ internal sealed class InputFile : IAsyncDisposable
     /// <summary>
     /// Full path of the file to read.
     /// </summary>
-    internal string Path { get; }
+    public string Path { get; }
 
     /// <summary>
     /// Returns <see cref="ConversionRequest.InputPath"/> when set, otherwise copies <see cref="ConversionRequest.Input"/> to a temp file.

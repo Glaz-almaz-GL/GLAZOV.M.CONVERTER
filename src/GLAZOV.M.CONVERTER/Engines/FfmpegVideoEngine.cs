@@ -40,7 +40,7 @@ internal sealed partial class FfmpegVideoEngine : IConversionEngine
         string tempPath = Path.Combine(request.TempFolder, $"convert-{Guid.NewGuid():N}.{request.To.Extension}");
         try
         {
-            await using InputFile input = await InputFile.EnsureAsync(request, cancellationToken).ConfigureAwait(false);
+            await using InputFile input = await request.EnsureInputFileAsync(cancellationToken).ConfigureAwait(false);
             FfmpegProgress progress = new(request.ReportProgress);
 
             TrackCodecs? codecs = request.Tools.TryGetValue(FfmpegTools.Ffprobe.Name, out ToolStatus? probe) && probe is { Found: true, Path: { } probePath }

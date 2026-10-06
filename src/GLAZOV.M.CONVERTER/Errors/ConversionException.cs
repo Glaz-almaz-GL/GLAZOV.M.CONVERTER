@@ -46,4 +46,18 @@ public sealed class ConversionException : Exception
     /// Последние строки сообщения внешней программы, когда причина — <see cref="ConversionFailureReason.ToolFailed"/>.
     /// </summary>
     public string? ToolOutput { get; }
+
+    /// <summary>
+    /// Creates the error for an external program that finished with a failure: stage <see cref="ConversionStage.Conversion"/>,
+    /// reason <see cref="ConversionFailureReason.ToolFailed"/>, the program name (<see cref="ToolName"/>), its exit code (<see cref="ToolExitCode"/>)
+    /// and the last lines of its output (<see cref="ToolOutput"/>).
+    /// The message is the same as for the built-in engines.
+    /// </summary>
+    /// <param name="tool">Program name.</param>
+    /// <param name="exitCode">Exit code of the program.</param>
+    /// <param name="output">Output of the program; only the last lines are kept.</param>
+    public static ConversionException ToolFailed(string tool, int exitCode, string? output)
+    {
+        return Failures.ToolFailed(tool, exitCode, output);
+    }
 }

@@ -1,6 +1,7 @@
 using GLAZOV.M.CONVERTER.Capabilities;
 using GLAZOV.M.CONVERTER.Converting;
 using GLAZOV.M.CONVERTER.Data;
+using GLAZOV.M.CONVERTER.IO;
 
 namespace GLAZOV.M.CONVERTER.Extensions;
 
@@ -93,5 +94,17 @@ public sealed class ConversionRequest
     public void ReportProgress(int percent)
     {
         _onProgress?.Invoke(percent);
+    }
+
+    /// <summary>
+    /// Gives the input as a file on disk, for programs that read a path: the request's own input file when there is one
+    /// (it is not deleted), otherwise a copy of <see cref="Input"/> in <see cref="TempFolder"/>, deleted when the result is disposed,
+    /// also after a failure or cancellation.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation of copying.</param>
+    /// <returns>The file; dispose it after the program has finished.</returns>
+    public Task<InputFile> EnsureInputFileAsync(CancellationToken cancellationToken = default)
+    {
+        return InputFile.EnsureAsync(this, cancellationToken);
     }
 }

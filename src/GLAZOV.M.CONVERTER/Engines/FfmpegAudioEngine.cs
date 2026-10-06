@@ -46,7 +46,7 @@ internal sealed class FfmpegAudioEngine : IConversionEngine
 
         try
         {
-            await using InputFile? inputFile = fromVideo ? await InputFile.EnsureAsync(request, cancellationToken).ConfigureAwait(false) : null;
+            await using InputFile? inputFile = fromVideo ? await request.EnsureInputFileAsync(cancellationToken).ConfigureAwait(false) : null;
             ToolResult result = fromVideo
                 ? await RunVideoAsync(request, inputFile!.Path, tempPath!, cancellationToken).ConfigureAwait(false)
                 : await RunAudioAsync(request, tempPath, cancellationToken).ConfigureAwait(false);
