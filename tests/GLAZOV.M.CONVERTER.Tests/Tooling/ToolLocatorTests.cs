@@ -70,9 +70,22 @@ public sealed class ToolLocatorTests : IDisposable
         return copy;
     }
 
-    private static ToolSpec Ffmpeg(params string[] places) => Bare(FfmpegTools.Ffmpeg, places);
+    // Stand-in descriptions shaped like the FFmpeg ones: a required program, and a helper found beside it.
+    private static readonly ToolSpec FfmpegLike = WithHints(new ToolSpec("ffmpeg"));
 
-    private static ToolSpec Ffprobe() => Bare(FfmpegTools.Ffprobe);
+    private static readonly ToolSpec FfprobeLike = new("ffprobe") { Required = false, FoundBeside = "ffmpeg" };
+
+    private static ToolSpec WithHints(ToolSpec spec)
+    {
+        spec.InstallHints[ToolSystem.Windows] = "Установите: winget install Gyan.FFmpeg (затем перезапустите программу) либо укажите путь в настройках (ToolPaths).";
+        spec.InstallHints[ToolSystem.MacOS] = "Установите: brew install ffmpeg либо укажите путь в настройках (ToolPaths).";
+        spec.InstallHints[ToolSystem.Linux] = "Установите: sudo apt install ffmpeg (или пакет ffmpeg вашего дистрибутива) либо укажите путь в настройках (ToolPaths).";
+        return spec;
+    }
+
+    private static ToolSpec Ffmpeg(params string[] places) => Bare(FfmpegLike, places);
+
+    private static ToolSpec Ffprobe() => Bare(FfprobeLike);
 
     private static ToolSpec Soffice(params string[] places) => Bare(LibreOfficeTools.Soffice, places);
 
@@ -401,9 +414,6 @@ public sealed class ToolLocatorTests : IDisposable
     [Fact]
     public void ReadyDescriptions_KnowTheUsualPlacesOfTheirPrograms()
     {
-        Assert.Contains(FfmpegTools.Ffmpeg.SearchPlaces[ToolSystem.Windows], place => place.Contains("WinGet", StringComparison.Ordinal));
-        Assert.Contains(FfmpegTools.Ffmpeg.SearchPlaces[ToolSystem.MacOS], place => place == "/opt/homebrew/bin");
-        Assert.Contains(FfmpegTools.Ffmpeg.SearchPlaces[ToolSystem.Linux], place => place == "/usr/bin");
         Assert.Contains(LibreOfficeTools.Soffice.SearchPlaces[ToolSystem.Windows], place => place.EndsWith(Path.Combine("LibreOffice", "program"), StringComparison.OrdinalIgnoreCase));
         Assert.Contains("/Applications/LibreOffice.app/Contents/MacOS", LibreOfficeTools.Soffice.SearchPlaces[ToolSystem.MacOS]);
         Assert.Contains("/opt/libreoffice*/program", LibreOfficeTools.Soffice.SearchPlaces[ToolSystem.Linux]);
@@ -424,7 +434,7 @@ public sealed class ToolLocatorTests : IDisposable
     }
 
     // Only found, never started: soffice.exe --version opens a console window that waits for Enter.
-    [ExternalFact]
+    [OfficeFact]
     public void RealSoffice_IsFound()
     {
         ToolLocator locator = new(ConverterSettingsSnapshot.Create(new ConverterSettings()));
@@ -433,18 +443,5 @@ public sealed class ToolLocatorTests : IDisposable
 
         Assert.True(status.Found);
         Assert.True(File.Exists(status.Path));
-    }
-
-    [ExternalFact]
-    public async Task RealFfmpeg_IsFound_AndRuns()
-    {
-        ToolLocator locator = new(ConverterSettingsSnapshot.Create(new ConverterSettings()));
-
-        ToolStatus status = locator.Locate(FfmpegTools.Ffmpeg);
-        ToolResult result = await ToolRunner.RunAsync(new ToolInvocation(status.Path!, ["-version"]));
-
-        Assert.True(status.Found);
-        Assert.True(File.Exists(status.Path));
-        Assert.Equal(0, result.ExitCode);
     }
 }

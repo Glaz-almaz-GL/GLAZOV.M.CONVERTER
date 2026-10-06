@@ -2,11 +2,11 @@
 
   <PropertyGroup>
     <RootNamespace>GLAZOV.M.CONVERTER</RootNamespace>
-    <Description>Библиотека конвертации файлов между форматами: файлы, папки и потоки. Тип входа подтверждается по начальным байтам. Первая версия — звук MP3, WAV, OGG (через FFmpeg, установленный отдельно).</Description>
+    <Description>Библиотека конвертации файлов между форматами: файлы, папки и потоки. Тип входа подтверждается по начальным байтам. Встроены документы в PDF через LibreOffice (установленный отдельно); звук, изображения и видео — расширение GLAZOV.M.CONVERTER.Ffmpeg, SVG — GLAZOV.M.CONVERTER.Svg, картинки в PDF — GLAZOV.M.CONVERTER.Pdf.</Description>
     <Version>0.1.0</Version>
     <Authors>Glaz-almaz-GL</Authors>
     <Copyright>Copyright 2026 Glaz-almaz-GL</Copyright>
-    <PackageTags>convert;converter;audio;mp3;wav;ogg;ffmpeg;stream</PackageTags>
+    <PackageTags>convert;converter;documents;pdf;libreoffice;stream</PackageTags>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <RepositoryUrl>https://github.com/Glaz-almaz-GL/GLAZOV.M.CONVERTER</RepositoryUrl>
@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="GLAZOV.M.CONVERTER.Tests" />
+    <InternalsVisibleTo Include="GLAZOV.M.CONVERTER.Ffmpeg.Tests" />
   </ItemGroup>
 
 </Project>

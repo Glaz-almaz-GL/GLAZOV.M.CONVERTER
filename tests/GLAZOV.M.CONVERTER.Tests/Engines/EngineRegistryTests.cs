@@ -9,22 +9,6 @@ namespace GLAZOV.M.CONVERTER.Tests.Engines;
 /// </summary>
 public class EngineRegistryTests
 {
-    private static readonly FileFormat[] Audio = [FileFormat.Mp3, FileFormat.Wav, FileFormat.Ogg, FileFormat.Flac, FileFormat.M4a];
-
-    [Fact]
-    public void Default_FindsAnEngineForAllTwentyFiveAudioPairs()
-    {
-        EngineRegistry registry = EngineRegistry.CreateDefault();
-
-        foreach (FileFormat from in Audio)
-        {
-            foreach (FileFormat to in Audio)
-            {
-                Assert.NotNull(registry.Find(from, to));
-            }
-        }
-    }
-
     [Fact]
     public void Default_DoesNotFind_UnknownForeignOrCrossKindPairs()
     {
@@ -47,8 +31,7 @@ public class EngineRegistryTests
         IReadOnlyList<(FileFormat From, FileFormat To, IReadOnlyList<ToolSpec> Tools)> first = EngineRegistry.CreateDefault().Pairs();
         IReadOnlyList<(FileFormat From, FileFormat To, IReadOnlyList<ToolSpec> Tools)> second = EngineRegistry.CreateDefault().Pairs();
 
-        Assert.Equal(143, first.Count);
-        Assert.Equal(131, first.Count(p => p.Tools.Any(t => t.Name == "ffmpeg")));
+        Assert.Equal(12, first.Count);
         Assert.Equal(12, first.Count(p => p.Tools.Any(t => t.Name == "soffice")));
         Assert.All(first.Where(p => p.Tools.Any(t => t.Name == "soffice")), p => Assert.Equal(FileFormat.Pdf, p.To));
         Assert.Equal(first.Select(p => (p.From, p.To, string.Join(",", p.Tools.Select(t => t.Name)))), second.Select(p => (p.From, p.To, string.Join(",", p.Tools.Select(t => t.Name)))));

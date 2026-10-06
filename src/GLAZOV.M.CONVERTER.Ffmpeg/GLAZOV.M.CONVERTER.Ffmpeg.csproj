@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>GLAZOV.M.CONVERTER.Ffmpeg</RootNamespace>
+    <Description>Расширение GLAZOV.M.CONVERTER: звук, изображения и видео через внешнюю программу FFmpeg (должна быть установлена). Перекодирование и копирование дорожек, ход работы, поворот и масштаб.</Description>
+    <Version>0.1.0</Version>
+    <Authors>Glaz-almaz-GL</Authors>
+    <Copyright>Copyright 2026 Glaz-almaz-GL</Copyright>
+    <PackageTags>convert;converter;ffmpeg;audio;video;image;mp3;wav;ogg;mp4;png;jpeg</PackageTags>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RepositoryUrl>https://github.com/Glaz-almaz-GL/GLAZOV.M.CONVERTER</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageProjectUrl>https://github.com/Glaz-almaz-GL/GLAZOV.M.CONVERTER</PackageProjectUrl>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="" />
+    <None Include="..\..\NOTICE" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="GLAZOV.M.CONVERTER.Ffmpeg.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\GLAZOV.M.CONVERTER\GLAZOV.M.CONVERTER.csproj" />
+  </ItemGroup>
+
+</Project>

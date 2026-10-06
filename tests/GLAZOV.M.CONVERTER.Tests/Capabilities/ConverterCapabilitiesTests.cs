@@ -110,29 +110,6 @@ public sealed class ConverterCapabilitiesTests : IDisposable
         Assert.Throws<ArgumentNullException>(() => caps.CanConvert(TestFormats.Alpha, null!));
     }
 
-    [Fact]
-    public void RealConverter_ListsAllPairs_AndKnowsFfmpeg()
-    {
-        ConverterCapabilities caps = new Converter().Capabilities;
-
-        IReadOnlyList<Conversion> all = caps.All;
-
-        Assert.Equal(143, all.Count);
-        Assert.True(caps.CanConvert(FileFormat.Ogg, FileFormat.Mp3));
-        Assert.False(caps.CanConvert(FileFormat.Ogg, FileFormat.Jpeg));
-        Assert.True(caps.CanConvert(FileFormat.Png, FileFormat.Jpeg));
-        Assert.Equal("ffmpeg", caps.Tool("ffmpeg").Name);
-    }
-
-    [ExternalFact]
-    public void RealConverter_WithFfmpegInstalled_AllPairsAreReady()
-    {
-        ConverterCapabilities caps = new Converter().Capabilities;
-
-        Assert.All(caps.All.Where(c => !c.To.Equals(FileFormat.Pdf)), c => Assert.Equal(ConversionAvailability.Ready, c.Availability));
-        Assert.True(caps.Tool("ffmpeg").Found);
-    }
-
     private sealed class Engine(string toolName, params (FileFormat From, FileFormat To)[] pairs) : IConversionEngine
     {
         public IReadOnlyList<ToolSpec> Tools { get; } = [new ToolSpec(toolName)];
