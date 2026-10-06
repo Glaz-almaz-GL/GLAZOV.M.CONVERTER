@@ -4,6 +4,7 @@ using GLAZOV.M.CONVERTER.Converting;
 using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Errors;
 using GLAZOV.M.CONVERTER.Extensions;
+using GLAZOV.M.CONVERTER.Formats;
 using GLAZOV.M.CONVERTER.Settings;
 using SkiaSharp;
 
@@ -97,7 +98,7 @@ public sealed class SvgExtensionTests : IDisposable
         SvgExtension extension = new();
 
         Assert.Equal("SVG", extension.Name);
-        Assert.Empty(extension.Detectors);
+        Assert.Same(StandardDetectors.Svg, Assert.Single(extension.Detectors));
         IConversionEngine engine = Assert.Single(extension.Engines);
         Assert.Empty(engine.Tools);
         Assert.True(engine.SupportsOperations);

@@ -1,6 +1,7 @@
 using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Extensions;
 using GLAZOV.M.CONVERTER.Ffmpeg.Engines;
+using GLAZOV.M.CONVERTER.Formats;
 
 namespace GLAZOV.M.CONVERTER.Ffmpeg;
 
@@ -38,9 +39,9 @@ public sealed class FfmpegExtension : IConverterExtension
 
     /// <inheritdoc />
     /// <remarks>
-    /// Empty: the formats are recognised by the detectors of the core library.
+    /// Audio, images and video: the detectors of the standard formats from the Formats package.
     /// </remarks>
-    public IReadOnlyList<IFormatDetector> Detectors { get; } = [];
+    public IReadOnlyList<IFormatDetector> Detectors { get; } = [StandardDetectors.Image, StandardDetectors.Video, StandardDetectors.Audio];
 
     /// <inheritdoc />
     public IReadOnlyList<IConversionEngine> Engines { get; }

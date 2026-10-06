@@ -25,6 +25,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\GLAZOV.M.CONVERTER\GLAZOV.M.CONVERTER.csproj" />
+    <ProjectReference Include="..\GLAZOV.M.CONVERTER.Formats\GLAZOV.M.CONVERTER.Formats.csproj" />
   </ItemGroup>
 
   <!-- Лицензии зависимостей проверены (решение о проекте SVG в DECISIONS): все MIT, кроме Svg.Custom (MS-PL), который приходит с Svg.Skia.

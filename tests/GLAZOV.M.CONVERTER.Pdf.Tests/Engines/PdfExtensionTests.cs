@@ -5,6 +5,7 @@ using GLAZOV.M.CONVERTER.Converting;
 using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Errors;
 using GLAZOV.M.CONVERTER.Extensions;
+using GLAZOV.M.CONVERTER.Formats;
 using SkiaSharp;
 
 namespace GLAZOV.M.CONVERTER.Pdf.Tests.Engines;
@@ -28,6 +29,12 @@ public sealed class PdfExtensionTests : IDisposable
     }
 
     public static TheoryData<string> RealSamples => ["sample.png", "sample.jpg", "sample.webp", "sample.bmp", "sample.gif"];
+
+    [Fact]
+    public void Extension_NamesTheImageDetector()
+    {
+        Assert.Same(StandardDetectors.Image, Assert.Single(new PdfExtension().Detectors));
+    }
 
     [Fact]
     public void Extension_DeclaresFivePairs_NoOperationsAndNoTool()
@@ -186,7 +193,8 @@ public sealed class PdfExtensionTests : IDisposable
         ConversionException ex = await Assert.ThrowsAsync<ConversionException>(async () =>
             await new Converter().ConvertAsync(Source.Stream(input), Target.Memory(FileFormat.Pdf)));
 
-        Assert.Equal(ConversionFailureReason.UnsupportedConversion, ex.Reason);
+        // Without the extension no detector knows the picture either: the type is not recognised.
+        Assert.Equal(ConversionFailureReason.TypeNotConfirmed, ex.Reason);
     }
 
     [Fact]

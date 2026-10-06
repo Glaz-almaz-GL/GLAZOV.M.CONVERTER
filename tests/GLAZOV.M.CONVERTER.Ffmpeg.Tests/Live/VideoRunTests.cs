@@ -1,11 +1,12 @@
-using GLAZOV.M.CONVERTER.Ffmpeg.Engines;
-using GLAZOV.M.CONVERTER.Ffmpeg.Progress;
 using System.Diagnostics;
 using GLAZOV.M.CONVERTER.Batch;
 using GLAZOV.M.CONVERTER.Converting;
 using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Detection;
 using GLAZOV.M.CONVERTER.Errors;
+using GLAZOV.M.CONVERTER.Ffmpeg.Engines;
+using GLAZOV.M.CONVERTER.Ffmpeg.Progress;
+using GLAZOV.M.CONVERTER.Formats;
 using GLAZOV.M.CONVERTER.Settings;
 
 namespace GLAZOV.M.CONVERTER.Ffmpeg.Tests.Live;
@@ -97,7 +98,7 @@ public sealed class VideoRunTests(VideoRunFixture fixture) : IClassFixture<Video
                 bool encoded = Encoded[container].Contains(name);
                 Assert.True(result.Succeeded);
                 Assert.Equal(encoded, result.Reencoded);
-                Assert.Same(to, await FileTypeDetector.DetectAsync(Source.File(output)));
+                Assert.Same(to, await FfmpegConverter.DetectAsync(Source.File(output)));
                 // The one mixed pair: VP9 fits MP4 and is copied, while Opus does not and is encoded.
                 bool videoCopied = !encoded || (container == "webm" && name == "mp4");
                 Assert.Equal(videoCopied ? video : targetVideo, await fixture.ProbeAsync(output, "stream=codec_name"));
@@ -129,7 +130,7 @@ public sealed class VideoRunTests(VideoRunFixture fixture) : IClassFixture<Video
 
                 Assert.True(result.Succeeded);
                 Assert.True(result.Reencoded);
-                Assert.Same(to, await FileTypeDetector.DetectAsync(Source.File(output)));
+                Assert.Same(to, await FfmpegConverter.DetectAsync(Source.File(output)));
                 Assert.Equal(codec, await fixture.ProbeAsync(output, "stream=codec_name", "a:0"));
                 Assert.InRange(await fixture.DurationAsync(output), VideoRunFixture.Seconds - 0.4, VideoRunFixture.Seconds + 0.4);
                 Keep(output, label);
@@ -154,7 +155,7 @@ public sealed class VideoRunTests(VideoRunFixture fixture) : IClassFixture<Video
             Assert.NotNull(result.Bytes);
             string output = Out($"поток-{container}.mkv");
             await File.WriteAllBytesAsync(output, result.Bytes);
-            Assert.Same(FileFormat.Mkv, await FileTypeDetector.DetectAsync(Source.File(output)));
+            Assert.Same(FileFormat.Mkv, await FfmpegConverter.DetectAsync(Source.File(output)));
             Assert.Equal("320x240", await fixture.SizeAsync(output));
             Keep(output, $"поток-{container}-в-память-mkv");
         }

@@ -25,6 +25,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\GLAZOV.M.CONVERTER\GLAZOV.M.CONVERTER.csproj" />
+    <ProjectReference Include="..\GLAZOV.M.CONVERTER.Formats\GLAZOV.M.CONVERTER.Formats.csproj" />
   </ItemGroup>
 
   <!-- SkiaSharp is MIT (Microsoft). Native files for Windows and macOS come with SkiaSharp; for Linux they are referenced explicitly. -->

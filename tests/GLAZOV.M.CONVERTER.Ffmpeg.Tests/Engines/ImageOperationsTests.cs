@@ -1,11 +1,12 @@
-using GLAZOV.M.CONVERTER.Ffmpeg.Engines;
-using GLAZOV.M.CONVERTER.Ffmpeg.Progress;
 using GLAZOV.M.CONVERTER.Capabilities;
 using GLAZOV.M.CONVERTER.Converting;
 using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Engines;
-using GLAZOV.M.CONVERTER.Extensions;
 using GLAZOV.M.CONVERTER.Errors;
+using GLAZOV.M.CONVERTER.Extensions;
+using GLAZOV.M.CONVERTER.Ffmpeg.Engines;
+using GLAZOV.M.CONVERTER.Ffmpeg.Progress;
+using GLAZOV.M.CONVERTER.Formats;
 using GLAZOV.M.CONVERTER.Settings;
 using GLAZOV.M.CONVERTER.Tooling;
 
@@ -168,7 +169,7 @@ public sealed class ImageOperationsTests : IDisposable
 
         ConversionException ex = Assert.Throws<ConversionException>(() => call.GetAwaiter().GetResult());
         Assert.Equal(ConversionFailureReason.UnsupportedConversion, ex.Reason);
-        Assert.Contains("Поворот и масштаб не применимы к звуку: WAV → MP3", ex.Message);
+        Assert.Contains("Действия не поддерживаются для WAV → MP3", ex.Message);
     }
 
     [ExternalFact]

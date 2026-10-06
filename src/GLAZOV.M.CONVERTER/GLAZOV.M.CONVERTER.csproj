@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="GLAZOV.M.CONVERTER.Tests" />
+    <InternalsVisibleTo Include="GLAZOV.M.CONVERTER.Formats.Tests" />
     <InternalsVisibleTo Include="GLAZOV.M.CONVERTER.Ffmpeg.Tests" />
     <InternalsVisibleTo Include="GLAZOV.M.CONVERTER.Office.Tests" />
   </ItemGroup>

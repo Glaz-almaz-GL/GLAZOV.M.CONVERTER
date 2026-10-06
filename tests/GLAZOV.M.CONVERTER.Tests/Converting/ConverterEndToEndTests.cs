@@ -108,8 +108,8 @@ public sealed class ConverterEndToEndTests : IDisposable
         ConversionException ex = await Assert.ThrowsAsync<ConversionException>(async () =>
             await NewConverter(engine).ConvertAsync(Source.File(text), Target.File(output, TestFormats.Beta)));
 
-        // Plain text is a type of its own, with no way to Beta.
-        Assert.Equal(ConversionFailureReason.UnsupportedConversion, ex.Reason);
+        // Nothing here names this content a format: the core has no text detector of its own.
+        Assert.Equal(ConversionFailureReason.TypeNotConfirmed, ex.Reason);
         Assert.Equal(0, engine.Calls);
         Assert.False(File.Exists(output));
     }

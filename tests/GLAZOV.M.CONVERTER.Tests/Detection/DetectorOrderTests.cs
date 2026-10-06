@@ -3,6 +3,7 @@ using GLAZOV.M.CONVERTER.Converting;
 using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Detection;
 using GLAZOV.M.CONVERTER.Extensions;
+using GLAZOV.M.CONVERTER.Formats;
 using GLAZOV.M.CONVERTER.IO;
 using GLAZOV.M.CONVERTER.Settings;
 using GLAZOV.M.CONVERTER.Tests.Extension;
@@ -56,7 +57,7 @@ public sealed class DetectorOrderTests : IDisposable
     private static async Task<FileFormat> Detect(DetectorChain chain, byte[] bytes)
     {
         await using InputHandle input = new("test", new MemoryStream(bytes), ownsInner: true);
-        return await FileTypeDetector.DetectAsync(input, chain);
+        return await InputDetection.DetectAsync(input, chain);
     }
 
     [Fact]
@@ -82,7 +83,7 @@ public sealed class DetectorOrderTests : IDisposable
         Assert.Equal(Label, await converter.DetectAsync(File("INSP+ с меткой")));
         Assert.Equal(1, inspector.InspectCalls);
 
-        Assert.Equal(FileFormat.Text, await converter.DetectAsync(File("другое начало")));
+        Assert.Equal(FileFormat.Unknown, await converter.DetectAsync(File("другое начало")));
         Assert.Equal(1, inspector.InspectCalls);
     }
 
@@ -102,7 +103,7 @@ public sealed class DetectorOrderTests : IDisposable
         DetectorChain chain = new([inspector]);
         await using InputHandle input = new("test", new ForwardReadStream("INSP ..."u8.ToArray()), ownsInner: true);
 
-        Assert.Equal(FileFormat.Text, await FileTypeDetector.DetectAsync(input, chain));
+        Assert.Equal(FileFormat.Unknown, await InputDetection.DetectAsync(input, chain, CancellationToken.None));
         Assert.Equal(0, inspector.InspectCalls);
     }
 

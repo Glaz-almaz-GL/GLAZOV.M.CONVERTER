@@ -83,7 +83,7 @@ public sealed class FormatDeclarationsTests
         Assert.True(formats.ToList().IndexOf(one) < formats.ToList().IndexOf(two));
         Assert.Contains(one, formats);
         Assert.Contains(two, formats);
-        Assert.True(formats.Count > 2, "the built-in formats are listed too");
+        Assert.Equal([one, two], formats);
     }
 
     [Fact]

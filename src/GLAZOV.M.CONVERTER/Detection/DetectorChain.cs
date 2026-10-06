@@ -1,5 +1,4 @@
 using GLAZOV.M.CONVERTER.Data;
-using GLAZOV.M.CONVERTER.Detection.Text;
 using GLAZOV.M.CONVERTER.Extensions;
 using GLAZOV.M.CONVERTER.IO;
 using GLAZOV.M.CONVERTER.Settings;
@@ -10,8 +9,8 @@ namespace GLAZOV.M.CONVERTER.Detection;
 /// Ряд определителей формата: метки всех расширений в порядке подключения, затем второй взгляд на контейнер
 /// (<see cref="IStreamFormatDetector"/>, только на входе с перемоткой и только если метки ничего не назвали), затем определители
 /// по содержимому (<see cref="IFormatDetector.ByContent"/>); побеждает первый, кто назвал формат; никто — <see cref="FileFormat.Unknown"/>.
-/// Один и тот же экземпляр определителя учитывается один раз. Последним среди определителей по содержимому всегда стоит определитель
-/// текста: у текста нет своей метки, поэтому он не должен опережать ни готовые признаки, ни признаки расширений.
+/// Один и тот же экземпляр определителя учитывается один раз; определители по содержимому спрашиваются в порядке подключения, поэтому тот, что берёт
+/// почти всё (текст), подключается последним.
 /// Начало входа — окно определения, но не короче, чем просят определители.
 /// </summary>
 internal sealed class DetectorChain
@@ -35,19 +34,13 @@ internal sealed class DetectorChain
         ArgumentNullException.ThrowIfNull(detectors);
         HashSet<IFormatDetector> seen = new(ReferenceEqualityComparer.Instance);
         List<IFormatDetector> all = [.. detectors.Where(seen.Add)];
-        TextDetector text = new();
+
         _labels = [.. all.Where(d => !d.ByContent)];
         _inspectors = [.. all.OfType<IStreamFormatDetector>()];
-        _contents = [.. all.Where(d => d.ByContent), text];
+        _contents = [.. all.Where(d => d.ByContent)];
         _inspectBudget = inspectBudget;
-        HeadLength = Math.Max(window, Math.Max(all.Select(d => d.HeadLength).DefaultIfEmpty(0).Max(), text.HeadLength));
+        HeadLength = Math.Max(window, all.Select(d => d.HeadLength).DefaultIfEmpty(0).Max());
     }
-
-    /// <summary>
-    /// Ряд из одних готовых признаков с окном по умолчанию — для публичного <see cref="FileTypeDetector"/>,
-    /// не знающего ни о расширениях, ни о настройках конвертера.
-    /// </summary>
-    internal static DetectorChain BuiltIn { get; } = new(BuiltInDetectors.Create());
 
     /// <summary>
     /// Сколько начальных байтов читать, чтобы хватило каждому определителю.

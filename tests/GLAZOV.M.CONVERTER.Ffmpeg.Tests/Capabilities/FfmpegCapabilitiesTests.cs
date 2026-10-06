@@ -1,7 +1,8 @@
-using GLAZOV.M.CONVERTER.Converting;
 using GLAZOV.M.CONVERTER.Capabilities;
+using GLAZOV.M.CONVERTER.Converting;
 using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Engines;
+using GLAZOV.M.CONVERTER.Formats;
 using GLAZOV.M.CONVERTER.Settings;
 
 namespace GLAZOV.M.CONVERTER.Ffmpeg.Tests.Capabilities;
@@ -25,7 +26,7 @@ public sealed class FfmpegCapabilitiesTests
 
         IReadOnlyList<Conversion> all = caps.All;
 
-        Assert.Equal(143, all.Count);
+        Assert.Equal(131, all.Count);
         Assert.True(caps.CanConvert(FileFormat.Ogg, FileFormat.Mp3));
         Assert.False(caps.CanConvert(FileFormat.Ogg, FileFormat.Jpeg));
         Assert.True(caps.CanConvert(FileFormat.Png, FileFormat.Jpeg));

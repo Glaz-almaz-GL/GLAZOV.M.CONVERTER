@@ -1,6 +1,7 @@
 using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Detection;
 using GLAZOV.M.CONVERTER.Errors;
+using GLAZOV.M.CONVERTER.Formats;
 using GLAZOV.M.CONVERTER.Tests.Extension;
 
 namespace GLAZOV.M.CONVERTER.Tests.Errors;
@@ -40,11 +41,11 @@ public class FailuresTests
     }
 
     [Theory]
-    [InlineData("MP4", "MP3", "Поворот и масштаб не применимы к звуку: MP4 → MP3.")]
-    [InlineData("WAV", "FLAC", "Поворот и масштаб не применимы к звуку: WAV → FLAC.")]
+    [InlineData("MP4", "MP3", "Действия не поддерживаются для MP4 → MP3.")]
+    [InlineData("WAV", "FLAC", "Действия не поддерживаются для WAV → FLAC.")]
     [InlineData("PNG", "JPEG", "Действия не поддерживаются для PNG → JPEG.")]
     [InlineData("MKV", "MP4", "Действия не поддерживаются для MKV → MP4.")]
-    public void UnsupportedOperations_NamesSoundOnlyForASoundResult_AndNeverSaysImage(string from, string to, string expected)
+    public void UnsupportedOperations_SaysTheSameForEveryPair(string from, string to, string expected)
     {
         FileFormat[] all = [FileFormat.Mp3, FileFormat.Wav, FileFormat.Flac, FileFormat.Mp4, FileFormat.Mkv, FileFormat.Png, FileFormat.Jpeg];
 

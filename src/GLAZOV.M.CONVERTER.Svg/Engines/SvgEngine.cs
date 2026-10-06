@@ -1,6 +1,7 @@
 using System.IO.Compression;
 using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Extensions;
+using GLAZOV.M.CONVERTER.Formats;
 using GLAZOV.M.CONVERTER.Svg.Rendering;
 
 namespace GLAZOV.M.CONVERTER.Svg.Engines;

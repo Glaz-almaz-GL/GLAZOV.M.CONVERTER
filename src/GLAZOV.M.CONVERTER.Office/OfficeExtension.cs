@@ -1,5 +1,6 @@
 using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Extensions;
+using GLAZOV.M.CONVERTER.Formats;
 using GLAZOV.M.CONVERTER.Office.Engines;
 
 namespace GLAZOV.M.CONVERTER.Office;
@@ -18,9 +19,9 @@ public sealed class OfficeExtension : IConverterExtension
 
     /// <inheritdoc />
     /// <remarks>
-    /// Empty: the formats are recognised by the detectors of the core library.
+    /// Documents and, last, plain text: the detectors of the standard formats from the Formats package.
     /// </remarks>
-    public IReadOnlyList<IFormatDetector> Detectors { get; } = [];
+    public IReadOnlyList<IFormatDetector> Detectors { get; } = [StandardDetectors.Documents, StandardDetectors.Text];
 
     /// <inheritdoc />
     public IReadOnlyList<IConversionEngine> Engines { get; } = [new LibreOfficeEngine()];

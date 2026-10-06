@@ -1,5 +1,3 @@
-using GLAZOV.M.CONVERTER.Ffmpeg.Engines;
-using GLAZOV.M.CONVERTER.Ffmpeg.Progress;
 using System.Diagnostics;
 using System.Globalization;
 using GLAZOV.M.CONVERTER.Batch;
@@ -7,6 +5,9 @@ using GLAZOV.M.CONVERTER.Converting;
 using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Detection;
 using GLAZOV.M.CONVERTER.Errors;
+using GLAZOV.M.CONVERTER.Ffmpeg.Engines;
+using GLAZOV.M.CONVERTER.Ffmpeg.Progress;
+using GLAZOV.M.CONVERTER.Formats;
 using GLAZOV.M.CONVERTER.Settings;
 
 namespace GLAZOV.M.CONVERTER.Ffmpeg.Tests.Live;
@@ -78,7 +79,7 @@ public sealed class AudioRunTests(AudioFixture fixture) : IClassFixture<AudioFix
 
                 Assert.True(result.Succeeded);
                 Assert.Equal(input.TypeName, result.SourceType.Name);
-                Assert.Same(to, await FileTypeDetector.DetectAsync(Source.File(output)));
+                Assert.Same(to, await FfmpegConverter.DetectAsync(Source.File(output)));
                 await AssertDurationAsync(output, input.Seconds);
                 Keep(output, Label(input, to));
                 done++;
@@ -102,7 +103,7 @@ public sealed class AudioRunTests(AudioFixture fixture) : IClassFixture<AudioFix
             await converter.ConvertAsync(Source.Stream(source), Target.Stream(output, to));
 
             output.Position = 0;
-            Assert.Same(to, await FileTypeDetector.DetectAsync(Source.Stream(output)));
+            Assert.Same(to, await FfmpegConverter.DetectAsync(Source.Stream(output)));
             output.Position = 0;
             double seconds = double.Parse((await fixture.ProbeAsync(output))["duration"], CultureInfo.InvariantCulture);
             Assert.InRange(seconds, input.Seconds - 0.2, input.Seconds + 0.3);

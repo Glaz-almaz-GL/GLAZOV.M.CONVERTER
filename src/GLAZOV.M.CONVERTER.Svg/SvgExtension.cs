@@ -1,4 +1,5 @@
 using GLAZOV.M.CONVERTER.Extensions;
+using GLAZOV.M.CONVERTER.Formats;
 using GLAZOV.M.CONVERTER.Svg.Engines;
 using GLAZOV.M.CONVERTER.Svg.Rendering;
 
@@ -35,9 +36,9 @@ public sealed class SvgExtension : IConverterExtension
 
     /// <inheritdoc />
     /// <remarks>
-    /// Пусто: SVG определяют готовые признаки основной библиотеки.
+    /// SVG by markup: the detector of the standard formats from the Formats package.
     /// </remarks>
-    public IReadOnlyList<IFormatDetector> Detectors { get; } = [];
+    public IReadOnlyList<IFormatDetector> Detectors { get; } = [StandardDetectors.Svg];
 
     /// <inheritdoc />
     public IReadOnlyList<IConversionEngine> Engines { get; }

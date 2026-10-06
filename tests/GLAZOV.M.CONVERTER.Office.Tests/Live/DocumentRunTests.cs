@@ -4,6 +4,7 @@ using GLAZOV.M.CONVERTER.Converting;
 using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Detection;
 using GLAZOV.M.CONVERTER.Errors;
+using GLAZOV.M.CONVERTER.Formats;
 using GLAZOV.M.CONVERTER.Settings;
 using UglyToad.PdfPig;
 
@@ -125,7 +126,7 @@ public sealed class DocumentRunTests(DocumentRunFixture fixture) : IClassFixture
             ConversionResult result = await converter.ConvertAsync(Source.File(path), Target.File(output, FileFormat.Pdf));
 
             Assert.True(result.Succeeded, label);
-            Assert.Same(FileFormat.Pdf, await FileTypeDetector.DetectAsync(Source.File(output)));
+            Assert.Same(FileFormat.Pdf, await OfficeConverter.DetectAsync(Source.File(output)));
             AssertContent(kind, label, Read(await File.ReadAllBytesAsync(output)));
             Keep(output, $"{Path.GetFileNameWithoutExtension(path)}-{label}");
             done++;
@@ -206,8 +207,12 @@ public sealed class DocumentRunTests(DocumentRunFixture fixture) : IClassFixture
 
         ConversionException broken = await Assert.ThrowsAnyAsync<ConversionException>(() =>
             converter.ConvertAsync(Source.File(fixture.Broken), Target.File(Out("никогда.pdf"), FileFormat.Pdf)));
+        // The picture is named a picture only when the standard detectors are all there; the Office extension alone knows documents only.
+        ConverterSettings withFormats = new();
+        withFormats.Extensions.Add(new FormatsExtension());
+        Converter allFormats = OfficeConverter.Create(withFormats);
         ConversionException liar = await Assert.ThrowsAsync<ConversionException>(() =>
-            converter.ConvertAsync(Source.File(fixture.Liar), Target.File(Out("лжец.pdf"), FileFormat.Pdf)));
+            allFormats.ConvertAsync(Source.File(fixture.Liar), Target.File(Out("лжец.pdf"), FileFormat.Pdf)));
 
         Assert.True(broken.Reason is ConversionFailureReason.TypeNotConfirmed or ConversionFailureReason.ToolFailed, broken.Message);
         Assert.False(File.Exists(Out("никогда.pdf")));

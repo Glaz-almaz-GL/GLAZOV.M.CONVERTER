@@ -41,7 +41,7 @@ public sealed class Converter
     private Converter(ConverterSettingsSnapshot settings, EngineRegistry? registry, ToolEnvironment? environment)
     {
         Settings = settings;
-        IConverterExtension[] extensions = [new BuiltInExtension(settings.DetectionWindow), .. settings.Extensions];
+        IConverterExtension[] extensions = [.. settings.Extensions];
         EngineRegistry engines = registry ?? new EngineRegistry(extensions.SelectMany(e => e.Engines));
         IReadOnlyList<FileFormat> formats = FormatDeclarations.Collect(extensions);
         _chain = new DetectorChain(extensions.SelectMany(e => e.Detectors), settings.DetectionWindow);
@@ -94,7 +94,7 @@ public sealed class Converter
     /// <exception cref="ConversionException">Вход не удалось прочитать (этап «определение типа»).</exception>
     public Task<FileFormat> DetectAsync(Source source, CancellationToken cancellationToken = default)
     {
-        return FileTypeDetector.DetectAsync(source, _chain, cancellationToken);
+        return InputDetection.DetectAsync(source, _chain, cancellationToken);
     }
 
     /// <summary>

@@ -1,11 +1,12 @@
-using GLAZOV.M.CONVERTER.Ffmpeg.Engines;
-using GLAZOV.M.CONVERTER.Ffmpeg.Progress;
 using System.Diagnostics;
 using GLAZOV.M.CONVERTER.Batch;
 using GLAZOV.M.CONVERTER.Converting;
 using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Detection;
 using GLAZOV.M.CONVERTER.Errors;
+using GLAZOV.M.CONVERTER.Ffmpeg.Engines;
+using GLAZOV.M.CONVERTER.Ffmpeg.Progress;
+using GLAZOV.M.CONVERTER.Formats;
 using GLAZOV.M.CONVERTER.Settings;
 
 namespace GLAZOV.M.CONVERTER.Ffmpeg.Tests.Live;
@@ -75,7 +76,7 @@ public sealed class ImageRunTests(ImageFixture fixture) : IClassFixture<ImageFix
                 Assert.Equal((input.Width, input.Height), (width, height));
                 if (!to.Equals(FileFormat.Tga))
                 {
-                    Assert.Same(to, await FileTypeDetector.DetectAsync(Source.File(output)));
+                    Assert.Same(to, await FfmpegConverter.DetectAsync(Source.File(output)));
                 }
 
                 Keep(output, label);
@@ -100,7 +101,7 @@ public sealed class ImageRunTests(ImageFixture fixture) : IClassFixture<ImageFix
             await converter.ConvertAsync(Source.Stream(source), Target.Stream(output, FileFormat.Png));
 
             output.Position = 0;
-            Assert.Same(FileFormat.Png, await FileTypeDetector.DetectAsync(Source.Stream(output)));
+            Assert.Same(FileFormat.Png, await FfmpegConverter.DetectAsync(Source.Stream(output)));
         }
     }
 
@@ -111,7 +112,7 @@ public sealed class ImageRunTests(ImageFixture fixture) : IClassFixture<ImageFix
 
         Assert.NotNull(result.Bytes);
         using MemoryStream bytes = new(result.Bytes);
-        Assert.Same(FileFormat.Webp, await FileTypeDetector.DetectAsync(Source.Stream(bytes)));
+        Assert.Same(FileFormat.Webp, await FfmpegConverter.DetectAsync(Source.Stream(bytes)));
     }
 
     [ExternalFact]

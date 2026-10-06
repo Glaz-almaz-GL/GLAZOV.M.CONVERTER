@@ -6,6 +6,7 @@ using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Detection;
 using GLAZOV.M.CONVERTER.Errors;
 using GLAZOV.M.CONVERTER.Extensions;
+using GLAZOV.M.CONVERTER.Formats;
 using GLAZOV.M.CONVERTER.Settings;
 using GLAZOV.M.CONVERTER.Tests.Extension;
 
@@ -85,25 +86,25 @@ public sealed class ExtensionTests : IDisposable
     }
 
     [Fact]
-    public async Task WithoutTheExtension_TheSameFile_IsJustText_ForWhichThereIsNoStandInTarget()
+    public async Task WithoutTheExtension_TheSameFile_IsNotRecognised()
     {
         string input = Put("пример.dat", AlphaText());
 
         ConversionException ex = await Assert.ThrowsAsync<ConversionException>(async () =>
             await new Converter().ConvertAsync(Source.File(input), Target.Memory(Beta)));
 
-        // Plain text is a type of its own now; only the extension knows this content as its format.
-        Assert.Equal(ConversionFailureReason.UnsupportedConversion, ex.Reason);
+        // No detector knows this content: only the extension names it its format.
+        Assert.Equal(ConversionFailureReason.TypeNotConfirmed, ex.Reason);
     }
 
     [Fact]
-    public async Task ThePublicStaticDetector_KnowsOnlyTheBuiltInTypes()
+    public async Task WithoutExtensions_NoTypeIsKnown()
     {
         string input = Put("пример.dat", AlphaText());
 
-        FileFormat detected = await FileTypeDetector.DetectAsync(Source.File(input));
+        FileFormat detected = await new Converter().DetectAsync(Source.File(input));
 
-        Assert.DoesNotContain(detected, TestFormats.All);
+        Assert.Same(FileFormat.Unknown, detected);
     }
 
     [Fact]
@@ -120,16 +121,16 @@ public sealed class ExtensionTests : IDisposable
     }
 
     [Fact]
-    public async Task BuiltInDetectionComesFirst_AnExtensionCannotStealABuiltInType()
+    public async Task TheEarlierExtensionDetectsFirst_ALaterOneCannotStealItsType()
     {
         LambdaEngine engine = AlphaToBeta();
         ConfigurableExtension greedy = new("жадное", [new PatternDetector("ID3"u8.ToArray(), Alpha)], [engine]);
         string mp3 = Put("a.mp3", File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Samples", "sample-id3.mp3")));
 
-        // Файл с тегом ID3 — MP3 по готовым признакам; расширение «жадное» не перехватывает; MP3 → WAV без FFmpeg невозможен, поэтому ждём лишь, что формат не DEMO.
-        Assert.Same(FileFormat.Mp3, await FileTypeDetector.DetectAsync(Source.File(mp3)));
+        // The Formats extension is connected first: a file with the ID3 tag is MP3; the later extension "greedy" does not take it; no engine knows MP3 → JPEG.
+        Assert.Same(FileFormat.Mp3, await With(new FormatsExtension(), greedy).DetectAsync(Source.File(mp3)));
         ConversionException ex = await Assert.ThrowsAnyAsync<ConversionException>(async () =>
-            await With(greedy).ConvertAsync(Source.File(mp3), Target.Memory(FileFormat.Jpeg)));
+            await With(new FormatsExtension(), greedy).ConvertAsync(Source.File(mp3), Target.Memory(FileFormat.Jpeg)));
         Assert.Equal(ConversionFailureReason.UnsupportedConversion, ex.Reason);
         Assert.Contains("MP3", ex.Message);
         Assert.Equal(0, engine.Calls);

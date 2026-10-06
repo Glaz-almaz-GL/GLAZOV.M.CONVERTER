@@ -76,7 +76,7 @@ internal sealed class SingleConversion
     // Тип определяется по начальным байтам; имя файла — только подсказка для сообщения, доказательством не служит.
     private async Task<FileFormat> ConfirmTypeAsync(InputHandle input, CancellationToken cancellationToken)
     {
-        FileFormat from = await FileTypeDetector.DetectAsync(input, _chain, cancellationToken).ConfigureAwait(false);
+        FileFormat from = await InputDetection.DetectAsync(input, _chain, cancellationToken).ConfigureAwait(false);
         if (from.Equals(FileFormat.Unknown))
         {
             string extension = Path.GetExtension(input.Name).TrimStart('.').ToUpperInvariant();

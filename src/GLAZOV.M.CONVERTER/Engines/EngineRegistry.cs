@@ -26,7 +26,7 @@ internal sealed class EngineRegistry
     /// </summary>
     internal static EngineRegistry CreateDefault()
     {
-        return new EngineRegistry(new BuiltInExtension().Engines);
+        return new EngineRegistry([]);
     }
 
     /// <summary>

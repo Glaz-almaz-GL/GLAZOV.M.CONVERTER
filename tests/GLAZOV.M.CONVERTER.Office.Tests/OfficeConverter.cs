@@ -1,4 +1,5 @@
 using GLAZOV.M.CONVERTER.Converting;
+using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Settings;
 
 namespace GLAZOV.M.CONVERTER.Office.Tests;
@@ -16,5 +17,14 @@ internal static class OfficeConverter
         settings ??= new ConverterSettings();
         settings.Extensions.Add(new OfficeExtension());
         return new Converter(settings);
+    }
+
+    /// <summary>
+    /// Detects the type of a file or stream with a converter that has the Office extension.
+    /// </summary>
+    /// <param name="source">File or stream.</param>
+    internal static Task<FileFormat> DetectAsync(Source source)
+    {
+        return Create().DetectAsync(source);
     }
 }

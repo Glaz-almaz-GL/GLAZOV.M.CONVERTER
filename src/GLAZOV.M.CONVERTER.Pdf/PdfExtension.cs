@@ -1,4 +1,5 @@
 using GLAZOV.M.CONVERTER.Extensions;
+using GLAZOV.M.CONVERTER.Formats;
 using GLAZOV.M.CONVERTER.Pdf.Engines;
 using GLAZOV.M.CONVERTER.Pdf.Rendering;
 
@@ -34,9 +35,9 @@ public sealed class PdfExtension : IConverterExtension
 
     /// <inheritdoc />
     /// <remarks>
-    /// Empty: the input types are recognised by the main library.
+    /// Images: the detector of the standard formats from the Formats package.
     /// </remarks>
-    public IReadOnlyList<IFormatDetector> Detectors { get; } = [];
+    public IReadOnlyList<IFormatDetector> Detectors { get; } = [StandardDetectors.Image];
 
     /// <inheritdoc />
     public IReadOnlyList<IConversionEngine> Engines { get; }

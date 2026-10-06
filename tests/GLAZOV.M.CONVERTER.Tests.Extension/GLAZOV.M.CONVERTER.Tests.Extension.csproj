@@ -7,6 +7,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\GLAZOV.M.CONVERTER\GLAZOV.M.CONVERTER.csproj" />
+    <ProjectReference Include="..\..\src\GLAZOV.M.CONVERTER.Formats\GLAZOV.M.CONVERTER.Formats.csproj" />
   </ItemGroup>
 
 </Project>
