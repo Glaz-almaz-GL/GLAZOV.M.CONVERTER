@@ -70,10 +70,10 @@ internal sealed class ConverterSettingsSnapshot
                 nameof(settings));
         }
 
-        if (settings.DetectionWindow < SignatureMatcher.HeadLength)
+        if (settings.DetectionWindow < DetectionSizes.MinimumWindow)
         {
             throw new ArgumentException(
-                $"Параметр DetectionWindow должен быть не меньше {SignatureMatcher.HeadLength} байт, получено {settings.DetectionWindow}.",
+                $"Параметр DetectionWindow должен быть не меньше {DetectionSizes.MinimumWindow} байт, получено {settings.DetectionWindow}.",
                 nameof(settings));
         }
 

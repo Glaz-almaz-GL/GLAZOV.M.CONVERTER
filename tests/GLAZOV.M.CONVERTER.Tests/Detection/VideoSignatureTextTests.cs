@@ -19,6 +19,6 @@ public class VideoSignatureTextTests
     {
         byte[] bytes = Encoding.ASCII.GetBytes(text);
 
-        Assert.Same(FileFormat.Unknown, SignatureMatcher.Match(bytes));
+        Assert.Same(FileFormat.Unknown, Sniff.Match(bytes));
     }
 }

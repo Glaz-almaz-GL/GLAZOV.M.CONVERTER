@@ -45,7 +45,7 @@ public sealed class FfmpegAudioEngineTests : IDisposable
         using MemoryStream source = new(input);
         using MemoryStream output = new();
 
-        await _engine.ConvertAsync(new ConversionRequest(source, output, SignatureMatcher.Match(input), to, new ConversionOptions { Audio = audio }, Ffmpeg(), _temp), CancellationToken.None);
+        await _engine.ConvertAsync(new ConversionRequest(source, output, Sniff.Match(input), to, new ConversionOptions { Audio = audio }, Ffmpeg(), _temp), CancellationToken.None);
 
         return output.ToArray();
     }
@@ -90,7 +90,7 @@ public sealed class FfmpegAudioEngineTests : IDisposable
 
         byte[] result = await Convert(Sample(sample), to);
 
-        Assert.Same(to, SignatureMatcher.Match(result));
+        Assert.Same(to, Sniff.Match(result));
         await AssertDecodes(result);
         Assert.Empty(Directory.GetFiles(_temp));
     }
@@ -134,7 +134,7 @@ public sealed class FfmpegAudioEngineTests : IDisposable
         byte[] back = await Convert(flac, FileFormat.Wav);
 
         // Заголовки WAV могут отличаться служебными полями; данные звука (после заголовка из 44 байт) должны совпасть побайтно.
-        Assert.Same(FileFormat.Flac, SignatureMatcher.Match(flac));
+        Assert.Same(FileFormat.Flac, Sniff.Match(flac));
         Assert.Equal(wav.AsSpan(44).ToArray(), back.AsSpan(44).ToArray());
     }
 
@@ -143,7 +143,7 @@ public sealed class FfmpegAudioEngineTests : IDisposable
     {
         byte[] m4a = await Convert(Sample("sample.wav"), FileFormat.M4a);
 
-        Assert.Same(FileFormat.M4a, SignatureMatcher.Match(m4a));
+        Assert.Same(FileFormat.M4a, Sniff.Match(m4a));
         Assert.Equal("ftyp", System.Text.Encoding.ASCII.GetString(m4a, 4, 4));
         await AssertDecodes(m4a);
     }

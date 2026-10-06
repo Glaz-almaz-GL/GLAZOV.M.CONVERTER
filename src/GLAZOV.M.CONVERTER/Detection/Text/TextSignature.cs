@@ -1,6 +1,6 @@
 using System.Text.Unicode;
 
-namespace GLAZOV.M.CONVERTER.Detection;
+namespace GLAZOV.M.CONVERTER.Detection.Text;
 
 /// <summary>
 /// Plain text: well-formed UTF-8 (a byte order mark is allowed) or UTF-16 with a byte order mark, with no control characters

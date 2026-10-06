@@ -56,7 +56,7 @@ public sealed class FfmpegVideoOddSizeTests : IDisposable
         await using FileStream input = File.OpenRead(source);
         using MemoryStream output = new();
         ConversionRequest request = new(
-            input, output, SignatureMatcher.Match(await File.ReadAllBytesAsync(source)), target, new ConversionOptions(), tool, _temp, source, null);
+            input, output, Sniff.Match(await File.ReadAllBytesAsync(source)), target, new ConversionOptions(), tool, _temp, source, null);
 
         await new FfmpegVideoEngine().ConvertAsync(request, CancellationToken.None);
 

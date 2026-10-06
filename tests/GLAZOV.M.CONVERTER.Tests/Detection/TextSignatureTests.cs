@@ -12,7 +12,7 @@ public sealed class TextSignatureTests
 {
     private static FileFormat Detect(byte[] bytes)
     {
-        return new DetectorChain([new SignatureDetector()]).Detect(bytes);
+        return new DetectorChain(BuiltInDetectors.Create()).Detect(bytes);
     }
 
     public static TheoryData<string> Texts =>
@@ -153,7 +153,7 @@ public sealed class TextSignatureTests
     public void AnExtensionDetector_IsAskedBeforeText()
     {
         byte[] custom = "DEMO: plain ascii that an extension owns"u8.ToArray();
-        DetectorChain chain = new([new SignatureDetector(), new Prefix("DEMO:", FileFormat.Create("Demo", "application/x-demo", "demo"))]);
+        DetectorChain chain = new([.. BuiltInDetectors.Create(), new Prefix("DEMO:", FileFormat.Create("Demo", "application/x-demo", "demo"))]);
 
         Assert.Equal("Demo", chain.Detect(custom).Name);
         Assert.Equal(FileFormat.Text, chain.Detect("not claimed by anyone"u8.ToArray()));

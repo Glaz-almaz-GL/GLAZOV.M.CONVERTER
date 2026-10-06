@@ -234,7 +234,7 @@ public sealed class FfmpegImageEngineTests : IDisposable
 
         Dictionary<string, string> probe = await ProbeAsync(png, "png");
         Assert.Equal("png", probe["codec_name"]);
-        Assert.Same(FileFormat.Png, SignatureMatcher.Match(png));
+        Assert.Same(FileFormat.Png, Sniff.Match(png));
     }
 
     [ExternalFact]

@@ -109,7 +109,7 @@ public sealed class FfmpegVideoCopyTests : IClassFixture<VideoSourcesFixture>, I
     {
         await using FileStream input = File.OpenRead(sourcePath);
         using MemoryStream output = new();
-        FileFormat from = SignatureMatcher.Match(await File.ReadAllBytesAsync(sourcePath));
+        FileFormat from = Sniff.Match(await File.ReadAllBytesAsync(sourcePath));
         ConversionRequest request = new(
             input, output, from, to, options ?? new ConversionOptions(), tool ?? Ffmpeg(), _temp, sourcePath, null,
             probe is null ? null : new Dictionary<string, ToolStatus>(StringComparer.OrdinalIgnoreCase) { [probe.Name] = probe });

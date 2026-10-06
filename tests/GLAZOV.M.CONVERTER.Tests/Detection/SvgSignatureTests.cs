@@ -49,7 +49,7 @@ public sealed class SvgSignatureTests : IDisposable
 
     private static FileFormat Match(byte[] data, int window = Window)
     {
-        return SignatureMatcher.Match(data.AsSpan(0, Math.Min(data.Length, window)), window);
+        return Sniff.Match(data.AsSpan(0, Math.Min(data.Length, window)), window);
     }
 
     private string Put(string name, byte[] data)
@@ -92,7 +92,7 @@ public sealed class SvgSignatureTests : IDisposable
     {
         byte[] data = [.. Encoding.Unicode.GetPreamble(), .. Encoding.Unicode.GetBytes(Prolog(100) + Svg)];
 
-        Assert.Same(FileFormat.Svg, SignatureMatcher.Match(data.AsSpan(0, data.Length - 1), Window));
+        Assert.Same(FileFormat.Svg, Sniff.Match(data.AsSpan(0, data.Length - 1), Window));
     }
 
     [Fact]
@@ -121,8 +121,8 @@ public sealed class SvgSignatureTests : IDisposable
 
         byte[] compressed = Gzip(Encoding.UTF8.GetBytes(big.Append("</svg>").ToString()));
 
-        Assert.True(compressed.Length > SignatureMatcher.HeadLength);
-        Assert.Same(FileFormat.Svg, Match(compressed, SignatureMatcher.HeadLength));
+        Assert.True(compressed.Length > DetectionSizes.MinimumWindow);
+        Assert.Same(FileFormat.Svg, Match(compressed, DetectionSizes.MinimumWindow));
     }
 
     [Fact]
@@ -143,7 +143,7 @@ public sealed class SvgSignatureTests : IDisposable
         byte[] data = Encoding.UTF8.GetBytes("<?xml version=\"1.0\"?>\n" + Prolog(10_000) + Svg);
 
         Assert.Same(FileFormat.Svg, Match(data));
-        Assert.Same(FileFormat.Unknown, Match(data, SignatureMatcher.HeadLength));
+        Assert.Same(FileFormat.Unknown, Match(data, DetectionSizes.MinimumWindow));
     }
 
     [Fact]
@@ -166,7 +166,7 @@ public sealed class SvgSignatureTests : IDisposable
     public async Task DetectionWindow_IsASetting_ForTheConverter()
     {
         string path = Put("длинный.svg", Encoding.UTF8.GetBytes(Prolog(10_000) + Svg));
-        Converter small = new(new ConverterSettings { DetectionWindow = SignatureMatcher.HeadLength });
+        Converter small = new(new ConverterSettings { DetectionWindow = DetectionSizes.MinimumWindow });
         Converter standard = new();
 
         // Окно мало — SVG не распознан, остаётся простой текст; окно по умолчанию — SVG распознан (движка SVG здесь нет, поэтому отказ уже по паре).

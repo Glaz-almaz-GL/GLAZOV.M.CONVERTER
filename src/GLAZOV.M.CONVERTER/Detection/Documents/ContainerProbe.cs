@@ -3,7 +3,7 @@ using System.IO.Compression;
 using System.Text;
 using GLAZOV.M.CONVERTER.Data;
 
-namespace GLAZOV.M.CONVERTER.Detection;
+namespace GLAZOV.M.CONVERTER.Detection.Documents;
 
 /// <summary>
 /// Second look at the containers of documents, for an input that can be read at any place: an archive by its central directory
@@ -12,12 +12,6 @@ namespace GLAZOV.M.CONVERTER.Detection;
 /// </summary>
 internal static class ContainerProbe
 {
-    /// <summary>
-    /// Budget of bytes the probe may read in all. A fixed value, not a setting: the structures of a real document are far smaller,
-    /// and a larger value would only let a forged header make the library read and keep more.
-    /// </summary>
-    internal const long DefaultBudget = 16L * 1024 * 1024;
-
     private const string OdfMimeType = "mimetype";
     private const int MaxOdfMimeLength = 100;
     private const int HeaderTableEntries = 109;
@@ -30,7 +24,7 @@ internal static class ContainerProbe
     /// <param name="head">Leading bytes of the input.</param>
     internal static bool IsContainer(ReadOnlySpan<byte> head)
     {
-        return head.StartsWith(DocumentSignature.ZipMagic) || head.StartsWith(DocumentSignature.CompoundMagic);
+        return head.StartsWith(ZipPackage.ZipMagic) || head.StartsWith(CompoundFile.CompoundMagic);
     }
 
     /// <summary>
@@ -44,12 +38,12 @@ internal static class ContainerProbe
             byte[] start = new byte[MagicLength];
             stream.Position = 0;
             int read = stream.Read(start, 0, start.Length);
-            if (read == start.Length && start.AsSpan().StartsWith(DocumentSignature.CompoundMagic))
+            if (read == start.Length && start.AsSpan().StartsWith(CompoundFile.CompoundMagic))
             {
                 return MatchCompound(stream);
             }
 
-            return read >= DocumentSignature.ZipMagic.Length && start.AsSpan().StartsWith(DocumentSignature.ZipMagic) ? MatchArchive(stream) : null;
+            return read >= ZipPackage.ZipMagic.Length && start.AsSpan().StartsWith(ZipPackage.ZipMagic) ? MatchArchive(stream) : null;
         }
         catch (Exception ex) when (ex is InvalidDataException or IOException or NotSupportedException or ArgumentException)
         {
@@ -70,19 +64,19 @@ internal static class ContainerProbe
         HashSet<FileFormat> folders = [];
         foreach (ZipArchiveEntry entry in zip.Entries)
         {
-            contentTypes |= entry.FullName == DocumentSignature.ContentTypesPart;
-            if (DocumentSignature.MainPart(entry.FullName) is { } main)
+            contentTypes |= entry.FullName == ZipPackage.ContentTypesPart;
+            if (ZipPackage.MainPart(entry.FullName) is { } main)
             {
                 mainParts.Add(main);
             }
 
-            if (DocumentSignature.Folder(entry.FullName) is { } folder)
+            if (ZipPackage.Folder(entry.FullName) is { } folder)
             {
                 folders.Add(folder);
             }
         }
 
-        return DocumentSignature.ChooseOffice(contentTypes, mainParts, folders);
+        return ZipPackage.ChooseOffice(contentTypes, mainParts, folders);
     }
 
     private static FileFormat? MatchOdf(ZipArchiveEntry entry)
@@ -101,14 +95,14 @@ internal static class ContainerProbe
             total += read;
         }
 
-        return DocumentSignature.OdfFormat(Encoding.ASCII.GetString(buffer, 0, total));
+        return ZipPackage.OdfFormat(Encoding.ASCII.GetString(buffer, 0, total));
     }
 
     // The header names the first directory sector; the sector allocation table (found through the header and the chain of extra
     // table sectors) gives the next sector of the directory. Only the table sectors that are needed are read.
     private static FileFormat? MatchCompound(Stream stream)
     {
-        byte[] header = new byte[DocumentSignature.CompoundHeaderLength];
+        byte[] header = new byte[CompoundFile.CompoundHeaderLength];
         stream.Position = 0;
         if (!ReadFully(stream, header))
         {
@@ -134,7 +128,7 @@ internal static class ContainerProbe
         }
 
         byte[]? directory = ReadDirectory(stream, firstDirectory, sectorSize, tables);
-        return directory is null ? null : DocumentSignature.MatchDirectory(directory);
+        return directory is null ? null : CompoundFile.MatchDirectory(directory);
     }
 
     private static List<uint> ReadTableSectors(Stream stream, byte[] header, int sectorSize, uint tableCount, uint firstExtra, uint extraCount)
@@ -169,7 +163,7 @@ internal static class ContainerProbe
     private static byte[]? ReadDirectory(Stream stream, uint first, int sectorSize, List<uint> tables)
     {
         int perTable = sectorSize / 4;
-        int maxSectors = Math.Max(1, DocumentSignature.MaxDirectoryEntries * DocumentSignature.CompoundEntryLength / sectorSize);
+        int maxSectors = Math.Max(1, CompoundFile.MaxDirectoryEntries * CompoundFile.CompoundEntryLength / sectorSize);
         Dictionary<uint, byte[]> loaded = [];
         HashSet<uint> seen = [];
         using MemoryStream directory = new();

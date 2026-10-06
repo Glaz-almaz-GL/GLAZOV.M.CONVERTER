@@ -1,4 +1,5 @@
 using GLAZOV.M.CONVERTER.Data;
+using GLAZOV.M.CONVERTER.Detection.Text;
 using GLAZOV.M.CONVERTER.Extensions;
 using GLAZOV.M.CONVERTER.IO;
 using GLAZOV.M.CONVERTER.Settings;
@@ -15,6 +16,12 @@ namespace GLAZOV.M.CONVERTER.Detection;
 /// </summary>
 internal sealed class DetectorChain
 {
+    /// <summary>
+    /// Budget of bytes the second look of one detector may read in all. A fixed value, not a setting: the structures of a real document are far smaller,
+    /// and a larger value would only let a forged header make the library read and keep more.
+    /// </summary>
+    internal const long DefaultInspectBudget = 16L * 1024 * 1024;
+
     private readonly IReadOnlyList<IFormatDetector> _labels;
     private readonly IReadOnlyList<IStreamFormatDetector> _inspectors;
     private readonly IReadOnlyList<IFormatDetector> _contents;
@@ -23,7 +30,7 @@ internal sealed class DetectorChain
     internal DetectorChain(
         IEnumerable<IFormatDetector> detectors,
         int window = ConverterSettings.DefaultDetectionWindow,
-        long inspectBudget = ContainerProbe.DefaultBudget)
+        long inspectBudget = DefaultInspectBudget)
     {
         ArgumentNullException.ThrowIfNull(detectors);
         HashSet<IFormatDetector> seen = new(ReferenceEqualityComparer.Instance);
@@ -40,7 +47,7 @@ internal sealed class DetectorChain
     /// Ряд из одних готовых признаков с окном по умолчанию — для публичного <see cref="FileTypeDetector"/>,
     /// не знающего ни о расширениях, ни о настройках конвертера.
     /// </summary>
-    internal static DetectorChain BuiltIn { get; } = new([new SignatureDetector(), new ContainerDetector()]);
+    internal static DetectorChain BuiltIn { get; } = new(BuiltInDetectors.Create());
 
     /// <summary>
     /// Сколько начальных байтов читать, чтобы хватило каждому определителю.

@@ -1,7 +1,7 @@
 using System.IO.Compression;
 using System.Text;
 
-namespace GLAZOV.M.CONVERTER.Detection;
+namespace GLAZOV.M.CONVERTER.Detection.Svg;
 
 /// <summary>
 /// Признак SVG: после метки порядка байтов, объявления XML, комментариев и DOCTYPE первый элемент — <c>svg</c>.

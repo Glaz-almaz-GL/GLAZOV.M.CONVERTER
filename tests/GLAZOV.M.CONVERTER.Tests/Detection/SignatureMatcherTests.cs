@@ -21,7 +21,7 @@ public class SignatureMatcherTests
     {
         var bytes = Sample(file);
 
-        var type = SignatureMatcher.Match(bytes.AsSpan(0, Math.Min(bytes.Length, SignatureMatcher.HeadLength)));
+        var type = Sniff.Match(bytes.AsSpan(0, Math.Min(bytes.Length, DetectionSizes.MinimumWindow)));
 
         Assert.Equal(expected, type.Name);
     }
@@ -32,7 +32,7 @@ public class SignatureMatcherTests
         // Те же байты MP3 — тип определяется по ним, как бы файл ни назывался: у буфера имени нет вовсе.
         var bytes = Sample("sample-id3.mp3");
 
-        Assert.Same(FileFormat.Mp3, SignatureMatcher.Match(bytes));
+        Assert.Same(FileFormat.Mp3, Sniff.Match(bytes));
     }
 
     [Theory]
@@ -45,14 +45,14 @@ public class SignatureMatcherTests
     {
         var wav = Sample("sample.wav");
 
-        Assert.Same(FileFormat.Unknown, SignatureMatcher.Match(wav.AsSpan(0, length)));
+        Assert.Same(FileFormat.Unknown, Sniff.Match(wav.AsSpan(0, length)));
     }
 
     [Fact]
     public void Match_ZeroesAndText_AreUnknown()
     {
-        Assert.Same(FileFormat.Unknown, SignatureMatcher.Match(new byte[4096]));
-        Assert.Same(FileFormat.Unknown, SignatureMatcher.Match("Просто текстовый файл, а не звук."u8));
+        Assert.Same(FileFormat.Unknown, Sniff.Match(new byte[4096]));
+        Assert.Same(FileFormat.Unknown, Sniff.Match("Просто текстовый файл, а не звук."u8));
     }
 
     [Fact]
@@ -61,7 +61,7 @@ public class SignatureMatcherTests
         var bytes = Sample("sample-vorbis.ogg");
         bytes[0] = (byte)'X';
 
-        Assert.Same(FileFormat.Unknown, SignatureMatcher.Match(bytes));
+        Assert.Same(FileFormat.Unknown, Sniff.Match(bytes));
     }
 
     [Fact]
@@ -70,7 +70,7 @@ public class SignatureMatcherTests
         var bytes = Sample("sample.wav");
         bytes[8] = (byte)'A'; // «AVE…» вместо «WAVE»
 
-        Assert.Same(FileFormat.Unknown, SignatureMatcher.Match(bytes));
+        Assert.Same(FileFormat.Unknown, Sniff.Match(bytes));
     }
 
     [Fact]
@@ -79,20 +79,20 @@ public class SignatureMatcherTests
         // Один кадр без подтверждающего второго — слишком слабый признак: данные не принимаются за MP3.
         var raw = Sample("sample-raw.mp3");
 
-        Assert.Same(FileFormat.Unknown, SignatureMatcher.Match(raw.AsSpan(0, 120)));
+        Assert.Same(FileFormat.Unknown, Sniff.Match(raw.AsSpan(0, 120)));
     }
 
     [Fact]
     public void Match_ThousandRandomBuffers_NeverLookLikeAudio()
     {
         var random = new Random(20261003);
-        var buffer = new byte[SignatureMatcher.HeadLength];
+        var buffer = new byte[DetectionSizes.MinimumWindow];
 
         for (var i = 0; i < 1000; i++)
         {
             random.NextBytes(buffer);
 
-            Assert.Same(FileFormat.Unknown, SignatureMatcher.Match(buffer));
+            Assert.Same(FileFormat.Unknown, Sniff.Match(buffer));
         }
     }
 
@@ -113,7 +113,7 @@ public class SignatureMatcherTests
     {
         byte[] bytes = Sample(file);
 
-        FileFormat type = SignatureMatcher.Match(bytes.AsSpan(0, Math.Min(bytes.Length, SignatureMatcher.HeadLength)));
+        FileFormat type = Sniff.Match(bytes.AsSpan(0, Math.Min(bytes.Length, DetectionSizes.MinimumWindow)));
 
         Assert.Equal(expected, type.Name);
     }
@@ -121,15 +121,15 @@ public class SignatureMatcherTests
     [Fact]
     public void Match_Tga_HasNoSignature_SoItIsUnknown()
     {
-        Assert.Same(FileFormat.Unknown, SignatureMatcher.Match(Sample("sample.tga")));
+        Assert.Same(FileFormat.Unknown, Sniff.Match(Sample("sample.tga")));
     }
 
     [Fact]
     public void Match_XmlThatIsNotSvg_AndSvgWordInsideText_AreUnknown()
     {
-        Assert.Same(FileFormat.Unknown, SignatureMatcher.Match(Sample("sample-notsvg.xml")));
-        Assert.Same(FileFormat.Unknown, SignatureMatcher.Match("Это письмо про формат <svg и ничего больше."u8));
-        Assert.Same(FileFormat.Unknown, SignatureMatcher.Match("<svgfoo></svgfoo>"u8));
+        Assert.Same(FileFormat.Unknown, Sniff.Match(Sample("sample-notsvg.xml")));
+        Assert.Same(FileFormat.Unknown, Sniff.Match("Это письмо про формат <svg и ничего больше."u8));
+        Assert.Same(FileFormat.Unknown, Sniff.Match("<svgfoo></svgfoo>"u8));
     }
 
     [Theory]
@@ -147,7 +147,7 @@ public class SignatureMatcherTests
     {
         byte[] bytes = Sample(file);
 
-        FileFormat type = SignatureMatcher.Match(bytes.AsSpan(0, Math.Min(bytes.Length, SignatureMatcher.HeadLength)));
+        FileFormat type = Sniff.Match(bytes.AsSpan(0, Math.Min(bytes.Length, DetectionSizes.MinimumWindow)));
 
         Assert.Equal(expected, type.Name);
     }
@@ -168,7 +168,7 @@ public class SignatureMatcherTests
     {
         byte[] bytes = [0, 0, 0, 0x18, .. "ftyp"u8.ToArray(), .. System.Text.Encoding.ASCII.GetBytes(brand), 0, 0, 2, 0, .. "isomiso2"u8.ToArray()];
 
-        Assert.Same(FileFormat.Mp4, SignatureMatcher.Match(bytes));
+        Assert.Same(FileFormat.Mp4, Sniff.Match(bytes));
     }
 
     [Theory]
@@ -182,7 +182,7 @@ public class SignatureMatcherTests
     {
         byte[] bytes = [0, 0, 0, 0x18, .. "ftyp"u8.ToArray(), .. System.Text.Encoding.ASCII.GetBytes(brand), 0, 0, 2, 0, .. "isomiso2"u8.ToArray()];
 
-        Assert.Equal(expected, SignatureMatcher.Match(bytes).Name);
+        Assert.Equal(expected, Sniff.Match(bytes).Name);
     }
 
     [Theory]
@@ -194,27 +194,27 @@ public class SignatureMatcherTests
     {
         byte[] bytes = [0, 0, 0x10, 0, .. System.Text.Encoding.ASCII.GetBytes(atom), 1, 2, 3, 4, 5, 6, 7, 8];
 
-        Assert.Same(FileFormat.Mov, SignatureMatcher.Match(bytes));
+        Assert.Same(FileFormat.Mov, Sniff.Match(bytes));
     }
 
     [Fact]
     public void Match_AtomWithTooSmallSizeOrUnknownType_IsNotMov()
     {
-        Assert.Same(FileFormat.Unknown, SignatureMatcher.Match([0, 0, 0, 8, .. "moov"u8.ToArray(), 1, 2, 3, 4]));
-        Assert.Same(FileFormat.Unknown, SignatureMatcher.Match([0, 0, 0, 0, .. "free"u8.ToArray(), 1, 2, 3, 4]));
-        Assert.Same(FileFormat.Unknown, SignatureMatcher.Match([0, 0, 0x10, 0, .. "skip"u8.ToArray(), 1, 2, 3, 4]));
+        Assert.Same(FileFormat.Unknown, Sniff.Match([0, 0, 0, 8, .. "moov"u8.ToArray(), 1, 2, 3, 4]));
+        Assert.Same(FileFormat.Unknown, Sniff.Match([0, 0, 0, 0, .. "free"u8.ToArray(), 1, 2, 3, 4]));
+        Assert.Same(FileFormat.Unknown, Sniff.Match([0, 0, 0x10, 0, .. "skip"u8.ToArray(), 1, 2, 3, 4]));
     }
 
     [Fact]
     public void Match_AtomWhoseSizeIsPrintableText_OrWhoseNextAtomIsNoType_IsNotMov()
     {
-        Assert.Same(FileFormat.Unknown, SignatureMatcher.Match("wxyzfree and more plain text"u8));
+        Assert.Same(FileFormat.Unknown, Sniff.Match("wxyzfree and more plain text"u8));
 
         byte[] nextIsNoType = [0, 0, 0, 0x10, .. "free"u8.ToArray(), 1, 2, 3, 4, 5, 6, 7, 8, 0, 0, 0, 0x10, 0, 0, 0, 0];
         byte[] nextIsAType = [0, 0, 0, 0x10, .. "free"u8.ToArray(), 1, 2, 3, 4, 5, 6, 7, 8, 0, 0, 0, 0x10, .. "mdat"u8.ToArray()];
 
-        Assert.Same(FileFormat.Unknown, SignatureMatcher.Match(nextIsNoType));
-        Assert.Same(FileFormat.Mov, SignatureMatcher.Match(nextIsAType));
+        Assert.Same(FileFormat.Unknown, Sniff.Match(nextIsNoType));
+        Assert.Same(FileFormat.Mov, Sniff.Match(nextIsAType));
     }
 
     [Theory]
@@ -229,7 +229,7 @@ public class SignatureMatcherTests
 
         for (int length = 0; length < 12; length++)
         {
-            Assert.Same(FileFormat.Unknown, SignatureMatcher.Match(bytes.AsSpan(0, length)));
+            Assert.Same(FileFormat.Unknown, Sniff.Match(bytes.AsSpan(0, length)));
         }
     }
 
@@ -242,7 +242,7 @@ public class SignatureMatcherTests
 
         for (int length = 12; length < 24; length++)
         {
-            Assert.Same(FileFormat.Unknown, SignatureMatcher.Match(bytes.AsSpan(0, length)));
+            Assert.Same(FileFormat.Unknown, Sniff.Match(bytes.AsSpan(0, length)));
         }
     }
 
@@ -251,9 +251,9 @@ public class SignatureMatcherTests
     {
         byte[] other = [0x1A, 0x45, 0xDF, 0xA3, 0x93, 0x42, 0x82, 0x88, .. "othertyp"u8.ToArray(), 0, 0, 0, 0];
 
-        Assert.Same(FileFormat.Unknown, SignatureMatcher.Match(other));
-        Assert.Same(FileFormat.Unknown, SignatureMatcher.Match("ftypisom: это письмо, а не видео."u8));
-        Assert.Same(FileFormat.Unknown, SignatureMatcher.Match("RIFF    ABCDEFGH"u8));
+        Assert.Same(FileFormat.Unknown, Sniff.Match(other));
+        Assert.Same(FileFormat.Unknown, Sniff.Match("ftypisom: это письмо, а не видео."u8));
+        Assert.Same(FileFormat.Unknown, Sniff.Match("RIFF    ABCDEFGH"u8));
     }
 
     [Theory]
@@ -272,7 +272,7 @@ public class SignatureMatcherTests
     {
         byte[] bytes = Sample(file);
 
-        Assert.Same(FileFormat.Unknown, SignatureMatcher.Match(bytes.AsSpan(0, keep)));
+        Assert.Same(FileFormat.Unknown, Sniff.Match(bytes.AsSpan(0, keep)));
     }
 
     [Fact]
@@ -281,7 +281,7 @@ public class SignatureMatcherTests
         byte[] bad = Sample("sample.bmp");
         bad[14] = 7; // размер заголовка изображения 7 — такого не бывает
 
-        Assert.Same(FileFormat.Unknown, SignatureMatcher.Match(bad));
+        Assert.Same(FileFormat.Unknown, Sniff.Match(bad));
     }
 
     [Fact]
@@ -292,7 +292,7 @@ public class SignatureMatcherTests
             byte[] bytes = Sample(file);
             bytes[0] ^= 0x55;
 
-            Assert.Same(FileFormat.Unknown, SignatureMatcher.Match(bytes));
+            Assert.Same(FileFormat.Unknown, Sniff.Match(bytes));
         }
     }
 }

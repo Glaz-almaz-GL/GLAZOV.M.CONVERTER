@@ -18,7 +18,7 @@ internal sealed class BuiltInExtension(int detectionWindow = ConverterSettings.D
     public IReadOnlyList<FileFormat> Formats => [.. Engines.SelectMany(engine => engine.Pairs).SelectMany(pair => new[] { pair.From, pair.To }).Append(FileFormat.Svg).Distinct()];
 
     /// <inheritdoc />
-    public IReadOnlyList<IFormatDetector> Detectors { get; } = [new SignatureDetector(detectionWindow), new ContainerDetector()];
+    public IReadOnlyList<IFormatDetector> Detectors { get; } = BuiltInDetectors.Create(detectionWindow);
 
     /// <inheritdoc />
     public IReadOnlyList<IConversionEngine> Engines { get; } = [new FfmpegAudioEngine(), new FfmpegImageEngine(), new FfmpegVideoEngine(), new LibreOfficeEngine()];

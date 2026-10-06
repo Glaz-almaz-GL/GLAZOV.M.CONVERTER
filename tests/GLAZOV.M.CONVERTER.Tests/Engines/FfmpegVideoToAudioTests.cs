@@ -68,7 +68,7 @@ public sealed class FfmpegVideoToAudioTests : IClassFixture<VideoSourcesFixture>
     {
         await using FileStream input = File.OpenRead(sourcePath);
         using MemoryStream output = new();
-        FileFormat from = SignatureMatcher.Match(await File.ReadAllBytesAsync(sourcePath));
+        FileFormat from = Sniff.Match(await File.ReadAllBytesAsync(sourcePath));
         ConversionRequest request = new(
             input, output, from, to, new ConversionOptions(), Ffmpeg(), _temp, withPath ? sourcePath : null, onProgress);
 
@@ -99,7 +99,7 @@ public sealed class FfmpegVideoToAudioTests : IClassFixture<VideoSourcesFixture>
         string resultPath = Path.Combine(_temp, "result." + format.Extension);
         await File.WriteAllBytesAsync(resultPath, bytes);
 
-        Assert.Same(format, SignatureMatcher.Match(bytes));
+        Assert.Same(format, Sniff.Match(bytes));
         Assert.Equal(codec, await _fixture.ProbeAsync(resultPath, "stream=codec_name"));
         double expected = double.Parse(await _fixture.ProbeAsync(sourcePath, "format=duration"), CultureInfo.InvariantCulture);
         double actual = double.Parse(await _fixture.ProbeAsync(resultPath, "format=duration"), CultureInfo.InvariantCulture);
@@ -198,6 +198,6 @@ public sealed class FfmpegVideoToAudioTests : IClassFixture<VideoSourcesFixture>
         Assert.True(result.Succeeded);
         Assert.Same(FileFormat.Mkv, result.SourceType);
         Assert.True(result.Reencoded);
-        Assert.Same(FileFormat.Mp3, SignatureMatcher.Match(result.Bytes!));
+        Assert.Same(FileFormat.Mp3, Sniff.Match(result.Bytes!));
     }
 }

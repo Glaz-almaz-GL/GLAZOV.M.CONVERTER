@@ -1,6 +1,7 @@
 using System.IO.Compression;
 using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Detection;
+using GLAZOV.M.CONVERTER.Detection.Documents;
 using GLAZOV.M.CONVERTER.IO;
 
 namespace GLAZOV.M.CONVERTER.Tests.Detection;
@@ -20,7 +21,7 @@ public sealed class ContainerProbeTests
     {
         using MemoryStream stream = new(bytes);
         await using InputHandle input = new("test", stream, ownsInner: false);
-        return await FileTypeDetector.DetectAsync(input, new DetectorChain([new SignatureDetector(), new ContainerDetector()], inspectBudget: limit));
+        return await FileTypeDetector.DetectAsync(input, new DetectorChain(BuiltInDetectors.Create(), inspectBudget: limit));
     }
 
     private static byte[] BigPackage(params (string Name, byte[] Content)[] entries)
@@ -68,7 +69,7 @@ public sealed class ContainerProbeTests
         byte[] ppt = Sample("sample.ppt");
 
         // The directory of this file is in its last sector: the leading bytes alone do not reach it.
-        Assert.Same(FileFormat.Unknown, SignatureMatcher.Match(ppt.AsSpan(0, Math.Min(ppt.Length, 64 * 1024))));
+        Assert.Same(FileFormat.Unknown, Sniff.Match(ppt.AsSpan(0, Math.Min(ppt.Length, 64 * 1024))));
         Assert.Equal("PPT", (await Detect(ppt)).Name);
     }
 
@@ -78,7 +79,7 @@ public sealed class ContainerProbeTests
         byte[] docx = BigPackage(("[Content_Types].xml", "<Types/>"u8.ToArray()), ("word/document.xml", "<w:document/>"u8.ToArray()));
         byte[] xlsx = BigPackage(("[Content_Types].xml", "<Types/>"u8.ToArray()), ("xl/workbook.xml", "<workbook/>"u8.ToArray()));
 
-        Assert.Same(FileFormat.Unknown, SignatureMatcher.Match(docx.AsSpan(0, 64 * 1024)));
+        Assert.Same(FileFormat.Unknown, Sniff.Match(docx.AsSpan(0, 64 * 1024)));
         Assert.Equal("DOCX", (await Detect(docx)).Name);
         Assert.Equal("XLSX", (await Detect(xlsx)).Name);
     }

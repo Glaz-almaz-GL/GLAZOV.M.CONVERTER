@@ -22,7 +22,7 @@ public class DocumentSignatureTests
 
     private static FileFormat Match(byte[] bytes, int window = DefaultWindow)
     {
-        return SignatureMatcher.Match(bytes.AsSpan(0, Math.Min(bytes.Length, window)), Math.Max(window, SignatureMatcher.HeadLength));
+        return Sniff.Match(bytes.AsSpan(0, Math.Min(bytes.Length, window)), Math.Max(window, DetectionSizes.MinimumWindow));
     }
 
     [Theory]
@@ -73,7 +73,7 @@ public class DocumentSignatureTests
 
         for (int length = 0; length <= 40; length++)
         {
-            Assert.Same(FileFormat.Unknown, SignatureMatcher.Match(bytes.AsSpan(0, length)));
+            Assert.Same(FileFormat.Unknown, Sniff.Match(bytes.AsSpan(0, length)));
         }
 
     }
@@ -82,7 +82,7 @@ public class DocumentSignatureTests
     public void Match_NameOfTheFileIsNotAnInput()
     {
         // The same bytes, whatever they are called: a DOCX is a DOCX with no name at all.
-        Assert.Same(FileFormat.Docx, SignatureMatcher.Match(Sample("sample.docx")));
+        Assert.Same(FileFormat.Docx, Sniff.Match(Sample("sample.docx")));
     }
 
     [Fact]
@@ -144,8 +144,8 @@ public class DocumentSignatureTests
     [InlineData("<body>просто</body>")]
     public void Match_HtmlStart_IsHtml_AfterSpacesAndByteOrderMark(string text)
     {
-        Assert.Same(FileFormat.Html, SignatureMatcher.Match(Encoding.UTF8.GetBytes(text)));
-        Assert.Same(FileFormat.Html, SignatureMatcher.Match([0xEF, 0xBB, 0xBF, .. Encoding.UTF8.GetBytes(text)]));
+        Assert.Same(FileFormat.Html, Sniff.Match(Encoding.UTF8.GetBytes(text)));
+        Assert.Same(FileFormat.Html, Sniff.Match([0xEF, 0xBB, 0xBF, .. Encoding.UTF8.GetBytes(text)]));
     }
 
     [Theory]
@@ -156,17 +156,17 @@ public class DocumentSignatureTests
     [InlineData("PK")]
     public void Match_TextThatMerelyMentionsOrHalfStartsAFormat_IsNotADocument(string text)
     {
-        Assert.Same(FileFormat.Unknown, SignatureMatcher.Match(Encoding.UTF8.GetBytes(text)));
+        Assert.Same(FileFormat.Unknown, Sniff.Match(Encoding.UTF8.GetBytes(text)));
     }
 
     [Fact]
     public void Match_OlderTypesAreNotStolen()
     {
-        Assert.Same(FileFormat.M4a, SignatureMatcher.Match(Sample("sample.m4a")));
-        Assert.Same(FileFormat.Wav, SignatureMatcher.Match(Sample("sample.wav")));
-        Assert.Same(FileFormat.Svg, SignatureMatcher.Match(Sample("sample-plain.svg")));
-        Assert.Same(FileFormat.Png, SignatureMatcher.Match(Sample("sample.png")));
-        Assert.Same(FileFormat.Mp4, SignatureMatcher.Match(Sample("sample.mp4")));
+        Assert.Same(FileFormat.M4a, Sniff.Match(Sample("sample.m4a")));
+        Assert.Same(FileFormat.Wav, Sniff.Match(Sample("sample.wav")));
+        Assert.Same(FileFormat.Svg, Sniff.Match(Sample("sample-plain.svg")));
+        Assert.Same(FileFormat.Png, Sniff.Match(Sample("sample.png")));
+        Assert.Same(FileFormat.Mp4, Sniff.Match(Sample("sample.mp4")));
     }
 
     [Fact]
@@ -184,7 +184,7 @@ public class DocumentSignatureTests
     [InlineData("<htmlfoo/>")]
     public void Review_XmlWhoseFirstTagOnlyStartsLikeAnHtmlTag_IsNotHtml(string text)
     {
-        Assert.Same(FileFormat.Unknown, SignatureMatcher.Match(Encoding.UTF8.GetBytes(text)));
+        Assert.Same(FileFormat.Unknown, Sniff.Match(Encoding.UTF8.GetBytes(text)));
     }
 
     [Fact]
