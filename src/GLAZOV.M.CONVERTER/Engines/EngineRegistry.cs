@@ -22,7 +22,7 @@ internal sealed class EngineRegistry
     internal IReadOnlyList<IConversionEngine> Engines => _engines;
 
     /// <summary>
-    /// Реестр по умолчанию: встроенные движки (документы через LibreOffice).
+    /// Реестр по умолчанию: встроенные движки; у ядра их нет, движки приносят расширения.
     /// </summary>
     internal static EngineRegistry CreateDefault()
     {

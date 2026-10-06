@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace GLAZOV.M.CONVERTER.Tests.Live;
+namespace GLAZOV.M.CONVERTER.Office.Tests.Live;
 
 /// <summary>
 /// Flat ODF sources (.fodt, .fods, .fodp) for the document run: LibreOffice turns them into the real files of every format.

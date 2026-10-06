@@ -5,7 +5,7 @@ using GLAZOV.M.CONVERTER.Errors;
 using GLAZOV.M.CONVERTER.Settings;
 using UglyToad.PdfPig;
 
-namespace GLAZOV.M.CONVERTER.Tests.Engines;
+namespace GLAZOV.M.CONVERTER.Office.Tests.Engines;
 
 /// <summary>
 /// Text to PDF through LibreOffice: a file named .md or .markdown is laid out as Markdown, anything else is plain text;
@@ -30,7 +30,7 @@ public sealed class LibreOfficeTextTests : IDisposable
 
     private Converter Converter()
     {
-        return new Converter(new ConverterSettings { TempFolder = Path.Combine(_temp, "work") });
+        return OfficeConverter.Create(new ConverterSettings { TempFolder = Path.Combine(_temp, "work") });
     }
 
     private string Put(string name, byte[] bytes)

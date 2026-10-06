@@ -1,8 +1,8 @@
-using GLAZOV.M.CONVERTER.Engines;
+using GLAZOV.M.CONVERTER.Office.Engines;
 using GLAZOV.M.CONVERTER.Settings;
 using GLAZOV.M.CONVERTER.Tooling;
 
-namespace GLAZOV.M.CONVERTER.Tests;
+namespace GLAZOV.M.CONVERTER.Office.Tests;
 
 /// <summary>
 /// A parameterised check that needs the real LibreOffice; skipped with the reason when it is not on the machine.

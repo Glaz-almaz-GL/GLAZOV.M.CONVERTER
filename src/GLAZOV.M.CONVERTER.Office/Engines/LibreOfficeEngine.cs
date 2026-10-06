@@ -3,7 +3,7 @@ using GLAZOV.M.CONVERTER.Errors;
 using GLAZOV.M.CONVERTER.Extensions;
 using GLAZOV.M.CONVERTER.Tooling;
 
-namespace GLAZOV.M.CONVERTER.Engines;
+namespace GLAZOV.M.CONVERTER.Office.Engines;
 
 /// <summary>
 /// Documents, spreadsheets and presentations to PDF through LibreOffice (<c>soffice</c>), an external program.
@@ -56,7 +56,7 @@ internal sealed class LibreOfficeEngine : IConversionEngine
             {
                 // LibreOffice exits with 0 when it cannot load a file; the missing result is the failure.
                 string name = request.InputPath is null ? "документ" : Path.GetFileName(request.InputPath);
-                throw Failures.ToolFailed(request.Tool!.Name, result.ExitCode, $"{result.ErrorOutput}\nLibreOffice не смог открыть файл «{name}»".TrimStart());
+                throw ConversionException.ToolFailed(request.Tool!.Name, result.ExitCode, $"{result.ErrorOutput}\nLibreOffice не смог открыть файл «{name}»".TrimStart());
             }
 
             await using FileStream produced = new(pdf, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.Asynchronous | FileOptions.SequentialScan);

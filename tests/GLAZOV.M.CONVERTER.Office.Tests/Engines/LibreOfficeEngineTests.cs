@@ -3,12 +3,12 @@ using GLAZOV.M.CONVERTER.Batch;
 using GLAZOV.M.CONVERTER.Capabilities;
 using GLAZOV.M.CONVERTER.Converting;
 using GLAZOV.M.CONVERTER.Data;
-using GLAZOV.M.CONVERTER.Engines;
+using GLAZOV.M.CONVERTER.Office.Engines;
 using GLAZOV.M.CONVERTER.Errors;
 using GLAZOV.M.CONVERTER.Settings;
 using UglyToad.PdfPig;
 
-namespace GLAZOV.M.CONVERTER.Tests.Engines;
+namespace GLAZOV.M.CONVERTER.Office.Tests.Engines;
 
 /// <summary>
 /// Documents to PDF through LibreOffice: the declared pairs (no program needed) and live runs on real files
@@ -46,7 +46,7 @@ public sealed partial class LibreOfficeEngineTests : IDisposable
         // The directory of an old PPT, DOC or XLS made by LibreOffice sits at the end of the file: a wide window is needed to confirm the type.
         ConverterSettings settings = new() { TempFolder = folder, DetectionWindow = 4 * 1024 * 1024 };
         configure?.Invoke(settings);
-        return new Converter(settings);
+        return OfficeConverter.Create(settings);
     }
 
     private string[] LeftInWork()
@@ -72,13 +72,22 @@ public sealed partial class LibreOfficeEngineTests : IDisposable
     [Fact]
     public void Catalog_ShowsTheTwelvePairs()
     {
-        ConverterCapabilities caps = new Converter().Capabilities;
+        ConverterCapabilities caps = OfficeConverter.Create().Capabilities;
 
         Conversion[] documents = [.. caps.All.Where(c => c.To.Equals(FileFormat.Pdf))];
 
         Assert.Equal(12, documents.Length);
         Assert.True(caps.CanConvert(FileFormat.Docx, FileFormat.Pdf));
         Assert.False(caps.CanConvert(FileFormat.Pdf, FileFormat.Docx));
+    }
+
+    [Fact]
+    public void WithoutThePackage_DocumentsAreNotOffered()
+    {
+        ConverterCapabilities caps = new Converter().Capabilities;
+
+        Assert.False(caps.CanConvert(FileFormat.Docx, FileFormat.Pdf));
+        Assert.DoesNotContain(caps.All, c => c.To.Equals(FileFormat.Pdf) && c.From.Equals(FileFormat.Docx));
     }
 
     [Fact]

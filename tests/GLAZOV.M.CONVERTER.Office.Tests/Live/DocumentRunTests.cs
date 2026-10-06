@@ -7,7 +7,7 @@ using GLAZOV.M.CONVERTER.Errors;
 using GLAZOV.M.CONVERTER.Settings;
 using UglyToad.PdfPig;
 
-namespace GLAZOV.M.CONVERTER.Tests.Live;
+namespace GLAZOV.M.CONVERTER.Office.Tests.Live;
 
 /// <summary>
 /// Run of documents on real files through the public calls and the real LibreOffice: every input format of the catalog
@@ -115,7 +115,7 @@ public sealed class DocumentRunTests(DocumentRunFixture fixture) : IClassFixture
     [OfficeFact]
     public async Task EveryInputFormat_File_ToFile_ReadsBack()
     {
-        Converter converter = new(new ConverterSettings());
+        Converter converter = OfficeConverter.Create(new ConverterSettings());
         int done = 0;
 
         foreach ((string label, string path, string kind) in fixture.Inputs)
@@ -138,7 +138,7 @@ public sealed class DocumentRunTests(DocumentRunFixture fixture) : IClassFixture
     [OfficeFact]
     public async Task StreamWithoutRewinding_AndMemoryResult_AgreeWithTheFile()
     {
-        Converter converter = new();
+        Converter converter = OfficeConverter.Create();
 
         foreach ((string label, string path, string kind) in fixture.Inputs.Where(i => i.Label is "docx" or "xls" or "odp" or "html" or "txt-utf16"))
         {
@@ -158,7 +158,7 @@ public sealed class DocumentRunTests(DocumentRunFixture fixture) : IClassFixture
         foreach (int limit in new[] { 1, 4 })
         {
             string target = Out($"пакет-{limit}");
-            Converter converter = new(new ConverterSettings { MaxParallelTasks = limit });
+            Converter converter = OfficeConverter.Create(new ConverterSettings { MaxParallelTasks = limit });
             using PeakWatcher watcher = new("soffice.bin");
             Stopwatch clock = Stopwatch.StartNew();
 
@@ -183,7 +183,7 @@ public sealed class DocumentRunTests(DocumentRunFixture fixture) : IClassFixture
     {
         string temp = Out("временная");
         Directory.CreateDirectory(temp);
-        Converter converter = new(new ConverterSettings { TempFolder = temp });
+        Converter converter = OfficeConverter.Create(new ConverterSettings { TempFolder = temp });
         using CancellationTokenSource cts = new();
         string target = Out("отменённое.pdf");
 
@@ -202,7 +202,7 @@ public sealed class DocumentRunTests(DocumentRunFixture fixture) : IClassFixture
     [OfficeFact]
     public async Task Broken_AndLiar_AreHonestlyRefused()
     {
-        Converter converter = new();
+        Converter converter = OfficeConverter.Create();
 
         ConversionException broken = await Assert.ThrowsAnyAsync<ConversionException>(() =>
             converter.ConvertAsync(Source.File(fixture.Broken), Target.File(Out("никогда.pdf"), FileFormat.Pdf)));
@@ -224,7 +224,7 @@ public sealed class DocumentRunTests(DocumentRunFixture fixture) : IClassFixture
         using PeakWatcher watcher = new("soffice.bin");
         Stopwatch clock = Stopwatch.StartNew();
 
-        ConversionResult result = await new Converter().ConvertAsync(Source.File(fixture.Big), Target.File(output, FileFormat.Pdf));
+        ConversionResult result = await OfficeConverter.Create().ConvertAsync(Source.File(fixture.Big), Target.File(output, FileFormat.Pdf));
 
         clock.Stop();
         Assert.True(result.Succeeded);
@@ -241,7 +241,7 @@ public sealed class DocumentRunTests(DocumentRunFixture fixture) : IClassFixture
         List<double> percents = [];
         IProgress<ConversionProgress> progress = new InlineProgress<ConversionProgress>(p => percents.Add(p.Percent));
 
-        await new Converter().ConvertAsync(Source.File(fixture.Inputs[0].Path), Target.Memory(FileFormat.Pdf), progress: progress);
+        await OfficeConverter.Create().ConvertAsync(Source.File(fixture.Inputs[0].Path), Target.Memory(FileFormat.Pdf), progress: progress);
 
         Assert.Equal(0d, percents[0]);
         Assert.Equal(100d, percents[^1]);

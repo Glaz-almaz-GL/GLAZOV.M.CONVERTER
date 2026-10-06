@@ -1,4 +1,4 @@
-namespace GLAZOV.M.CONVERTER.Engines;
+namespace GLAZOV.M.CONVERTER.Office.Engines;
 
 /// <summary>
 /// The user profile a LibreOffice run starts with: macros off, links of the document to the outside blocked, the network shut.

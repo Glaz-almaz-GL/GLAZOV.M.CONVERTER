@@ -1,6 +1,6 @@
 using GLAZOV.M.CONVERTER.Extensions;
 
-namespace GLAZOV.M.CONVERTER.Engines;
+namespace GLAZOV.M.CONVERTER.Office.Engines;
 
 /// <summary>
 /// Description of the LibreOffice program the document engine needs.

@@ -1,9 +1,9 @@
-using GLAZOV.M.CONVERTER.Engines;
+using GLAZOV.M.CONVERTER.Office.Engines;
 using System.Text;
 using GLAZOV.M.CONVERTER.Settings;
 using GLAZOV.M.CONVERTER.Tooling;
 
-namespace GLAZOV.M.CONVERTER.Tests.Live;
+namespace GLAZOV.M.CONVERTER.Office.Tests.Live;
 
 /// <summary>
 /// Real document files for the live run, made by the real LibreOffice from flat ODF sources: a text, a workbook and a presentation

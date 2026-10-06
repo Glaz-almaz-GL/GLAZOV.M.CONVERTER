@@ -6,7 +6,7 @@ using GLAZOV.M.CONVERTER.Settings;
 namespace GLAZOV.M.CONVERTER.Engines;
 
 /// <summary>
-/// Готовые возможности библиотеки — документы через LibreOffice и определители форматов — как расширение: подключаются тем же путём, что и чужие.
+/// Готовые возможности библиотеки — определители форматов — как расширение: подключаются тем же путём, что и чужие. Движков нет: их приносят расширения.
 /// </summary>
 /// <param name="detectionWindow">Окно определения формата в байтах — настройка <c>ConverterSettings.DetectionWindow</c>.</param>
 internal sealed class BuiltInExtension(int detectionWindow = ConverterSettings.DefaultDetectionWindow) : IConverterExtension
@@ -21,5 +21,5 @@ internal sealed class BuiltInExtension(int detectionWindow = ConverterSettings.D
     public IReadOnlyList<IFormatDetector> Detectors { get; } = BuiltInDetectors.Create(detectionWindow);
 
     /// <inheritdoc />
-    public IReadOnlyList<IConversionEngine> Engines { get; } = [new LibreOfficeEngine()];
+    public IReadOnlyList<IConversionEngine> Engines { get; } = [];
 }

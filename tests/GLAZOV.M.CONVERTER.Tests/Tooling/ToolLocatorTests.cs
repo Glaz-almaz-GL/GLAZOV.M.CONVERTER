@@ -75,6 +75,9 @@ public sealed class ToolLocatorTests : IDisposable
 
     private static readonly ToolSpec FfprobeLike = new("ffprobe") { Required = false, FoundBeside = "ffmpeg" };
 
+    // A stand-in shaped like the LibreOffice one: another name of the program and a word its package folder carries.
+    private static readonly ToolSpec SofficeLike = new("soffice") { Aliases = ["libreoffice"], PackageWord = "LibreOffice" };
+
     private static ToolSpec WithHints(ToolSpec spec)
     {
         spec.InstallHints[ToolSystem.Windows] = "Установите: winget install Gyan.FFmpeg (затем перезапустите программу) либо укажите путь в настройках (ToolPaths).";
@@ -87,7 +90,7 @@ public sealed class ToolLocatorTests : IDisposable
 
     private static ToolSpec Ffprobe() => Bare(FfprobeLike);
 
-    private static ToolSpec Soffice(params string[] places) => Bare(LibreOfficeTools.Soffice, places);
+    private static ToolSpec Soffice(params string[] places) => Bare(SofficeLike, places);
 
     private static ToolSpec[] Siblings() => [Ffmpeg(), Ffprobe()];
 
@@ -409,39 +412,5 @@ public sealed class ToolLocatorTests : IDisposable
         {
             Environment.SetEnvironmentVariable("CONVTEST_PLACE", null);
         }
-    }
-
-    [Fact]
-    public void ReadyDescriptions_KnowTheUsualPlacesOfTheirPrograms()
-    {
-        Assert.Contains(LibreOfficeTools.Soffice.SearchPlaces[ToolSystem.Windows], place => place.EndsWith(Path.Combine("LibreOffice", "program"), StringComparison.OrdinalIgnoreCase));
-        Assert.Contains("/Applications/LibreOffice.app/Contents/MacOS", LibreOfficeTools.Soffice.SearchPlaces[ToolSystem.MacOS]);
-        Assert.Contains("/opt/libreoffice*/program", LibreOfficeTools.Soffice.SearchPlaces[ToolSystem.Linux]);
-        Assert.Contains("libreoffice", LibreOfficeTools.Soffice.Aliases);
-    }
-
-    [Fact]
-    public void Soffice_NotFoundAnywhere_GivesInstallHintForThisSystem()
-    {
-        ToolStatus status = Locator(Env(path: Folder("empty"))).Locate(Soffice());
-
-        Assert.False(status.Found);
-        string expected = OperatingSystem.IsWindows() ? "winget install TheDocumentFoundation.LibreOffice"
-            : OperatingSystem.IsMacOS() ? "brew install --cask libreoffice"
-            : "apt install libreoffice-core libreoffice-writer libreoffice-calc libreoffice-impress";
-        Assert.Contains(expected, status.InstallHint);
-        Assert.Contains("ToolPaths", status.InstallHint);
-    }
-
-    // Only found, never started: soffice.exe --version opens a console window that waits for Enter.
-    [OfficeFact]
-    public void RealSoffice_IsFound()
-    {
-        ToolLocator locator = new(ConverterSettingsSnapshot.Create(new ConverterSettings()));
-
-        ToolStatus status = locator.Locate(LibreOfficeTools.Soffice);
-
-        Assert.True(status.Found);
-        Assert.True(File.Exists(status.Path));
     }
 }

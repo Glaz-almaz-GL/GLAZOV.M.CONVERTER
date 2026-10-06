@@ -5,7 +5,7 @@ using GLAZOV.M.CONVERTER.Extensions;
 namespace GLAZOV.M.CONVERTER.Tests.Engines;
 
 /// <summary>
-/// Реестр движков: подбор по паре, перечень пар для каталога, пары звукового движка.
+/// Реестр движков: подбор по паре, перечень пар для каталога; у ядра своих движков нет.
 /// </summary>
 public class EngineRegistryTests
 {
@@ -26,16 +26,24 @@ public class EngineRegistryTests
     }
 
     [Fact]
-    public void Pairs_ListAllPairsWithToolName_InStableOrder()
+    public void Default_HasNoEngines_TheCoreCarriesNone()
     {
-        IReadOnlyList<(FileFormat From, FileFormat To, IReadOnlyList<ToolSpec> Tools)> first = EngineRegistry.CreateDefault().Pairs();
-        IReadOnlyList<(FileFormat From, FileFormat To, IReadOnlyList<ToolSpec> Tools)> second = EngineRegistry.CreateDefault().Pairs();
+        EngineRegistry registry = EngineRegistry.CreateDefault();
 
-        Assert.Equal(12, first.Count);
-        Assert.Equal(12, first.Count(p => p.Tools.Any(t => t.Name == "soffice")));
-        Assert.All(first.Where(p => p.Tools.Any(t => t.Name == "soffice")), p => Assert.Equal(FileFormat.Pdf, p.To));
-        Assert.Equal(first.Select(p => (p.From, p.To, string.Join(",", p.Tools.Select(t => t.Name)))), second.Select(p => (p.From, p.To, string.Join(",", p.Tools.Select(t => t.Name)))));
-        Assert.Equal(first.Select(p => (p.From, p.To)).Distinct().Count(), first.Count);
+        Assert.Empty(registry.Engines);
+        Assert.Empty(registry.Pairs());
+    }
+
+    [Fact]
+    public void Pairs_ListEveryPairOnce_WithTheEngineThatWins_InStableOrder()
+    {
+        EngineRegistry registry = new([new FakeEngine("первая"), new FakeEngine("вторая")]);
+
+        IReadOnlyList<(FileFormat From, FileFormat To, IReadOnlyList<ToolSpec> Tools)> pairs = registry.Pairs();
+
+        Assert.Single(pairs);
+        Assert.Equal((FileFormat.Mp3, FileFormat.Wav), (pairs[0].From, pairs[0].To));
+        Assert.Equal(pairs, registry.Pairs());
     }
 
     [Fact]

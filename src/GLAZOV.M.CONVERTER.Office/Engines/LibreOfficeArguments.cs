@@ -1,4 +1,4 @@
-namespace GLAZOV.M.CONVERTER.Engines;
+namespace GLAZOV.M.CONVERTER.Office.Engines;
 
 /// <summary>
 /// Arguments of LibreOffice for converting one document to PDF: a pure function that starts no program.

@@ -6,11 +6,11 @@ using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using GLAZOV.M.CONVERTER.Converting;
 using GLAZOV.M.CONVERTER.Data;
-using GLAZOV.M.CONVERTER.Engines;
+using GLAZOV.M.CONVERTER.Office.Engines;
 using GLAZOV.M.CONVERTER.Settings;
 using UglyToad.PdfPig;
 
-namespace GLAZOV.M.CONVERTER.Tests.Engines;
+namespace GLAZOV.M.CONVERTER.Office.Tests.Engines;
 
 /// <summary>
 /// A document is untrusted input: the profile of every LibreOffice run turns macros off and blocks links to the outside.
@@ -36,7 +36,7 @@ public sealed partial class LibreOfficeSecurityTests : IDisposable
 
     private Converter Converter()
     {
-        return new Converter(new ConverterSettings { TempFolder = Path.Combine(_temp, "work") });
+        return OfficeConverter.Create(new ConverterSettings { TempFolder = Path.Combine(_temp, "work") });
     }
 
     /// <summary>

@@ -1,6 +1,6 @@
-using GLAZOV.M.CONVERTER.Engines;
+using GLAZOV.M.CONVERTER.Office.Engines;
 
-namespace GLAZOV.M.CONVERTER.Tests.Engines;
+namespace GLAZOV.M.CONVERTER.Office.Tests.Engines;
 
 /// <summary>
 /// Arguments of a LibreOffice run: headless, own profile per run, result to the given folder.
