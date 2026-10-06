@@ -10,14 +10,8 @@ namespace GLAZOV.M.CONVERTER.Ffmpeg.Engines;
 /// </summary>
 internal static class FfmpegVideoArguments
 {
-    // Engine defaults are values, not logic: VideoOptions and AudioOptions override them.
-    private const int H264DefaultCrf = 23;
-    private const int Vp9DefaultCrf = 31;
-    private const int Mpeg4DefaultQscale = 5;
-    private const int AacDefaultBitrate = 128_000;
-    private const int Mp3DefaultQuality = 2;
-
-    // Quality 1..100 maps linearly onto the codec scale: (value at 1, value at 100).
+    // Quality 1..100 of VideoOptions maps linearly onto the codec scale: (value at 1, value at 100).
+    // A constant: this defines what the shared quality parameter means; another mapping would be another contract.
     private static readonly (int AtLowest, int AtHighest) H264Crf = (45, 12);
     private static readonly (int AtLowest, int AtHighest) Vp9Crf = (55, 15);
     private static readonly (int AtLowest, int AtHighest) Mpeg4Qscale = (31, 2);
@@ -40,11 +34,13 @@ internal static class FfmpegVideoArguments
     /// <param name="plan">Which tracks are copied instead of encoded; <c>null</c> — both are encoded.</param>
     /// <param name="codecs">Codecs of the input tracks, when known; a copied HEVC track needs a tag for MP4 and MOV.</param>
     /// <param name="operations">Actions in order: rotate right and scale in percent; they apply after the frame size of the video settings.</param>
-    internal static IReadOnlyList<string> Build(FileFormat to, VideoOptions? video, AudioOptions? audio, string inputPath, string outputPath, CopyPlan? plan = null, TrackCodecs? codecs = null, IEnumerable<Operation>? operations = null)
+    /// <param name="settings">Defaults used when the options set none; <c>null</c> — the default settings.</param>
+    internal static IReadOnlyList<string> Build(FileFormat to, VideoOptions? video, AudioOptions? audio, string inputPath, string outputPath, CopyPlan? plan = null, TrackCodecs? codecs = null, IEnumerable<Operation>? operations = null, FfmpegSettings? settings = null)
     {
         ArgumentNullException.ThrowIfNull(to);
         ArgumentException.ThrowIfNullOrWhiteSpace(inputPath);
         ArgumentException.ThrowIfNullOrWhiteSpace(outputPath);
+        settings ??= new FfmpegSettings();
 
         Codec codec = VideoCodec(to);
         List<string> args =
@@ -66,7 +62,7 @@ internal static class FfmpegVideoArguments
         else
         {
             args.AddRange(["-pix_fmt", "yuv420p"]);
-            AddVideoCodec(args, codec, video);
+            AddVideoCodec(args, codec, video, settings);
             AddFilters(args, codec, video, operations);
         }
 
@@ -76,7 +72,7 @@ internal static class FfmpegVideoArguments
         }
         else
         {
-            AddAudio(args, codec, audio);
+            AddAudio(args, codec, audio, settings);
         }
 
         if (to.Equals(FileFormat.Mp4) || to.Equals(FileFormat.Mov))
@@ -119,7 +115,7 @@ internal static class FfmpegVideoArguments
         return to.Equals(FileFormat.Mkv) ? "matroska" : to.Extension;
     }
 
-    private static void AddVideoCodec(List<string> args, Codec codec, VideoOptions? video)
+    private static void AddVideoCodec(List<string> args, Codec codec, VideoOptions? video, FfmpegSettings settings)
     {
         args.AddRange(["-c:v", VideoEncoderName(codec)]);
 
@@ -135,14 +131,14 @@ internal static class FfmpegVideoArguments
         switch (codec)
         {
             case Codec.H264:
-                args.AddRange(["-crf", Text(quality is int q ? Scale(q, H264Crf) : H264DefaultCrf)]);
+                args.AddRange(["-crf", Text(quality is int q ? Scale(q, H264Crf) : settings.H264Crf)]);
                 break;
             case Codec.Vp9:
-                // CRF mode of VP9 needs a zero bitrate; a moderate speed keeps minutes from becoming hours.
-                args.AddRange(["-crf", Text(quality is int v ? Scale(v, Vp9Crf) : Vp9DefaultCrf), "-b:v", "0", "-row-mt", "1", "-deadline", "good", "-cpu-used", "4"]);
+                // CRF mode of VP9 needs a zero bitrate; row-mt is always a gain, so it is not a setting.
+                args.AddRange(["-crf", Text(quality is int v ? Scale(v, Vp9Crf) : settings.Vp9Crf), "-b:v", "0", "-row-mt", "1", "-deadline", settings.Vp9Deadline, "-cpu-used", Text(settings.Vp9CpuUsed)]);
                 break;
             default:
-                args.AddRange(["-q:v", Text(quality is int m ? Scale(m, Mpeg4Qscale) : Mpeg4DefaultQscale)]);
+                args.AddRange(["-q:v", Text(quality is int m ? Scale(m, Mpeg4Qscale) : settings.Mpeg4Qscale)]);
                 break;
         }
     }
@@ -217,12 +213,12 @@ internal static class FfmpegVideoArguments
         return Math.Max(2, value - (value % 2));
     }
 
-    private static void AddAudio(List<string> args, Codec codec, AudioOptions? audio)
+    private static void AddAudio(List<string> args, Codec codec, AudioOptions? audio, FfmpegSettings settings)
     {
         switch (codec)
         {
             case Codec.H264:
-                args.AddRange(["-c:a", "aac", "-b:a", Text(audio?.Bitrate ?? AacDefaultBitrate)]);
+                args.AddRange(["-c:a", "aac", "-b:a", Text(audio?.Bitrate ?? settings.AacBitrate)]);
                 break;
             case Codec.Vp9:
                 args.AddRange(["-c:a", "libopus"]);
@@ -234,7 +230,7 @@ internal static class FfmpegVideoArguments
                 break;
             default:
                 args.AddRange(["-c:a", "libmp3lame"]);
-                args.AddRange(audio?.Bitrate is int mp3Bitrate ? ["-b:a", Text(mp3Bitrate)] : ["-q:a", Text(Mp3DefaultQuality)]);
+                args.AddRange(audio?.Bitrate is int mp3Bitrate ? ["-b:a", Text(mp3Bitrate)] : ["-q:a", Text(settings.Mp3Quality)]);
                 break;
         }
 

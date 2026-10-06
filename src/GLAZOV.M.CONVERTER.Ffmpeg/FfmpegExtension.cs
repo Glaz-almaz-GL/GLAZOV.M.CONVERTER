@@ -10,6 +10,26 @@ namespace GLAZOV.M.CONVERTER.Ffmpeg;
 /// </summary>
 public sealed class FfmpegExtension : IConverterExtension
 {
+    /// <summary>
+    /// Creates the extension with the default settings.
+    /// </summary>
+    public FfmpegExtension()
+        : this(new FfmpegSettings())
+    {
+    }
+
+    /// <summary>
+    /// Creates the extension with the given settings. A copy is taken: later changes to <paramref name="settings"/> have no effect.
+    /// </summary>
+    /// <param name="settings">Defaults for quality, background and VP9 speed.</param>
+    public FfmpegExtension(FfmpegSettings settings)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+
+        FfmpegSettings copy = settings.Copy();
+        Engines = [new FfmpegAudioEngine(copy), new FfmpegImageEngine(copy), new FfmpegVideoEngine(copy)];
+    }
+
     /// <inheritdoc />
     public string Name => "FFmpeg";
 
@@ -23,5 +43,5 @@ public sealed class FfmpegExtension : IConverterExtension
     public IReadOnlyList<IFormatDetector> Detectors { get; } = [];
 
     /// <inheritdoc />
-    public IReadOnlyList<IConversionEngine> Engines { get; } = [new FfmpegAudioEngine(), new FfmpegImageEngine(), new FfmpegVideoEngine()];
+    public IReadOnlyList<IConversionEngine> Engines { get; }
 }

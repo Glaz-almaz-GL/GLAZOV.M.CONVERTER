@@ -18,6 +18,17 @@ internal sealed class FfmpegAudioEngine : IConversionEngine
     private static readonly FileFormat[] Supported = [FileFormat.Mp3, FileFormat.Wav, FileFormat.Ogg, FileFormat.Flac, FileFormat.M4a];
     private static readonly FileFormat[] VideoInputs = [FileFormat.Mp4, FileFormat.Mkv, FileFormat.Webm, FileFormat.Mov, FileFormat.Avi];
 
+    private readonly FfmpegSettings _settings;
+
+    /// <summary>
+    /// Creates the engine.
+    /// </summary>
+    /// <param name="settings">Defaults for quality; <c>null</c> — the default settings.</param>
+    public FfmpegAudioEngine(FfmpegSettings? settings = null)
+    {
+        _settings = settings ?? new FfmpegSettings();
+    }
+
     /// <inheritdoc />
     public IReadOnlyList<ToolSpec> Tools { get; } = [FfmpegTools.Ffmpeg];
 
@@ -74,7 +85,7 @@ internal sealed class FfmpegAudioEngine : IConversionEngine
     private Task<ToolResult> RunAudioAsync(ConversionRequest request, string? tempPath, CancellationToken cancellationToken)
     {
         bool toStream = tempPath is null;
-        IReadOnlyList<string> args = FfmpegAudioArguments.Build(request.To, request.Options.Audio, tempPath ?? "pipe:1");
+        IReadOnlyList<string> args = FfmpegAudioArguments.Build(request.To, request.Options.Audio, tempPath ?? "pipe:1", settings: _settings);
         ToolInvocation invocation = new(
             request.Tool!.Path!,
             args,
@@ -89,7 +100,7 @@ internal sealed class FfmpegAudioEngine : IConversionEngine
     {
         FfmpegProgress progress = new(request.ReportProgress);
         IReadOnlyList<string> args = FfmpegProgressArguments.Add(
-            FfmpegAudioArguments.Build(request.To, request.Options.Audio, tempPath, inputPath, fromVideo: true));
+            FfmpegAudioArguments.Build(request.To, request.Options.Audio, tempPath, inputPath, fromVideo: true, settings: _settings));
         ToolInvocation invocation = new(
             request.Tool!.Path!,
             args,

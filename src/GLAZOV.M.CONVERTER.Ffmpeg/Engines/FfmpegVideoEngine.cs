@@ -20,6 +20,17 @@ internal sealed partial class FfmpegVideoEngine : IConversionEngine
 {
     private static readonly FileFormat[] Supported = [FileFormat.Mp4, FileFormat.Mkv, FileFormat.Webm, FileFormat.Mov, FileFormat.Avi];
 
+    private readonly FfmpegSettings _settings;
+
+    /// <summary>
+    /// Creates the engine.
+    /// </summary>
+    /// <param name="settings">Defaults for quality and VP9 speed; <c>null</c> — the default settings.</param>
+    public FfmpegVideoEngine(FfmpegSettings? settings = null)
+    {
+        _settings = settings ?? new FfmpegSettings();
+    }
+
     /// <inheritdoc />
     public IReadOnlyList<ToolSpec> Tools { get; } = [FfmpegTools.Ffmpeg, FfmpegTools.Ffprobe];
 
@@ -75,7 +86,7 @@ internal sealed partial class FfmpegVideoEngine : IConversionEngine
         }
     }
 
-    private static Task<ToolResult> RunAsync(
+    private Task<ToolResult> RunAsync(
         ConversionRequest request,
         string inputPath,
         string outputPath,
@@ -85,7 +96,7 @@ internal sealed partial class FfmpegVideoEngine : IConversionEngine
         CancellationToken cancellationToken)
     {
         IReadOnlyList<string> args = FfmpegProgressArguments.Add(
-            FfmpegVideoArguments.Build(request.To, request.Options.Video, request.Options.Audio, inputPath, outputPath, plan, codecs, request.Options.Operations));
+            FfmpegVideoArguments.Build(request.To, request.Options.Video, request.Options.Audio, inputPath, outputPath, plan, codecs, request.Options.Operations, _settings));
         ToolInvocation invocation = new(
             request.Tool!.Path!,
             args,

@@ -10,13 +10,6 @@ namespace GLAZOV.M.CONVERTER.Ffmpeg.Engines;
 /// </summary>
 internal static class FfmpegImageArguments
 {
-    // Умолчания движка — параметры со значением, не зашитая логика: их перекрывает ImageOptions.Quality (шкала 1–100).
-    private const int JpegDefaultQuality = 90;
-    private const int WebpDefaultQuality = 80;
-
-    // Прозрачность JPEG не хранит: изображение накладывается на белый фон.
-    private const string FlattenOnWhite = "split=2[bg][fg];[bg]drawbox=c=white@1:replace=1:t=fill[bg];[bg][fg]overlay=format=auto";
-
     // Палитра GIF строится по самому кадру: без этого цвета теряются.
     private const string GifPalette = "split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse";
 
@@ -28,11 +21,13 @@ internal static class FfmpegImageArguments
     /// <param name="inputPath">Путь к файлу входа.</param>
     /// <param name="outputPath">Путь к файлу результата.</param>
     /// <param name="filters">Фильтры действий над изображением (поворот, масштаб) по порядку; пусто — без действий.</param>
-    internal static IReadOnlyList<string> Build(FileFormat to, int? quality, string inputPath, string outputPath, IReadOnlyList<string>? filters = null)
+    /// <param name="settings">Default quality and background; <c>null</c> — the default settings.</param>
+    internal static IReadOnlyList<string> Build(FileFormat to, int? quality, string inputPath, string outputPath, IReadOnlyList<string>? filters = null, FfmpegSettings? settings = null)
     {
         ArgumentNullException.ThrowIfNull(to);
         ArgumentException.ThrowIfNullOrWhiteSpace(inputPath);
         ArgumentException.ThrowIfNullOrWhiteSpace(outputPath);
+        settings ??= new FfmpegSettings();
 
         List<string> chain = [.. filters ?? []];
         List<string> codec;
@@ -44,12 +39,13 @@ internal static class FfmpegImageArguments
         }
         else if (to.Equals(FileFormat.Jpeg))
         {
-            chain.Add(FlattenOnWhite);
-            codec = ["-c:v", "mjpeg", "-q:v", JpegQscale(quality ?? JpegDefaultQuality), "-pix_fmt", "yuvj420p"];
+            // JPEG keeps no transparency: the picture is laid over the background colour.
+            chain.Add($"split=2[bg][fg];[bg]drawbox=c={ColorText(settings.FlattenBackground)}@1:replace=1:t=fill[bg];[bg][fg]overlay=format=auto");
+            codec = ["-c:v", "mjpeg", "-q:v", JpegQscale(quality ?? settings.JpegQuality), "-pix_fmt", "yuvj420p"];
         }
         else if (to.Equals(FileFormat.Webp))
         {
-            codec = ["-c:v", "libwebp", "-quality", (quality ?? WebpDefaultQuality).ToString(CultureInfo.InvariantCulture)];
+            codec = ["-c:v", "libwebp", "-quality", (quality ?? settings.WebpQuality).ToString(CultureInfo.InvariantCulture)];
             muxer = "webp";
         }
         else if (to.Equals(FileFormat.Bmp))
@@ -117,6 +113,12 @@ internal static class FfmpegImageArguments
         }
 
         return filters;
+    }
+
+    // Opaque RGB only: the alpha of the colour is ignored. White keeps its name, the rest goes as hex.
+    private static string ColorText(System.Drawing.Color color)
+    {
+        return color.R == 255 && color.G == 255 && color.B == 255 ? "white" : $"0x{color.R:X2}{color.G:X2}{color.B:X2}";
     }
 
     // Шкала качества JPEG у FFmpeg обратная: 2 — лучшее, 31 — худшее. Переводим 1–100 в 31…2.

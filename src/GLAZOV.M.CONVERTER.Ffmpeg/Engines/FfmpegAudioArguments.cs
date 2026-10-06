@@ -9,12 +9,6 @@ namespace GLAZOV.M.CONVERTER.Ffmpeg.Engines;
 /// </summary>
 internal static class FfmpegAudioArguments
 {
-    // Умолчания движка — параметры со значением, не зашитая логика: их перекрывает AudioOptions.
-    private const string Mp3DefaultQuality = "2";
-    private const string OggDefaultQuality = "5";
-    private const string FlacDefaultCompression = "5";
-    private const string AacDefaultBitrate = "128000";
-
     /// <summary>
     /// Собирает аргументы: вход — стандартный ввод, звук без картинок, кодек и параметры по формату результата.
     /// </summary>
@@ -26,11 +20,13 @@ internal static class FfmpegAudioArguments
     /// Вход — видео: берётся первая звуковая дорожка, нет её — ошибка FFmpeg; журнал на уровне «info»,
     /// иначе длительность входа, нужная для процентов, не печатается.
     /// </param>
-    internal static IReadOnlyList<string> Build(FileFormat to, AudioOptions? audio, string outputTarget, string input = "pipe:0", bool fromVideo = false)
+    /// <param name="settings">Defaults for quality when <paramref name="audio"/> sets none; <c>null</c> — the default settings.</param>
+    internal static IReadOnlyList<string> Build(FileFormat to, AudioOptions? audio, string outputTarget, string input = "pipe:0", bool fromVideo = false, FfmpegSettings? settings = null)
     {
         ArgumentNullException.ThrowIfNull(to);
         ArgumentException.ThrowIfNullOrWhiteSpace(outputTarget);
         ArgumentException.ThrowIfNullOrWhiteSpace(input);
+        settings ??= new FfmpegSettings();
 
         List<string> args = ["-hide_banner", "-loglevel", fromVideo ? "info" : "error", "-nostats", "-i", input, "-vn"];
         if (fromVideo)
@@ -41,12 +37,12 @@ internal static class FfmpegAudioArguments
         if (to.Equals(FileFormat.Mp3))
         {
             args.AddRange(["-c:a", "libmp3lame"]);
-            AddQuality(args, audio, Mp3DefaultQuality);
+            AddQuality(args, audio, settings.Mp3Quality);
         }
         else if (to.Equals(FileFormat.Ogg))
         {
             args.AddRange(["-c:a", "libvorbis"]);
-            AddQuality(args, audio, OggDefaultQuality);
+            AddQuality(args, audio, settings.OggQuality);
         }
         else if (to.Equals(FileFormat.Wav))
         {
@@ -55,12 +51,12 @@ internal static class FfmpegAudioArguments
         else if (to.Equals(FileFormat.Flac))
         {
             // Без потерь: битрейт не действует, умолчание — степень сжатия (параметр со значением).
-            args.AddRange(["-c:a", "flac", "-compression_level", FlacDefaultCompression]);
+            args.AddRange(["-c:a", "flac", "-compression_level", Text(settings.FlacCompression)]);
         }
         else if (to.Equals(FileFormat.M4a))
         {
             args.AddRange(["-c:a", "aac"]);
-            args.AddRange(["-b:a", audio?.Bitrate?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? AacDefaultBitrate]);
+            args.AddRange(["-b:a", Text(audio?.Bitrate ?? settings.AacBitrate)]);
             args.AddRange(["-movflags", "+faststart"]);
         }
         else
@@ -88,15 +84,20 @@ internal static class FfmpegAudioArguments
         return to.Equals(FileFormat.M4a) ? "ipod" : to.Extension;
     }
 
-    private static void AddQuality(List<string> args, AudioOptions? audio, string defaultQuality)
+    private static void AddQuality(List<string> args, AudioOptions? audio, int defaultQuality)
     {
         if (audio?.Bitrate is int bitrate)
         {
-            args.AddRange(["-b:a", bitrate.ToString(System.Globalization.CultureInfo.InvariantCulture)]);
+            args.AddRange(["-b:a", Text(bitrate)]);
         }
         else
         {
-            args.AddRange(["-q:a", defaultQuality]);
+            args.AddRange(["-q:a", Text(defaultQuality)]);
         }
+    }
+
+    private static string Text(int value)
+    {
+        return value.ToString(System.Globalization.CultureInfo.InvariantCulture);
     }
 }

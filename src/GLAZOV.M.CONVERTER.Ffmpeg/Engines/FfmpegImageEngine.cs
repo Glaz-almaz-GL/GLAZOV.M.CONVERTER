@@ -22,6 +22,17 @@ internal sealed class FfmpegImageEngine : IConversionEngine
         FileFormat.Png, FileFormat.Jpeg, FileFormat.Webp, FileFormat.Bmp, FileFormat.Gif, FileFormat.Tiff, FileFormat.Tga,
     ];
 
+    private readonly FfmpegSettings _settings;
+
+    /// <summary>
+    /// Creates the engine.
+    /// </summary>
+    /// <param name="settings">Defaults for quality and background; <c>null</c> — the default settings.</param>
+    public FfmpegImageEngine(FfmpegSettings? settings = null)
+    {
+        _settings = settings ?? new FfmpegSettings();
+    }
+
     /// <inheritdoc />
     public IReadOnlyList<ToolSpec> Tools { get; } = [FfmpegTools.Ffmpeg];
 
@@ -59,7 +70,8 @@ internal sealed class FfmpegImageEngine : IConversionEngine
                 request.Options.Image?.Quality,
                 inputPath,
                 outputPath,
-                FfmpegImageArguments.Filters(request.Options.Operations));
+                FfmpegImageArguments.Filters(request.Options.Operations),
+                _settings);
             ToolResult result = await ToolRunner.RunAsync(new ToolInvocation(request.Tool!.Path!, args), cancellationToken).ConfigureAwait(false);
             if (result.ExitCode != 0)
             {
