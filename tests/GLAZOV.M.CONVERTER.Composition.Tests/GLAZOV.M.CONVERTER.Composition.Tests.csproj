@@ -26,6 +26,7 @@
     <ProjectReference Include="..\..\src\GLAZOV.M.CONVERTER.Office\GLAZOV.M.CONVERTER.Office.csproj" />
     <ProjectReference Include="..\..\src\GLAZOV.M.CONVERTER.Svg\GLAZOV.M.CONVERTER.Svg.csproj" />
     <ProjectReference Include="..\..\src\GLAZOV.M.CONVERTER.Pdf\GLAZOV.M.CONVERTER.Pdf.csproj" />
+    <ProjectReference Include="..\..\src\GLAZOV.M.CONVERTER.Archives\GLAZOV.M.CONVERTER.Archives.csproj" />
     <ProjectReference Include="..\GLAZOV.M.CONVERTER.Tests.Extension\GLAZOV.M.CONVERTER.Tests.Extension.csproj" />
   </ItemGroup>
 

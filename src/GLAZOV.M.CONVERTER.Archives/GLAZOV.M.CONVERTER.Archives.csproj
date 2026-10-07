@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>GLAZOV.M.CONVERTER.Archives</RootNamespace>
+    <Description>Расширение GLAZOV.M.CONVERTER: архив в архив между ZIP, TAR, TAR.GZ и GZip. Записи переносятся по одной, без распаковки на диск; защита от опасных имён, зашифрованных записей, ссылок и архивов-бомб. Работает в процессе, без внешних программ и новых зависимостей.</Description>
+    <Version>0.1.0</Version>
+    <Authors>Glaz-almaz-GL</Authors>
+    <Copyright>Copyright 2026 Glaz-almaz-GL</Copyright>
+    <PackageTags>convert;converter;archive;zip;tar;gzip;tgz</PackageTags>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RepositoryUrl>https://github.com/Glaz-almaz-GL/GLAZOV.M.CONVERTER</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageProjectUrl>https://github.com/Glaz-almaz-GL/GLAZOV.M.CONVERTER</PackageProjectUrl>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="" />
+    <None Include="..\..\NOTICE" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="GLAZOV.M.CONVERTER.Archives.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\GLAZOV.M.CONVERTER\GLAZOV.M.CONVERTER.csproj" />
+    <ProjectReference Include="..\GLAZOV.M.CONVERTER.Formats\GLAZOV.M.CONVERTER.Formats.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -9,7 +9,7 @@ using GLAZOV.M.CONVERTER.Tests.Extension;
 namespace GLAZOV.M.CONVERTER.Composition.Tests;
 
 /// <summary>
-/// The five packages together: one list of formats, one catalog of pairs, the earlier package wins a shared pair,
+/// The six packages together: one list of formats, one catalog of pairs, the earlier package wins a shared pair,
 /// and a clash of descriptions is refused when the converter is created.
 /// </summary>
 public sealed class CatalogTests
@@ -36,13 +36,13 @@ public sealed class CatalogTests
     [Fact]
     public void Catalog_IsTheSumOfThePairsOfThePackages_InEveryOrder()
     {
-        // Ffmpeg 165 + Office 12 + Svg 3 + Pdf 5; the Formats package brings no pair.
+        // Ffmpeg 165 + Office 12 + Svg 3 + Pdf 5 + Archives 16; the Formats package brings no pair.
         foreach (string order in Orders)
         {
             ConverterCapabilities caps = AllPackages.Converter(order).Capabilities;
             IReadOnlyList<Conversion> all = caps.All;
 
-            Assert.True(all.Count == 185, $"order {order}: {all.Count} pairs");
+            Assert.True(all.Count == 201, $"order {order}: {all.Count} pairs");
             Assert.Equal(all.Count, all.Select(c => (c.From, c.To)).Distinct().Count());
             Assert.True(caps.CanConvert(FileFormat.Png, FileFormat.Pdf), $"order {order}: PNG → PDF");
             Assert.True(caps.CanConvert(FileFormat.Docx, FileFormat.Pdf), $"order {order}: DOCX → PDF");

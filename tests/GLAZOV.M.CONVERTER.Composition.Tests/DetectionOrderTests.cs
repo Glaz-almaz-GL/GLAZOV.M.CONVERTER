@@ -8,7 +8,7 @@ using GLAZOV.M.CONVERTER.Settings;
 namespace GLAZOV.M.CONVERTER.Composition.Tests;
 
 /// <summary>
-/// The five packages share one row of detectors: every sample is named the same way whatever the order the packages are plugged in.
+/// The six packages share one row of detectors: every sample is named the same way whatever the order the packages are plugged in.
 /// </summary>
 public sealed class DetectionOrderTests : IDisposable
 {
@@ -24,7 +24,9 @@ public sealed class DetectionOrderTests : IDisposable
         ["sample.odp"] = "ODP", ["sample.ods"] = "ODS", ["sample.odt"] = "ODT", ["sample.pdf"] = "PDF", ["sample.png"] = "PNG",
         ["sample.ppt"] = "PPT", ["sample.pptx"] = "PPTX", ["sample.psd"] = "PSD", ["sample.rtf"] = "RTF", ["sample.tga"] = "Unknown",
         ["sample.tiff"] = "TIFF", ["sample.wav"] = "WAV", ["sample.webm"] = "WebM", ["sample.webp"] = "WebP", ["sample.xls"] = "XLS",
-        ["sample.xlsx"] = "XLSX",
+        ["sample.xlsx"] = "XLSX", ["sample.zip"] = "ZIP", ["sample-empty.zip"] = "ZIP", ["sample.jar"] = "ZIP", ["sample.epub"] = "ZIP",
+        ["sample-big.zip"] = "ZIP", ["sample.tar"] = "TAR", ["sample-v7.tar"] = "TAR", ["sample-gnu.tar"] = "TAR", ["sample.tar.gz"] = "TAR.GZ",
+        ["sample.gz"] = "GZip",
     };
 
     private readonly string _folder = Path.Combine(Path.GetTempPath(), "convcomp-" + Guid.NewGuid().ToString("N"));
@@ -59,9 +61,9 @@ public sealed class DetectionOrderTests : IDisposable
     }
 
     [Fact]
-    public void ThereAreOneHundredAndTwentyOrders()
+    public void ThereAreSevenHundredAndTwentyOrders()
     {
-        Assert.Equal(120, Orders.Length);
+        Assert.Equal(720, Orders.Length);
     }
 
     [Theory]

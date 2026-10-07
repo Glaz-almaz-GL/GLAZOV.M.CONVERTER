@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="GLAZOV.M.CONVERTER.Archives/GLAZOV.M.CONVERTER.Archives.csproj" />
     <Project Path="GLAZOV.M.CONVERTER.Formats/GLAZOV.M.CONVERTER.Formats.csproj" />
     <Project Path="GLAZOV.M.CONVERTER.Ffmpeg/GLAZOV.M.CONVERTER.Ffmpeg.csproj" />
     <Project Path="GLAZOV.M.CONVERTER.Office/GLAZOV.M.CONVERTER.Office.csproj" />
@@ -9,6 +10,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="../tests/GLAZOV.M.CONVERTER.Tests/GLAZOV.M.CONVERTER.Tests.csproj" />
+    <Project Path="../tests/GLAZOV.M.CONVERTER.Archives.Tests/GLAZOV.M.CONVERTER.Archives.Tests.csproj" />
     <Project Path="../tests/GLAZOV.M.CONVERTER.Formats.Tests/GLAZOV.M.CONVERTER.Formats.Tests.csproj" />
     <Project Path="../tests/GLAZOV.M.CONVERTER.Composition.Tests/GLAZOV.M.CONVERTER.Composition.Tests.csproj" />
     <Project Path="../tests/GLAZOV.M.CONVERTER.Ffmpeg.Tests/GLAZOV.M.CONVERTER.Ffmpeg.Tests.csproj" />
