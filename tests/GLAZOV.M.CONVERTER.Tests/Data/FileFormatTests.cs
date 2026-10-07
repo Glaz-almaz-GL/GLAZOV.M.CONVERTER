@@ -118,6 +118,14 @@ public class FileFormatTests
     }
 
     [Fact]
+    public void Create_AcceptsPartsSeparatedByOneDot_AndLowersThem()
+    {
+        FileFormat targz = FileFormat.Create("TAR.GZ", "application/x-gtar", ".Tar.GZ");
+
+        Assert.Equal("tar.gz", targz.Extension);
+    }
+
+    [Fact]
     public void Equality_IsByValue_NotByReference()
     {
         Assert.Equal(FileFormat.Create("ALPHA", "application/x-test-alpha", "alpha"), TestFormats.Alpha);
@@ -131,7 +139,8 @@ public class FileFormatTests
     [InlineData("CUSTOM", " ", "custom")]
     [InlineData("CUSTOM", "application/x-custom", "")]
     [InlineData("CUSTOM", "application/x-custom", ".")]
-    [InlineData("CUSTOM", "application/x-custom", "tar.gz")]
+    [InlineData("CUSTOM", "application/x-custom", "tar.")]
+    [InlineData("CUSTOM", "application/x-custom", "tar..gz")]
     [InlineData("CUSTOM", "application/x-custom", "cu/stom")]
     public void Create_RejectsEmptyAndUnsuitableParts(string name, string mime, string extension)
     {

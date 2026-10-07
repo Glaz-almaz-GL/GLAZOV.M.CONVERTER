@@ -29,7 +29,7 @@ public sealed class FormatValuesTests
         ("Svg", "SVG", "image/svg+xml", "svg"),
         ("Zip", "ZIP", "application/zip", "zip"),
         ("Tar", "TAR", "application/x-tar", "tar"),
-        ("TarGz", "TAR.GZ", "application/x-gtar", "tgz"),
+        ("TarGz", "TAR.GZ", "application/x-gtar", "tar.gz"),
         ("Gzip", "GZip", "application/gzip", "gz"),
         ("Mp4", "MP4", "video/mp4", "mp4"),
         ("Mkv", "MKV", "video/x-matroska", "mkv"),

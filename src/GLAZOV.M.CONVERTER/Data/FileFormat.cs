@@ -47,10 +47,10 @@ public sealed class FileFormat : IEquatable<FileFormat>
         ArgumentException.ThrowIfNullOrWhiteSpace(extension);
 
         string normalized = extension.Trim().TrimStart('.').ToLowerInvariant();
-        if (normalized.Length == 0 || normalized.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 || normalized.Contains('.'))
+        if (normalized.Length == 0 || normalized.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 || normalized.EndsWith('.') || normalized.Contains("..", StringComparison.Ordinal))
         {
             throw new ArgumentException(
-                $"Расширение «{extension}» не подходит: нужны буквы и цифры без точек и разделителей путей.",
+                $"Расширение «{extension}» не подходит: нужны буквы и цифры, части можно разделять одной точкой (например, tar.gz), без разделителей путей.",
                 nameof(extension));
         }
 

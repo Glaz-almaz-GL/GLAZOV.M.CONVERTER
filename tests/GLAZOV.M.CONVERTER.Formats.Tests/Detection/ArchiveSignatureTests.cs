@@ -34,6 +34,8 @@ public sealed class ArchiveSignatureTests
     [InlineData("sample.jar", "ZIP")]
     [InlineData("sample.epub", "ZIP")]
     [InlineData("sample.tar", "TAR")]
+    [InlineData("sample-gnu.tar", "TAR")]
+    [InlineData("sample-v7.tar", "TAR")]
     [InlineData("sample.tar.gz", "TAR.GZ")]
     [InlineData("sample.gz", "GZip")]
     public void RealFile_IsNamedByItsContent(string file, string expected)
@@ -67,6 +69,7 @@ public sealed class ArchiveSignatureTests
     [InlineData("sample.zip", 29)]
     [InlineData("sample-empty.zip", 21)]
     [InlineData("sample.tar", 511)]
+    [InlineData("sample-v7.tar", 511)]
     [InlineData("sample.tar.gz", 9)]
     [InlineData("sample.gz", 9)]
     public void CutInput_IsUnknown_AndDoesNotThrow(string file, int keep)
@@ -96,10 +99,40 @@ public sealed class ArchiveSignatureTests
     }
 
     [Fact]
+    public void OldTar_WithoutAnyMagic_IsTar_ButOnlyWithAValidChecksumAndFields()
+    {
+        byte[] v7 = Sample("sample-v7.tar");
+        byte[] badSum = Sample("sample-v7.tar");
+        badSum[0] ^= 0x01;
+        byte[] badSize = Sample("sample-v7.tar");
+        badSize[124] = (byte)'z';
+        byte[] noName = Sample("sample-v7.tar");
+        noName[0] = 0;
+
+        Assert.Equal("TAR", Sniff.Match(v7).Name);
+        Assert.Same(FileFormat.Unknown, Sniff.Match(badSum));
+        Assert.Same(FileFormat.Unknown, Sniff.Match(badSize));
+        Assert.Same(FileFormat.Unknown, Sniff.Match(noName));
+    }
+
+    [Fact]
+    public void BlocksThatOnlyLookEmptyOrRandom_AreNotTar()
+    {
+        byte[] zeroes = new byte[10240];
+        byte[] random = new byte[2048];
+        new Random(3).NextBytes(random);
+        byte[] text = System.Text.Encoding.ASCII.GetBytes(new string('x', 1024));
+
+        Assert.Same(FileFormat.Unknown, Sniff.Match(zeroes));
+        Assert.Same(FileFormat.Unknown, Sniff.Match(random));
+        Assert.Same(FileFormat.Unknown, Sniff.Match(text));
+    }
+
+    [Fact]
     public void GzipOfATarWithASpoiledHeader_IsGzip_NotTarGz()
     {
         byte[] tar = Sample("sample.tar");
-        tar[257] ^= 0x55;
+        tar[148] = (byte)'9';
 
         Assert.Equal("GZip", Sniff.Match(Gzipped(tar)).Name);
     }
@@ -116,7 +149,7 @@ public sealed class ArchiveSignatureTests
     public void NoSampleOfAnotherFormat_IsAnArchive()
     {
         string folder = Path.Combine(AppContext.BaseDirectory, "Samples");
-        string[] archives = ["sample.zip", "sample-empty.zip", "sample.jar", "sample.epub", "sample.tar", "sample.tar.gz", "sample.gz"];
+        string[] archives = ["sample.zip", "sample-empty.zip", "sample.jar", "sample.epub", "sample.tar", "sample-gnu.tar", "sample-v7.tar", "sample.tar.gz", "sample.gz"];
         foreach (string path in Directory.EnumerateFiles(folder).Where(path => !archives.Contains(Path.GetFileName(path))))
         {
             byte[] bytes = File.ReadAllBytes(path);

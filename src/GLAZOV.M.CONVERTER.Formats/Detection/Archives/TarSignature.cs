@@ -1,8 +1,9 @@
 namespace GLAZOV.M.CONVERTER.Formats.Detection.Archives;
 
 /// <summary>
-/// TAR: "ustar" at byte 257 of the first 512-byte block and the checksum of the block as it is written in the block.
-/// Old TAR files without "ustar" are not named.
+/// TAR: the checksum of the first 512-byte block as it is written in the block, together with "ustar" at byte 257 (POSIX and GNU)
+/// or, for the old format without any magic, an octal mode and size, a name and a plain type flag. The checksum alone is not
+/// taken for a sign: a block of zeroes or of random bytes does not pass it.
 /// </summary>
 internal static class TarSignature
 {
@@ -11,6 +12,9 @@ internal static class TarSignature
     private const int MagicOffset = 257;
     private const int ChecksumOffset = 148;
     private const int ChecksumLength = 8;
+    private const int ModeOffset = 100;
+    private const int SizeOffset = 124;
+    private const int TypeFlagOffset = 156;
 
     /// <summary>
     /// True when the data starts like this format.
@@ -18,12 +22,22 @@ internal static class TarSignature
     /// <param name="head">Leading bytes of the input (the detection window).</param>
     internal static bool Matches(ReadOnlySpan<byte> head)
     {
-        if (head.Length < BlockLength || !head.Slice(MagicOffset, 5).SequenceEqual("ustar"u8))
+        if (head.Length < BlockLength || ReadOctal(head.Slice(ChecksumOffset, ChecksumLength)) is not { } written || written != Sum(head[..BlockLength]))
         {
             return false;
         }
 
-        return ReadOctal(head.Slice(ChecksumOffset, ChecksumLength)) is { } written && written == Sum(head[..BlockLength]);
+        return head.Slice(MagicOffset, 5).SequenceEqual("ustar"u8) || LooksLikeOldHeader(head);
+    }
+
+    // The old format has no magic: a name, an octal mode (bytes 100-107) and size (124-135), a type flag that is 0 or "0"-"7".
+    private static bool LooksLikeOldHeader(ReadOnlySpan<byte> head)
+    {
+        byte type = head[TypeFlagOffset];
+        return head[0] != 0
+            && ReadOctal(head.Slice(ModeOffset, 8)) is not null
+            && ReadOctal(head.Slice(SizeOffset, 12)) is not null
+            && (type is 0 || type is >= (byte)'0' and <= (byte)'7');
     }
 
     // The checksum field counts as eight spaces while the sum is taken.
