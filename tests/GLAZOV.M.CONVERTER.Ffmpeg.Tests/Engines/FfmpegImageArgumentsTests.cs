@@ -41,6 +41,68 @@ public class FfmpegImageArgumentsTests
         Assert.Equal("error", ValueAfter(args, "-loglevel"));
     }
 
+    [Theory]
+    [InlineData(100, "0")]
+    [InlineData(60, "25")]
+    [InlineData(1, "63")]
+    public void AvifQuality_BecomesTheConstantQualityStep_OfTheFirstEncoder(int quality, string crf)
+    {
+        IReadOnlyList<string> args = FfmpegImageArguments.Build(FileFormat.Avif, quality, "i", "o");
+
+        Assert.Equal("libaom-av1", ValueAfter(args, "-c:v"));
+        Assert.Equal(crf, ValueAfter(args, "-crf"));
+        Assert.Equal("avif", ValueAfter(args, "-f"));
+        Assert.Equal("o", args[^1]);
+    }
+
+    [Fact]
+    public void AvifWithoutQuality_TakesTheSetting()
+    {
+        IReadOnlyList<string> byDefault = FfmpegImageArguments.Build(FileFormat.Avif, null, "i", "o");
+        IReadOnlyList<string> set = FfmpegImageArguments.Build(FileFormat.Avif, null, "i", "o", null, new FfmpegSettings { AvifQuality = 100 });
+
+        Assert.Equal("25", ValueAfter(byDefault, "-crf"));
+        Assert.Equal("0", ValueAfter(set, "-crf"));
+    }
+
+    [Theory]
+    [InlineData("libaom-av1", "-crf", "25")]
+    [InlineData("libsvtav1", "-crf", "25")]
+    [InlineData("librav1e", "-qp", "101")]
+    public void AvifEncoders_EachGetTheirOwnQualityArgument(string encoder, string argument, string value)
+    {
+        IReadOnlyList<string> args = FfmpegImageArguments.Build(FileFormat.Avif, null, "i", "o", null, null, encoder);
+
+        Assert.Equal(encoder, ValueAfter(args, "-c:v"));
+        Assert.Equal(value, ValueAfter(args, argument));
+    }
+
+    [Fact]
+    public void AvifWithAnUnknownEncoder_IsRefused()
+    {
+        Assert.Throws<ArgumentException>(() => FfmpegImageArguments.Build(FileFormat.Avif, null, "i", "o", null, null, "libx264"));
+    }
+
+    [Fact]
+    public void AvifIsFlattenedOnTheBackground_LikeJpeg()
+    {
+        IReadOnlyList<string> args = FfmpegImageArguments.Build(FileFormat.Avif, null, "i", "o", null, new FfmpegSettings { FlattenBackground = System.Drawing.Color.FromArgb(10, 20, 30) });
+
+        Assert.Contains("0x0A141E", ValueAfter(args, "-vf"));
+    }
+
+    [Fact]
+    public void Ico_UsesTheIcoMuxer_WithBitmapPictures_AndOneFrame()
+    {
+        IReadOnlyList<string> args = FfmpegImageArguments.Build(FileFormat.Ico, 10, "i", "o");
+
+        Assert.Equal("ico", ValueAfter(args, "-f"));
+        Assert.Equal("bmp", ValueAfter(args, "-c:v"));
+        Assert.Equal("1", ValueAfter(args, "-frames:v"));
+        Assert.DoesNotContain("-vf", args);
+        Assert.DoesNotContain("-update", args);
+    }
+
     [Fact]
     public void JpegDefault_QualityNinety_MapsToQscale5_AndUsesFullRangeYuv()
     {

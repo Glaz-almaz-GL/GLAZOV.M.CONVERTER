@@ -42,6 +42,10 @@ public static class FileFormatMembers
         public static FileFormat Dds => ImageFormats.Dds;
         /// <summary>Same as <see cref="ImageFormats.Psd"/>.</summary>
         public static FileFormat Psd => ImageFormats.Psd;
+        /// <summary>Same as <see cref="ImageFormats.Avif"/>.</summary>
+        public static FileFormat Avif => ImageFormats.Avif;
+        /// <summary>Same as <see cref="ImageFormats.Ico"/>.</summary>
+        public static FileFormat Ico => ImageFormats.Ico;
         /// <summary>Same as <see cref="ImageFormats.Svg"/>.</summary>
         public static FileFormat Svg => ImageFormats.Svg;
     }

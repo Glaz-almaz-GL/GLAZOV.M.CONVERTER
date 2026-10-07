@@ -23,7 +23,7 @@ public sealed class ImageRunTests(ImageFixture fixture) : IClassFixture<ImageFix
     private static readonly (FileFormat Format, string Codec)[] Targets =
     [
         (FileFormat.Png, "png"), (FileFormat.Jpeg, "mjpeg"), (FileFormat.Webp, "webp"), (FileFormat.Bmp, "bmp"),
-        (FileFormat.Gif, "gif"), (FileFormat.Tiff, "tiff"), (FileFormat.Tga, "targa"),
+        (FileFormat.Gif, "gif"), (FileFormat.Tiff, "tiff"), (FileFormat.Tga, "targa"), (FileFormat.Avif, "av1"), (FileFormat.Ico, "bmp"),
     ];
 
     private readonly string _work = Path.Combine(Path.GetTempPath(), "convrun-img-out-" + Guid.NewGuid().ToString("N"));
@@ -66,6 +66,15 @@ public sealed class ImageRunTests(ImageFixture fixture) : IClassFixture<ImageFix
             {
                 string label = Path.GetFileNameWithoutExtension(input.Path) + "-" + input.Format.Name + "-в-" + to.Name;
                 string output = Out($"{label}.{to.Extension}");
+                if (to.Equals(FileFormat.Ico) && (input.Width > 256 || input.Height > 256))
+                {
+                    ConversionException refused = await Assert.ThrowsAsync<ConversionException>(async () =>
+                        await converter.ConvertAsync(Source.File(input.Path), Target.File(output, to)));
+                    Assert.Contains("256", refused.Message);
+                    Assert.False(File.Exists(output));
+                    done++;
+                    continue;
+                }
 
                 ConversionResult result = await converter.ConvertAsync(Source.File(input.Path), Target.File(output, to));
 
@@ -84,7 +93,37 @@ public sealed class ImageRunTests(ImageFixture fixture) : IClassFixture<ImageFix
             }
         }
 
-        Assert.Equal(63, done);
+        Assert.Equal(99, done);
+    }
+
+    [ExternalFact]
+    public async Task Ico_OfAPhoto_NeedsAScaleFirst_AndThenKeepsTheProportions()
+    {
+        string output = Out("значок.ico");
+
+        await FfmpegConverter.Create().ConvertAsync(
+            Source.File(fixture.Photo.Path),
+            Target.File(output, FileFormat.Ico),
+            new ConversionOptions { Operations = { Operation.ScalePercent(30) } });
+
+        (string codec, int width, int height) = await fixture.ProbeAsync(output);
+        Assert.Equal(("bmp", 192, 144), (codec, width, height)); // 640×480 at 30 percent
+        Keep(output, "фото-значок-30-процентов");
+    }
+
+    [ExternalFact]
+    public async Task AvifQuality_IsVisibleInTheSize()
+    {
+        string low = Out("avif-10.avif");
+        string high = Out("avif-95.avif");
+        Converter converter = FfmpegConverter.Create();
+
+        await converter.ConvertAsync(Source.File(fixture.Photo.Path), Target.File(low, FileFormat.Avif), new ConversionOptions { Image = new ImageOptions { Quality = 10 } });
+        await converter.ConvertAsync(Source.File(fixture.Photo.Path), Target.File(high, FileFormat.Avif), new ConversionOptions { Image = new ImageOptions { Quality = 95 } });
+
+        Assert.True(new FileInfo(low).Length < new FileInfo(high).Length);
+        Keep(low, "фото-avif-10");
+        Keep(high, "фото-avif-95");
     }
 
     [ExternalFact]

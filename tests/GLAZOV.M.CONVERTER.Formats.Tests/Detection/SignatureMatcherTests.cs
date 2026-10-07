@@ -108,6 +108,8 @@ public class SignatureMatcherTests
     [InlineData("sample.tiff", "TIFF")]
     [InlineData("sample.dds", "DDS")]
     [InlineData("sample.psd", "PSD")]
+    [InlineData("sample.avif", "AVIF")]
+    [InlineData("sample.ico", "ICO")]
     [InlineData("sample-plain.svg", "SVG")]
     [InlineData("sample-prolog.svg", "SVG")]
     public void Match_NewRealFile_ReturnsItsType(string file, string expected)
@@ -117,6 +119,68 @@ public class SignatureMatcherTests
         FileFormat type = Sniff.Match(bytes.AsSpan(0, Math.Min(bytes.Length, DetectionSizes.MinimumWindow)));
 
         Assert.Equal(expected, type.Name);
+    }
+
+    [Fact]
+    public void Match_AvifWithSpoiledBoxNameOrBrands_IsUnknown()
+    {
+        byte[] boxName = Sample("sample.avif");
+        boxName[4] ^= 0x55;
+        byte[] brands = Sample("sample.avif");
+        "xxxx"u8.CopyTo(brands.AsSpan(8, 4));
+        "xxxx"u8.CopyTo(brands.AsSpan(16, 4));
+
+        Assert.Same(FileFormat.Unknown, Sniff.Match(boxName));
+        Assert.Same(FileFormat.Unknown, Sniff.Match(brands));
+    }
+
+    [Fact]
+    public void Match_AvifWithAnotherBrand_IsNotAvif()
+    {
+        byte[] heic = Sample("sample.avif");
+        "heic"u8.CopyTo(heic.AsSpan(8, 4));
+        "mif1"u8.CopyTo(heic.AsSpan(16, 4));
+        "heic"u8.CopyTo(heic.AsSpan(20, 4));
+        "miaf"u8.CopyTo(heic.AsSpan(24, 4));
+        "MA1A"u8.CopyTo(heic.AsSpan(28, 4));
+
+        Assert.Same(FileFormat.Unknown, Sniff.Match(heic));
+    }
+
+    [Fact]
+    public void Match_AvifMainBrandAvis_AndAvifOnlyAmongCompatible_AreAvif()
+    {
+        byte[] sequence = Sample("sample.avif");
+        "avis"u8.CopyTo(sequence.AsSpan(8, 4));
+        byte[] compatible = Sample("sample.avif");
+        "mif1"u8.CopyTo(compatible.AsSpan(8, 4));
+
+        Assert.Same(FileFormat.Avif, Sniff.Match(sequence));
+        Assert.Same(FileFormat.Avif, Sniff.Match(compatible));
+    }
+
+    [Fact]
+    public void Match_Cur_IsNotIco()
+    {
+        byte[] cur = Sample("sample.ico");
+        cur[2] = 2;
+
+        Assert.Same(FileFormat.Unknown, Sniff.Match(cur));
+    }
+
+    [Fact]
+    public void Match_IcoWithBadDirectory_IsUnknown()
+    {
+        byte[] noPictures = Sample("sample.ico");
+        noPictures[4] = 0;
+        byte[] reserved = Sample("sample.ico");
+        reserved[6 + 3] = 9;
+        byte[] insideDirectory = Sample("sample.ico");
+        insideDirectory[6 + 12] = 2;
+
+        Assert.Same(FileFormat.Unknown, Sniff.Match(noPictures));
+        Assert.Same(FileFormat.Unknown, Sniff.Match(reserved));
+        Assert.Same(FileFormat.Unknown, Sniff.Match(insideDirectory));
     }
 
     [Fact]
@@ -268,6 +332,10 @@ public class SignatureMatcherTests
     [InlineData("sample.tiff", 3)]
     [InlineData("sample.dds", 79)]
     [InlineData("sample.psd", 11)]
+    [InlineData("sample.avif", 11)]
+    [InlineData("sample.avif", 15)]
+    [InlineData("sample.ico", 5)]
+    [InlineData("sample.ico", 21)]
     [InlineData("sample-plain.svg", 3)]
     public void Match_NewFormatsTruncatedInsideTheSignature_AreUnknown(string file, int keep)
     {
@@ -288,7 +356,7 @@ public class SignatureMatcherTests
     [Fact]
     public void Match_NewFormatsCorruptedFirstByte_AreNotRecognized()
     {
-        foreach (string file in new[] { "sample.flac", "sample.png", "sample.jpg", "sample.gif", "sample.tiff", "sample.psd", "sample.dds", "sample.webp" })
+        foreach (string file in new[] { "sample.flac", "sample.png", "sample.jpg", "sample.gif", "sample.tiff", "sample.psd", "sample.dds", "sample.webp", "sample.ico" })
         {
             byte[] bytes = Sample(file);
             bytes[0] ^= 0x55;

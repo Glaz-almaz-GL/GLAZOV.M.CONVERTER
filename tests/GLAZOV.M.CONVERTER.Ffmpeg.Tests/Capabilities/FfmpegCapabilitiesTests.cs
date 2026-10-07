@@ -26,7 +26,7 @@ public sealed class FfmpegCapabilitiesTests
 
         IReadOnlyList<Conversion> all = caps.All;
 
-        Assert.Equal(131, all.Count);
+        Assert.Equal(165, all.Count);
         Assert.True(caps.CanConvert(FileFormat.Ogg, FileFormat.Mp3));
         Assert.False(caps.CanConvert(FileFormat.Ogg, FileFormat.Jpeg));
         Assert.True(caps.CanConvert(FileFormat.Png, FileFormat.Jpeg));
@@ -55,7 +55,7 @@ public sealed class FfmpegCapabilitiesTests
 
         var pairs = registry.Pairs();
 
-        Assert.Equal(131, pairs.Count);
+        Assert.Equal(165, pairs.Count);
         Assert.All(pairs, p => Assert.Contains(p.Tools, t => t.Name == "ffmpeg"));
         Assert.Equal(pairs.Count, pairs.Select(p => (p.From, p.To)).Distinct().Count());
     }

@@ -15,7 +15,7 @@ namespace GLAZOV.M.CONVERTER.Formats;
 public static class StandardDetectors
 {
     /// <summary>
-    /// Images: PNG, JPEG, GIF, TIFF, PSD, DDS, WebP, BMP.
+    /// Images: PNG, JPEG, GIF, TIFF, PSD, DDS, WebP, BMP, AVIF, ICO.
     /// </summary>
     public static IFormatDetector Image { get; } = new ImageDetector();
 

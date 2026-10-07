@@ -57,6 +57,8 @@ public sealed class ImageFixture : IAsyncLifetime
             await Make("анимация.gif", FileFormat.Gif, 160, 120, "testsrc=size=160x120:rate=5:duration=1", 5),
             await Make("прозрачный.png", FileFormat.Png, 200, 100, "color=c=0x336699@0.4:s=200x100,format=rgba", 1, "-pix_fmt", "rgba"),
         ];
+        inputs.Add(await Make("фото.avif", FileFormat.Avif, 640, 480, photo, 1, "-c:v", "libaom-av1", "-crf", "30", "-cpu-used", "6", "-f", "avif"));
+        inputs.Add(await Make("иконка.ico", FileFormat.Ico, 128, 96, photo, 1, "-vf", "scale=128:96", "-f", "ico"));
         await Make("фото.tga", FileFormat.Tga, 640, 480, photo, 1, "-c:v", "targa");
 
         string dds = Path.Combine(Folder, "текстура.dds");

@@ -16,7 +16,7 @@ public sealed class FormatsExtension : IConverterExtension
     public IReadOnlyList<FileFormat> Formats { get; } =
     [
         AudioFormats.Mp3, AudioFormats.Wav, AudioFormats.Ogg, AudioFormats.Flac, AudioFormats.M4a,
-        ImageFormats.Jpeg, ImageFormats.Png, ImageFormats.Webp, ImageFormats.Bmp, ImageFormats.Gif, ImageFormats.Tiff, ImageFormats.Tga, ImageFormats.Dds, ImageFormats.Psd, ImageFormats.Svg,
+        ImageFormats.Jpeg, ImageFormats.Png, ImageFormats.Webp, ImageFormats.Bmp, ImageFormats.Gif, ImageFormats.Tiff, ImageFormats.Tga, ImageFormats.Dds, ImageFormats.Psd, ImageFormats.Avif, ImageFormats.Ico, ImageFormats.Svg,
         VideoFormats.Mp4, VideoFormats.Mkv, VideoFormats.Webm, VideoFormats.Mov, VideoFormats.Avi,
         DocumentFormats.Pdf, DocumentFormats.Docx, DocumentFormats.Doc, DocumentFormats.Odt, DocumentFormats.Rtf,
         DocumentFormats.Xlsx, DocumentFormats.Xls, DocumentFormats.Ods, DocumentFormats.Pptx, DocumentFormats.Ppt, DocumentFormats.Odp,

@@ -53,6 +53,16 @@ public static class ImageFormats
     public static FileFormat Psd { get; } = FileFormat.Create("PSD", "image/vnd.adobe.photoshop", "psd");
 
     /// <summary>
+    /// AVIF.
+    /// </summary>
+    public static FileFormat Avif { get; } = FileFormat.Create("AVIF", "image/avif", "avif");
+
+    /// <summary>
+    /// ICO, Windows icon.
+    /// </summary>
+    public static FileFormat Ico { get; } = FileFormat.Create("ICO", "image/vnd.microsoft.icon", "ico");
+
+    /// <summary>
     /// SVG, vector image.
     /// </summary>
     public static FileFormat Svg { get; } = FileFormat.Create("SVG", "image/svg+xml", "svg");

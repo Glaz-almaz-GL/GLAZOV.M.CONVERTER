@@ -7,20 +7,20 @@ using GLAZOV.M.CONVERTER.Tooling;
 namespace GLAZOV.M.CONVERTER.Ffmpeg.Engines;
 
 /// <summary>
-/// Изображения через FFmpeg (решение D-010): входы PNG, JPEG, GIF, WebP, BMP, TIFF, DDS, PSD; результаты PNG, JPEG, WebP, BMP, GIF, TIFF, TGA.
+/// Изображения через FFmpeg (решение D-010): входы PNG, JPEG, GIF, WebP, BMP, TIFF, DDS, PSD, AVIF, ICO; результаты PNG, JPEG, WebP, BMP, GIF, TIFF, TGA, AVIF, ICO.
 /// Вход и результат идут через временные файлы: TIFF, DDS и PSD из канала не читаются, а результат всегда должен быть целым.
-/// У многокадровых входов (GIF) берётся первый кадр.
+/// У многокадровых входов (GIF, анимированный AVIF) берётся первый кадр, у ICO с несколькими картинками — самая большая.
 /// </summary>
 internal sealed class FfmpegImageEngine : IConversionEngine
 {
     private static readonly FileFormat[] Inputs =
     [
-        FileFormat.Png, FileFormat.Jpeg, FileFormat.Gif, FileFormat.Webp, FileFormat.Bmp, FileFormat.Tiff, FileFormat.Dds, FileFormat.Psd,
+        FileFormat.Png, FileFormat.Jpeg, FileFormat.Gif, FileFormat.Webp, FileFormat.Bmp, FileFormat.Tiff, FileFormat.Dds, FileFormat.Psd, FileFormat.Avif, FileFormat.Ico,
     ];
 
     private static readonly FileFormat[] Outputs =
     [
-        FileFormat.Png, FileFormat.Jpeg, FileFormat.Webp, FileFormat.Bmp, FileFormat.Gif, FileFormat.Tiff, FileFormat.Tga,
+        FileFormat.Png, FileFormat.Jpeg, FileFormat.Webp, FileFormat.Bmp, FileFormat.Gif, FileFormat.Tiff, FileFormat.Tga, FileFormat.Avif, FileFormat.Ico,
     ];
 
     private readonly FfmpegSettings _settings;
@@ -66,17 +66,22 @@ internal sealed class FfmpegImageEngine : IConversionEngine
                 await request.Input.CopyToAsync(input, cancellationToken).ConfigureAwait(false);
             }
 
-            IReadOnlyList<string> args = FfmpegImageArguments.Build(
-                request.To,
-                request.Options.Image?.Quality,
-                inputPath,
-                outputPath,
-                FfmpegImageArguments.Filters(request.Options.Operations),
-                _settings);
-            ToolResult result = await ToolRunner.RunAsync(new ToolInvocation(request.Tool!.Path!, args), cancellationToken).ConfigureAwait(false);
+            IReadOnlyList<string> filters = FfmpegImageArguments.Filters(request.Options.Operations);
+            ToolResult result = null!;
+            foreach (string? encoder in request.To.Equals(FileFormat.Avif) ? (IEnumerable<string?>)FfmpegImageArguments.Av1Encoders : new string?[] { null })
+            {
+                IReadOnlyList<string> args = FfmpegImageArguments.Build(
+                    request.To, request.Options.Image?.Quality, inputPath, outputPath, filters, _settings, encoder);
+                result = await ToolRunner.RunAsync(new ToolInvocation(request.Tool!.Path!, args), cancellationToken).ConfigureAwait(false);
+                if (result.ExitCode == 0 || !IsMissingEncoder(result.ErrorOutput))
+                {
+                    break;
+                }
+            }
+
             if (result.ExitCode != 0)
             {
-                throw ConversionException.ToolFailed(request.Tool!.Name, result.ExitCode, result.ErrorOutput);
+                throw ConversionException.ToolFailed(request.Tool!.Name, result.ExitCode, Explain(request.To, result.ErrorOutput));
             }
 
             await using FileStream produced = new(outputPath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.Asynchronous | FileOptions.SequentialScan);
@@ -87,5 +92,26 @@ internal sealed class FfmpegImageEngine : IConversionEngine
             File.Delete(inputPath);
             File.Delete(outputPath);
         }
+    }
+
+    private static bool IsMissingEncoder(string output)
+    {
+        return output.Contains("Unknown encoder", StringComparison.Ordinal);
+    }
+
+    // The last line of the output becomes the message, so the plain words go last.
+    private static string Explain(FileFormat to, string output)
+    {
+        if (to.Equals(FileFormat.Avif) && IsMissingEncoder(output))
+        {
+            return $"{output}\nваш FFmpeg собран без кодировщика AV1 ({string.Join(", ", FfmpegImageArguments.Av1Encoders)}), AVIF записать нельзя";
+        }
+
+        if (to.Equals(FileFormat.Ico) && output.Contains("dimensions cannot exceed", StringComparison.Ordinal))
+        {
+            return $"{output}\nизображение больше 256×256 пикселей, а значок ICO больше не бывает: уменьшите его действием масштаба";
+        }
+
+        return output;
     }
 }

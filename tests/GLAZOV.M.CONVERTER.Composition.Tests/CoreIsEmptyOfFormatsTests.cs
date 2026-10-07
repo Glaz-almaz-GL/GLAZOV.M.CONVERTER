@@ -8,7 +8,7 @@ namespace GLAZOV.M.CONVERTER.Composition.Tests;
 /// </summary>
 public sealed partial class CoreIsEmptyOfFormatsTests
 {
-    private const string Values = "Mp3|Wav|Ogg|Flac|M4a|Jpeg|Png|Webp|Bmp|Gif|Tiff|Tga|Dds|Psd|Svg|Mp4|Mkv|Webm|Mov|Avi|Pdf|Docx|Doc|Odt|Rtf|Xlsx|Xls|Ods|Pptx|Ppt|Odp|Html|Text";
+    private const string Values = "Mp3|Wav|Ogg|Flac|M4a|Jpeg|Png|Webp|Bmp|Gif|Tiff|Tga|Dds|Psd|Avif|Ico|Svg|Mp4|Mkv|Webm|Mov|Avi|Pdf|Docx|Doc|Odt|Rtf|Xlsx|Xls|Ods|Pptx|Ppt|Odp|Html|Text";
 
     [GeneratedRegex(@"\bFileFormat\.(" + Values + @")\b")]
     private static partial Regex FormatValue();

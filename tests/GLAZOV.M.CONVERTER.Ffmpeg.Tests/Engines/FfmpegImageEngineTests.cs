@@ -15,7 +15,7 @@ using GLAZOV.M.CONVERTER.Tooling;
 namespace GLAZOV.M.CONVERTER.Ffmpeg.Tests.Engines;
 
 /// <summary>
-/// Движок изображений на настоящем FFmpeg: 56 пар «вход × результат», качество JPEG, прозрачность, нечётные размеры,
+/// Движок изображений на настоящем FFmpeg: 90 пар «вход × результат», качество JPEG, прозрачность, нечётные размеры,
 /// первый кадр GIF, испорченный вход, чистота временной папки. Нет FFmpeg — проверки пропускаются, а не проходят.
 /// </summary>
 [Collection("FFmpeg")]
@@ -25,12 +25,13 @@ public sealed class FfmpegImageEngineTests : IDisposable
     [
         ("sample.png", FileFormat.Png), ("sample.jpg", FileFormat.Jpeg), ("sample.gif", FileFormat.Gif), ("sample.webp", FileFormat.Webp),
         ("sample.bmp", FileFormat.Bmp), ("sample.tiff", FileFormat.Tiff), ("sample.dds", FileFormat.Dds), ("sample.psd", FileFormat.Psd),
+        ("sample.avif", FileFormat.Avif), ("sample.ico", FileFormat.Ico),
     ];
 
     private static readonly (FileFormat Format, string Codec)[] Outputs =
     [
         (FileFormat.Png, "png"), (FileFormat.Jpeg, "mjpeg"), (FileFormat.Webp, "webp"), (FileFormat.Bmp, "bmp"),
-        (FileFormat.Gif, "gif"), (FileFormat.Tiff, "tiff"), (FileFormat.Tga, "targa"),
+        (FileFormat.Gif, "gif"), (FileFormat.Tiff, "tiff"), (FileFormat.Tga, "targa"), (FileFormat.Avif, "av1"), (FileFormat.Ico, "bmp"),
     ];
 
     private readonly string _temp = Path.Combine(Path.GetTempPath(), "convtests-" + Guid.NewGuid().ToString("N"));
@@ -120,9 +121,9 @@ public sealed class FfmpegImageEngineTests : IDisposable
     }
 
     [Fact]
-    public void Pairs_AreFiftySix_AndReadOnlyFormatsAreNeverResults()
+    public void Pairs_AreNinety_AndReadOnlyFormatsAreNeverResults()
     {
-        Assert.Equal(56, _engine.Pairs.Count);
+        Assert.Equal(90, _engine.Pairs.Count);
         Assert.All(_engine.Pairs, p => Assert.True(_engine.CanConvert(p.From, p.To)));
         Assert.False(_engine.CanConvert(FileFormat.Png, FileFormat.Dds));
         Assert.False(_engine.CanConvert(FileFormat.Png, FileFormat.Psd));
@@ -210,6 +211,99 @@ public sealed class FfmpegImageEngineTests : IDisposable
             ["-v", "error", "-i", path, "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgba", "pipe:1"],
             StandardOutput: pixels));
         Assert.Equal(0, pixels.ToArray()[3]);
+    }
+
+    // First pixel of a picture as raw RGB(A) bytes, read back by the real FFmpeg.
+    private async Task<byte[]> FirstPixelAsync(byte[] data, string extension, string pixelFormat)
+    {
+        string path = Path.Combine(_temp, "пиксель-" + Guid.NewGuid().ToString("N") + "." + extension);
+        await File.WriteAllBytesAsync(path, data);
+        using MemoryStream pixels = new();
+        ToolResult result = await ToolRunner.RunAsync(new ToolInvocation(
+            Ffmpeg().Path!,
+            ["-v", "error", "-i", path, "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", pixelFormat, "pipe:1"],
+            StandardOutput: pixels));
+        File.Delete(path);
+        Assert.Equal(0, result.ExitCode);
+        return pixels.ToArray();
+    }
+
+    [ExternalFact]
+    public async Task AvifQuality_LowerIsSmaller_AndTheSettingIsTheDefault()
+    {
+        byte[] picture = await MakeAsync("testsrc2=size=320x240:rate=1", "png");
+        FfmpegImageEngine lowByDefault = new(new FfmpegSettings { AvifQuality = 10 });
+
+        byte[] low = await Convert(picture, FileFormat.Png, FileFormat.Avif, new ImageOptions { Quality = 10 });
+        byte[] high = await Convert(picture, FileFormat.Png, FileFormat.Avif, new ImageOptions { Quality = 95 });
+        byte[] normal = await Convert(picture, FileFormat.Png, FileFormat.Avif);
+        using MemoryStream source = new(picture);
+        using MemoryStream output = new();
+        await lowByDefault.ConvertAsync(new ConversionRequest(source, output, FileFormat.Png, FileFormat.Avif, new ConversionOptions(), Ffmpeg(), _temp), CancellationToken.None);
+
+        Assert.True(low.Length < high.Length, $"качество 10 — {low.Length} байт, 95 — {high.Length}");
+        Assert.InRange(normal.Length, low.Length, high.Length);
+        Assert.Equal(low.Length, output.Length);
+        Assert.Same(FileFormat.Avif, Sniff.Match(normal));
+    }
+
+    [ExternalFact]
+    public async Task TransparentPng_ToAvif_IsFlattenedOnWhite()
+    {
+        byte[] transparent = await MakeAsync("color=c=red@0.0:s=16x16,format=rgba", "png", "-pix_fmt", "rgba");
+
+        byte[] avif = await Convert(transparent, FileFormat.Png, FileFormat.Avif);
+
+        byte[] rgb = await FirstPixelAsync(avif, "avif", "rgb24");
+        Assert.All(rgb.Take(3), channel => Assert.True(channel >= 230, $"канал {channel}: прозрачное место должно стать белым"));
+    }
+
+    [ExternalFact]
+    public async Task AnimatedAvif_GivesTheFirstFrameOnly()
+    {
+        byte[] animated = await MakeAsync("testsrc=size=24x16:rate=5:duration=1", "avif", "-frames:v", "5", "-c:v", "libaom-av1", "-cpu-used", "6");
+
+        byte[] png = await Convert(animated, FileFormat.Avif, FileFormat.Png);
+
+        Dictionary<string, string> probe = await ProbeAsync(png, "png");
+        Assert.Equal(("24", "16"), (probe["width"], probe["height"]));
+    }
+
+    [ExternalFact]
+    public async Task IcoWithSeveralPictures_GivesTheLargestOne()
+    {
+        string path = Path.Combine(_temp, "несколько.ico");
+        ToolResult made = await ToolRunner.RunAsync(new ToolInvocation(
+            Ffmpeg().Path!,
+            ["-v", "error", "-y", "-f", "lavfi", "-i", "testsrc2=size=64x64:rate=1", "-filter_complex", "[0:v]split=3[a][b][c];[a]scale=16:16[s1];[b]scale=48:48[s2];[c]scale=32:32[s3]",
+             "-map", "[s1]", "-map", "[s2]", "-map", "[s3]", "-frames:v", "1", "-f", "ico", path]));
+        Assert.True(made.ExitCode == 0, made.ErrorOutput);
+
+        byte[] png = await Convert(await File.ReadAllBytesAsync(path), FileFormat.Ico, FileFormat.Png);
+
+        Dictionary<string, string> probe = await ProbeAsync(png, "png");
+        Assert.Equal(("48", "48"), (probe["width"], probe["height"]));
+    }
+
+    [ExternalFact]
+    public async Task Ico_OfExactly256_Works_AndOf300_IsRefusedInPlainWords_WithoutAResult()
+    {
+        byte[] fits = await MakeAsync("testsrc2=size=256x256:rate=1", "png");
+        byte[] tooWide = await MakeAsync("testsrc2=size=300x100:rate=1", "png");
+
+        byte[] ico = await Convert(fits, FileFormat.Png, FileFormat.Ico);
+        using MemoryStream source = new(tooWide);
+        using MemoryStream output = new();
+        ConversionException ex = await Assert.ThrowsAsync<ConversionException>(async () =>
+            await _engine.ConvertAsync(new ConversionRequest(source, output, FileFormat.Png, FileFormat.Ico, new ConversionOptions(), Ffmpeg(), _temp), CancellationToken.None));
+
+        Assert.Same(FileFormat.Ico, Sniff.Match(ico));
+        Assert.Equal(("256", "256"), ((await ProbeAsync(ico, "ico"))["width"], (await ProbeAsync(ico, "ico"))["height"]));
+        Assert.Equal(ConversionFailureReason.ToolFailed, ex.Reason);
+        Assert.Contains("256", ex.Message);
+        Assert.Contains("масштаба", ex.Message);
+        Assert.Equal(0, output.Length);
+        Assert.Empty(Directory.GetFiles(_temp));
     }
 
     [ExternalFact]

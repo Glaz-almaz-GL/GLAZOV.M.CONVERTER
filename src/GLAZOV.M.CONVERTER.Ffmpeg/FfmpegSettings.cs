@@ -18,6 +18,7 @@ public sealed class FfmpegSettings
     private int _aacBitrate = 128_000;
     private int _jpegQuality = 90;
     private int _webpQuality = 80;
+    private int _avifQuality = 60;
     private int _h264Crf = 23;
     private int _vp9Crf = 31;
     private int _mpeg4Qscale = 5;
@@ -85,7 +86,16 @@ public sealed class FfmpegSettings
     }
 
     /// <summary>
-    /// Colour put under transparent places when the result is JPEG, which keeps no transparency.
+    /// AVIF quality from 1 to 100 when <c>ImageOptions.Quality</c> is not set. Default 60.
+    /// </summary>
+    public int AvifQuality
+    {
+        get => _avifQuality;
+        set => _avifQuality = CheckRange(value, 1, 100, nameof(AvifQuality));
+    }
+
+    /// <summary>
+    /// Colour put under transparent places when the result is JPEG or AVIF, which keep no transparency here.
     /// The transparency of the colour itself is ignored. Default white.
     /// </summary>
     public Color FlattenBackground { get; set; } = Color.White;

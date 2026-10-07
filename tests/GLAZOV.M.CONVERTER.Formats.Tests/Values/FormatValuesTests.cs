@@ -24,6 +24,8 @@ public sealed class FormatValuesTests
         ("Tga", "TGA", "image/x-tga", "tga"),
         ("Dds", "DDS", "image/vnd.ms-dds", "dds"),
         ("Psd", "PSD", "image/vnd.adobe.photoshop", "psd"),
+        ("Avif", "AVIF", "image/avif", "avif"),
+        ("Ico", "ICO", "image/vnd.microsoft.icon", "ico"),
         ("Svg", "SVG", "image/svg+xml", "svg"),
         ("Mp4", "MP4", "video/mp4", "mp4"),
         ("Mkv", "MKV", "video/x-matroska", "mkv"),

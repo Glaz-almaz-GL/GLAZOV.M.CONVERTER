@@ -15,15 +15,28 @@ internal static class FfmpegImageArguments
     private const string GifPalette = "split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse";
 
     /// <summary>
+    /// AV1 encoders of FFmpeg in the order they are tried; the first one the installed FFmpeg has is used.
+    /// </summary>
+    internal static readonly IReadOnlyList<string> Av1Encoders = ["libaom-av1", "libsvtav1", "librav1e"];
+
+    /// <summary>
     /// Собирает аргументы: один кадр, фильтры и кодек по формату результата.
     /// </summary>
-    /// <param name="to">Формат результата: PNG, JPEG, WebP, BMP, GIF, TIFF или TGA.</param>
-    /// <param name="quality">Качество 1–100 для JPEG и WebP; пусто — умолчание движка; для остальных форматов не действует.</param>
+    /// <param name="to">Формат результата: PNG, JPEG, WebP, BMP, GIF, TIFF, TGA, AVIF или ICO.</param>
+    /// <param name="quality">Качество 1–100 для JPEG, WebP и AVIF; пусто — умолчание движка; для остальных форматов не действует.</param>
     /// <param name="inputPath">Путь к файлу входа.</param>
     /// <param name="outputPath">Путь к файлу результата.</param>
     /// <param name="filters">Фильтры действий над изображением (поворот, масштаб) по порядку; пусто — без действий.</param>
     /// <param name="settings">Default quality and background; <c>null</c> — the default settings.</param>
-    internal static IReadOnlyList<string> Build(FileFormat to, int? quality, string inputPath, string outputPath, IReadOnlyList<string>? filters = null, FfmpegSettings? settings = null)
+    /// <param name="av1Encoder">The AV1 encoder for an AVIF result (one of <see cref="Av1Encoders"/>); <c>null</c> — the first of them.</param>
+    internal static IReadOnlyList<string> Build(
+        FileFormat to,
+        int? quality,
+        string inputPath,
+        string outputPath,
+        IReadOnlyList<string>? filters = null,
+        FfmpegSettings? settings = null,
+        string? av1Encoder = null)
     {
         ArgumentNullException.ThrowIfNull(to);
         ArgumentException.ThrowIfNullOrWhiteSpace(inputPath);
@@ -41,7 +54,7 @@ internal static class FfmpegImageArguments
         else if (to.Equals(FileFormat.Jpeg))
         {
             // JPEG keeps no transparency: the picture is laid over the background colour.
-            chain.Add($"split=2[bg][fg];[bg]drawbox=c={ColorText(settings.FlattenBackground)}@1:replace=1:t=fill[bg];[bg][fg]overlay=format=auto");
+            chain.Add(Flatten(settings));
             codec = ["-c:v", "mjpeg", "-q:v", JpegQscale(quality ?? settings.JpegQuality), "-pix_fmt", "yuvj420p"];
         }
         else if (to.Equals(FileFormat.Webp))
@@ -66,6 +79,18 @@ internal static class FfmpegImageArguments
         else if (to.Equals(FileFormat.Tga))
         {
             codec = ["-c:v", "targa"];
+        }
+        else if (to.Equals(FileFormat.Avif))
+        {
+            // The picture is laid over the background colour: the AVIF muxer of FFmpeg writes no transparency.
+            chain.Add(Flatten(settings));
+            muxer = "avif";
+            codec = Av1Codec(av1Encoder ?? Av1Encoders[0], quality ?? settings.AvifQuality);
+        }
+        else if (to.Equals(FileFormat.Ico))
+        {
+            codec = ["-c:v", "bmp"];
+            muxer = "ico";
         }
         else
         {
@@ -114,6 +139,25 @@ internal static class FfmpegImageArguments
         }
 
         return filters;
+    }
+
+    private static string Flatten(FfmpegSettings settings)
+    {
+        return $"split=2[bg][fg];[bg]drawbox=c={ColorText(settings.FlattenBackground)}@1:replace=1:t=fill[bg];[bg][fg]overlay=format=auto";
+    }
+
+    // Quality 1-100 becomes the constant-quality step 63...0 of the encoder (rav1e: 255...0); the speed steps keep a picture within seconds.
+    private static List<string> Av1Codec(string encoder, int quality)
+    {
+        int crf = (int)Math.Round((100 - quality) * 63.0 / 99.0);
+        string crfText = crf.ToString(CultureInfo.InvariantCulture);
+        return encoder switch
+        {
+            "libaom-av1" => ["-c:v", "libaom-av1", "-b:v", "0", "-crf", crfText, "-cpu-used", "6", "-still-picture", "1"],
+            "libsvtav1" => ["-c:v", "libsvtav1", "-crf", crfText, "-preset", "8"],
+            "librav1e" => ["-c:v", "librav1e", "-qp", ((int)Math.Round(crf * 255.0 / 63.0)).ToString(CultureInfo.InvariantCulture), "-speed", "8"],
+            _ => throw new ArgumentException($"Кодировщик AV1 «{encoder}» движок изображений не знает.", nameof(encoder)),
+        };
     }
 
     // Opaque RGB only: the alpha of the colour is ignored. White keeps its name, the rest goes as hex.
