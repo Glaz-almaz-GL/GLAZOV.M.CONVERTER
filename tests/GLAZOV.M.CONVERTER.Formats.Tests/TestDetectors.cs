@@ -1,5 +1,6 @@
 using GLAZOV.M.CONVERTER.Extensions;
 using GLAZOV.M.CONVERTER.Formats.Detection;
+using GLAZOV.M.CONVERTER.Formats.Detection.Archives;
 using GLAZOV.M.CONVERTER.Formats.Detection.Audio;
 using GLAZOV.M.CONVERTER.Formats.Detection.Documents;
 using GLAZOV.M.CONVERTER.Formats.Detection.Image;
@@ -15,12 +16,12 @@ namespace GLAZOV.M.CONVERTER.Formats.Tests;
 internal static class TestDetectors
 {
     /// <summary>
-    /// Image, video, document, audio, SVG and text detectors.
+    /// Image, video, document, archive, audio, SVG and text detectors.
     /// </summary>
     /// <param name="window">Bytes of a compressed SVG unpacked at least.</param>
     internal static IReadOnlyList<IFormatDetector> Create(int window = DetectionSizes.SvgWindow)
     {
-        return [new ImageDetector(), new VideoDetector(), new DocumentDetector(), new AudioDetector(), new SvgDetector(window), new TextDetector()];
+        return [new ImageDetector(), new VideoDetector(), new DocumentDetector(), new ArchiveDetector(), new AudioDetector(), new SvgDetector(window), new TextDetector()];
     }
 
     /// <summary>

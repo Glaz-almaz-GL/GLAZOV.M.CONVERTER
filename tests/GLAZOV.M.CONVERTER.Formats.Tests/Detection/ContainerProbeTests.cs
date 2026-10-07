@@ -91,8 +91,8 @@ public sealed class ContainerProbeTests
         byte[] plain = BigPackage(("notes.txt", "x"u8.ToArray()));
         byte[] folderOnly = BigPackage(("word/notes.txt", "x"u8.ToArray()));
 
-        Assert.Same(FileFormat.Unknown, await Detect(plain));
-        Assert.Same(FileFormat.Unknown, await Detect(folderOnly));
+        Assert.Same(FileFormat.Zip, await Detect(plain));
+        Assert.Same(FileFormat.Zip, await Detect(folderOnly));
     }
 
     [Theory]

@@ -1,4 +1,5 @@
 using GLAZOV.M.CONVERTER.Extensions;
+using GLAZOV.M.CONVERTER.Formats.Detection.Archives;
 using GLAZOV.M.CONVERTER.Formats.Detection.Audio;
 using GLAZOV.M.CONVERTER.Formats.Detection.Documents;
 using GLAZOV.M.CONVERTER.Formats.Detection.Image;
@@ -28,6 +29,11 @@ public static class StandardDetectors
     /// Documents: PDF, RTF, Office and OpenDocument packages, old Office files, HTML. Also takes a second look at the structure of a container.
     /// </summary>
     public static IFormatDetector Documents { get; } = new DocumentDetector();
+
+    /// <summary>
+    /// Archives: ZIP, TAR, TAR.GZ, GZip. Packages of documents (DOCX, ODT and the like) are not named ZIP, and a compressed SVG is not named GZip.
+    /// </summary>
+    public static IFormatDetector Archives { get; } = new ArchiveDetector();
 
     /// <summary>
     /// Audio: OGG, FLAC, WAV, M4A and, as the weakest sign, MP3.

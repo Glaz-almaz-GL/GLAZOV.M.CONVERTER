@@ -46,6 +46,16 @@ internal static class ZipPackage
             return odf;
         }
 
+        (bool contentTypes, HashSet<FileFormat> mainParts, HashSet<FileFormat> folders) = Scan(head);
+        return ChooseOffice(contentTypes, mainParts, folders);
+    }
+
+    /// <summary>
+    /// Walks the local file headers inside the window and reports what they name: the content types entry, the main parts and the folders of Office Open XML.
+    /// </summary>
+    /// <param name="head">Leading bytes of the input (the detection window).</param>
+    internal static (bool ContentTypes, HashSet<FileFormat> MainParts, HashSet<FileFormat> Folders) Scan(ReadOnlySpan<byte> head)
+    {
         bool contentTypes = false;
         HashSet<FileFormat> mainParts = [];
         HashSet<FileFormat> folders = [];
@@ -98,8 +108,7 @@ internal static class ZipPackage
 
             offset += next;
         }
-
-        return ChooseOffice(contentTypes, mainParts, folders);
+        return (contentTypes, mainParts, folders);
     }
 
     /// <summary>

@@ -10,6 +10,18 @@ public static class FileFormatMembers
 {
     extension(FileFormat)
     {
+        /// <summary>Same as <see cref="ArchiveFormats.Zip"/>.</summary>
+        public static FileFormat Zip => ArchiveFormats.Zip;
+        /// <summary>Same as <see cref="ArchiveFormats.Tar"/>.</summary>
+        public static FileFormat Tar => ArchiveFormats.Tar;
+        /// <summary>Same as <see cref="ArchiveFormats.TarGz"/>.</summary>
+        public static FileFormat TarGz => ArchiveFormats.TarGz;
+        /// <summary>Same as <see cref="ArchiveFormats.Gzip"/>.</summary>
+        public static FileFormat Gzip => ArchiveFormats.Gzip;
+    }
+
+    extension(FileFormat)
+    {
         /// <summary>Same as <see cref="AudioFormats.Mp3"/>.</summary>
         public static FileFormat Mp3 => AudioFormats.Mp3;
         /// <summary>Same as <see cref="AudioFormats.Wav"/>.</summary>

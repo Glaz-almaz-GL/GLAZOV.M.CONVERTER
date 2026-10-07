@@ -29,7 +29,7 @@ public sealed class CatalogTests
             IReadOnlyList<FileFormat> formats = AllPackages.Converter(order).Capabilities.Formats;
 
             Assert.True(formats.Count == formats.Distinct().Count(), $"order {order}: a format is listed twice");
-            Assert.True(formats.Count == 35, $"order {order}: {formats.Count} formats");
+            Assert.True(formats.Count == 39, $"order {order}: {formats.Count} formats");
         }
     }
 

@@ -99,7 +99,7 @@ public class DocumentSignatureTests
             }
         }
 
-        Assert.Same(FileFormat.Unknown, Match(stream.ToArray()));
+        Assert.Same(FileFormat.Zip, Match(stream.ToArray()));
     }
 
     [Fact]
@@ -108,7 +108,7 @@ public class DocumentSignatureTests
         Assert.Same(FileFormat.Docx, Match(Zip(("[Content_Types].xml", "<Types/>"), ("word/document.xml", "<w:document/>"))));
         Assert.Same(FileFormat.Xlsx, Match(Zip(("[Content_Types].xml", "<Types/>"), ("xl/workbook.xml", "<workbook/>"))));
         Assert.Same(FileFormat.Pptx, Match(Zip(("[Content_Types].xml", "<Types/>"), ("ppt/presentation.xml", "<p/>"))));
-        Assert.Same(FileFormat.Unknown, Match(Zip(("mimetype", "application/epub+zip"), ("META-INF/container.xml", "<c/>"))));
+        Assert.Same(FileFormat.Zip, Match(Zip(("mimetype", "application/epub+zip"), ("META-INF/container.xml", "<c/>"))));
         Assert.Same(FileFormat.Odt, Match(Zip(("mimetype", "application/vnd.oasis.opendocument.text"), ("content.xml", "<c/>"))));
     }
 
@@ -219,7 +219,7 @@ public class DocumentSignatureTests
             entryStream.Write(Sample(inner));
         }
 
-        Assert.Same(FileFormat.Unknown, Match(stream.ToArray(), 1 << 20));
+        Assert.Same(FileFormat.Zip, Match(stream.ToArray(), 1 << 20));
     }
 
     [Theory]
@@ -241,7 +241,7 @@ public class DocumentSignatureTests
 
         byte[] bytes = target.ToArray();
         Assert.True((BitConverter.ToUInt16(bytes, 6) & 0x08) != 0, "precondition: the outer entry carries a data descriptor");
-        Assert.Same(FileFormat.Unknown, Match(bytes, 1 << 20));
+        Assert.Same(FileFormat.Zip, Match(bytes, 1 << 20));
     }
 
     [Theory]
@@ -268,7 +268,7 @@ public class DocumentSignatureTests
         byte[] bytes = target.ToArray();
         Assert.True((BitConverter.ToUInt16(bytes, 6) & 0x08) != 0, "precondition: the outer entry carries a data descriptor");
         Assert.Equal(8, BitConverter.ToUInt16(bytes, 8));
-        Assert.Same(FileFormat.Unknown, Match(bytes, 1 << 20));
+        Assert.Same(FileFormat.Zip, Match(bytes, 1 << 20));
     }
 
     [Theory]

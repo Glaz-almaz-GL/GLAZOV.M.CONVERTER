@@ -104,10 +104,10 @@ public sealed class SvgSignatureTests : IDisposable
     }
 
     [Fact]
-    public void Gzip_OfSomethingElse_IsUnknown()
+    public void Gzip_OfSomethingElse_IsGzip_NotSvg()
     {
-        Assert.Same(FileFormat.Unknown, Match(Gzip(Encoding.UTF8.GetBytes("<html><body>не SVG</body></html>"))));
-        Assert.Same(FileFormat.Unknown, Match(Gzip(new byte[5000])));
+        Assert.Same(FileFormat.Gzip, Match(Gzip(Encoding.UTF8.GetBytes("<html><body>не SVG</body></html>"))));
+        Assert.Same(FileFormat.Gzip, Match(Gzip(new byte[5000])));
     }
 
     [Fact]
@@ -127,7 +127,7 @@ public sealed class SvgSignatureTests : IDisposable
     }
 
     [Fact]
-    public void DamagedGzip_IsUnknown_WithoutException()
+    public void DamagedGzip_IsGzip_NotSvg_WithoutException()
     {
         byte[] data = Gzip(Encoding.UTF8.GetBytes(Svg));
         for (int i = 10; i < data.Length; i++)
@@ -135,7 +135,7 @@ public sealed class SvgSignatureTests : IDisposable
             data[i] = 0xFF;
         }
 
-        Assert.Same(FileFormat.Unknown, Match(data));
+        Assert.Same(FileFormat.Gzip, Match(data));
     }
 
     [Fact]

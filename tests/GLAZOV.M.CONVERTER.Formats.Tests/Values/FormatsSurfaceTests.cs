@@ -12,15 +12,15 @@ public sealed class FormatsSurfaceTests
         string[] exported = [.. typeof(FormatsExtension).Assembly.GetExportedTypes().Select(type => type.Name).Where(name => !name.StartsWith('<'))];
 
         Assert.Equal(
-            ["AudioFormats", "DocumentFormats", "FileFormatMembers", "FormatsExtension", "ImageFormats", "StandardDetectors", "VideoFormats"],
+            ["ArchiveFormats", "AudioFormats", "DocumentFormats", "FileFormatMembers", "FormatsExtension", "ImageFormats", "StandardDetectors", "VideoFormats"],
             exported.Order());
     }
 
     [Fact]
-    public void StandardDetectors_ExposeTheSixSharedInstances()
+    public void StandardDetectors_ExposeTheSevenSharedInstances()
     {
         string[] names = [.. typeof(StandardDetectors).GetProperties().Select(property => property.Name)];
 
-        Assert.Equal(["Audio", "Documents", "Image", "Svg", "Text", "Video"], names.Order());
+        Assert.Equal(["Archives", "Audio", "Documents", "Image", "Svg", "Text", "Video"], names.Order());
     }
 }

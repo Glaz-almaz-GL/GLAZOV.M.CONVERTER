@@ -27,6 +27,10 @@ public sealed class FormatValuesTests
         ("Avif", "AVIF", "image/avif", "avif"),
         ("Ico", "ICO", "image/vnd.microsoft.icon", "ico"),
         ("Svg", "SVG", "image/svg+xml", "svg"),
+        ("Zip", "ZIP", "application/zip", "zip"),
+        ("Tar", "TAR", "application/x-tar", "tar"),
+        ("TarGz", "TAR.GZ", "application/x-gtar", "tgz"),
+        ("Gzip", "GZip", "application/gzip", "gz"),
         ("Mp4", "MP4", "video/mp4", "mp4"),
         ("Mkv", "MKV", "video/x-matroska", "mkv"),
         ("Webm", "WebM", "video/webm", "webm"),
@@ -47,7 +51,7 @@ public sealed class FormatValuesTests
         ("Text", "Text", "text/plain", "txt"),
     ];
 
-    private static readonly Type[] Classes = [typeof(AudioFormats), typeof(ImageFormats), typeof(VideoFormats), typeof(DocumentFormats)];
+    private static readonly Type[] Classes = [typeof(AudioFormats), typeof(ImageFormats), typeof(VideoFormats), typeof(DocumentFormats), typeof(ArchiveFormats)];
 
     private static FileFormat Field(string field)
     {
@@ -104,7 +108,7 @@ public sealed class FormatValuesTests
         FormatsExtension extension = new();
 
         Assert.Equal(
-            [StandardDetectors.Image, StandardDetectors.Video, StandardDetectors.Documents, StandardDetectors.Audio, StandardDetectors.Svg, StandardDetectors.Text],
+            [StandardDetectors.Image, StandardDetectors.Video, StandardDetectors.Documents, StandardDetectors.Archives, StandardDetectors.Audio, StandardDetectors.Svg, StandardDetectors.Text],
             extension.Detectors);
     }
 
