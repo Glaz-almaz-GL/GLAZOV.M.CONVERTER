@@ -8,7 +8,7 @@ using GLAZOV.M.CONVERTER.Settings;
 namespace GLAZOV.M.CONVERTER.Composition.Tests;
 
 /// <summary>
-/// The six packages share one row of detectors: every sample is named the same way whatever the order the packages are plugged in.
+/// The seven packages share one row of detectors: every sample is named the same way whatever the order the packages are plugged in.
 /// </summary>
 public sealed class DetectionOrderTests : IDisposable
 {
@@ -26,7 +26,8 @@ public sealed class DetectionOrderTests : IDisposable
         ["sample.tiff"] = "TIFF", ["sample.wav"] = "WAV", ["sample.webm"] = "WebM", ["sample.webp"] = "WebP", ["sample.xls"] = "XLS",
         ["sample.xlsx"] = "XLSX", ["sample.zip"] = "ZIP", ["sample-empty.zip"] = "ZIP", ["sample.jar"] = "ZIP", ["sample.epub"] = "ZIP",
         ["sample-big.zip"] = "ZIP", ["sample.tar"] = "TAR", ["sample-v7.tar"] = "TAR", ["sample-gnu.tar"] = "TAR", ["sample.tar.gz"] = "TAR.GZ",
-        ["sample.gz"] = "GZip",
+        ["sample.gz"] = "GZip", ["sample.7z"] = "7z", ["sample.rar"] = "RAR", ["sample.xz"] = "XZ", ["sample.tar.xz"] = "TAR.XZ", ["sample.bz2"] = "BZip2",
+        ["sample.tar.bz2"] = "TAR.BZ2",
     };
 
     private readonly string _folder = Path.Combine(Path.GetTempPath(), "convcomp-" + Guid.NewGuid().ToString("N"));
@@ -61,9 +62,9 @@ public sealed class DetectionOrderTests : IDisposable
     }
 
     [Fact]
-    public void ThereAreSevenHundredAndTwentyOrders()
+    public void ThereAreFiveThousandAndFortyOrders()
     {
-        Assert.Equal(720, Orders.Length);
+        Assert.Equal(5040, Orders.Length);
     }
 
     [Theory]
@@ -117,9 +118,12 @@ public sealed class DetectionOrderTests : IDisposable
         settings.Extensions.Add(new FormatsExtension());
         Converter alone = new(settings);
 
+        // The kinds of the extra archives are known to their own package only: the Formats package alone does not name them.
+        string[] extraKinds = ["7z", "RAR", "XZ", "TAR.XZ", "BZip2", "TAR.BZ2"];
         foreach ((string file, string expected) in Real)
         {
-            Assert.Equal(expected, (await alone.DetectAsync(Source.File(Sample(file)))).Name);
+            string want = extraKinds.Contains(expected) ? "Unknown" : expected;
+            Assert.Equal(want, (await alone.DetectAsync(Source.File(Sample(file)))).Name);
         }
     }
 }

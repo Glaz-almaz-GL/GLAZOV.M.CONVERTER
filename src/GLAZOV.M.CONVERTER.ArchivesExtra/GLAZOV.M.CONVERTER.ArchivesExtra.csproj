@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>GLAZOV.M.CONVERTER.ArchivesExtra</RootNamespace>
+    <Description>Расширение GLAZOV.M.CONVERTER: дополнительные архивы на SharpCompress. Вход 7z, RAR, XZ, TAR.XZ; вход и результат BZip2 и TAR.BZ2; результатом может быть и ZIP, TAR, TAR.GZ, GZip. Записи переносятся по одной; защита от опасных имён, шифрования, ссылок и архивов-бомб. Работает в процессе, без внешних программ.</Description>
+    <Version>0.1.0</Version>
+    <Authors>Glaz-almaz-GL</Authors>
+    <Copyright>Copyright 2026 Glaz-almaz-GL</Copyright>
+    <PackageTags>convert;converter;archive;7z;rar;xz;bzip2;tar;sharpcompress</PackageTags>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RepositoryUrl>https://github.com/Glaz-almaz-GL/GLAZOV.M.CONVERTER</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageProjectUrl>https://github.com/Glaz-almaz-GL/GLAZOV.M.CONVERTER</PackageProjectUrl>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="" />
+    <None Include="..\..\NOTICE" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="GLAZOV.M.CONVERTER.ArchivesExtra.Tests" />
+  </ItemGroup>
+
+  <!-- SharpCompress is MIT (Adam Hathcock). -->
+  <ItemGroup>
+    <PackageReference Include="SharpCompress" Version="1.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\GLAZOV.M.CONVERTER\GLAZOV.M.CONVERTER.csproj" />
+    <ProjectReference Include="..\GLAZOV.M.CONVERTER.Formats\GLAZOV.M.CONVERTER.Formats.csproj" />
+  </ItemGroup>
+
+</Project>

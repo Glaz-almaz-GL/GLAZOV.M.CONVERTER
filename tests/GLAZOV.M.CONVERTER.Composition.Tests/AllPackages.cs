@@ -1,4 +1,5 @@
 using GLAZOV.M.CONVERTER.Archives;
+using GLAZOV.M.CONVERTER.ArchivesExtra;
 using GLAZOV.M.CONVERTER.Converting;
 using GLAZOV.M.CONVERTER.Extensions;
 using GLAZOV.M.CONVERTER.Ffmpeg;
@@ -11,14 +12,14 @@ using GLAZOV.M.CONVERTER.Svg;
 namespace GLAZOV.M.CONVERTER.Composition.Tests;
 
 /// <summary>
-/// The six extension packages and every order they can be plugged in.
+/// The seven extension packages and every order they can be plugged in.
 /// </summary>
 internal static class AllPackages
 {
     /// <summary>
     /// The names of the packages, in the order of the plug-in sketch.
     /// </summary>
-    internal static readonly string[] Names = ["Formats", "Ffmpeg", "Office", "Svg", "Pdf", "Archives"];
+    internal static readonly string[] Names = ["Formats", "Ffmpeg", "Office", "Svg", "Pdf", "Archives", "ArchivesExtra"];
 
     /// <summary>
     /// A fresh extension of the package.
@@ -34,12 +35,13 @@ internal static class AllPackages
             "Svg" => new SvgExtension(),
             "Pdf" => new PdfExtension(),
             "Archives" => new ArchivesExtension(),
+            "ArchivesExtra" => new ArchivesExtraExtension(),
             _ => throw new ArgumentOutOfRangeException(nameof(name), name, null),
         };
     }
 
     /// <summary>
-    /// Every order of the six packages, as strings like <c>Formats,Ffmpeg,Office,Svg,Pdf,Archives</c>.
+    /// Every order of the seven packages, as strings like <c>Formats,Ffmpeg,Office,Svg,Pdf,Archives,ArchivesExtra</c>.
     /// </summary>
     internal static IEnumerable<string> Orders()
     {
