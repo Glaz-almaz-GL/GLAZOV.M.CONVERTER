@@ -299,7 +299,8 @@ public sealed class FfmpegImageEngineTests : IDisposable
 
         Assert.Same(FileFormat.Ico, Sniff.Match(ico));
         Assert.Equal(("256", "256"), ((await ProbeAsync(ico, "ico"))["width"], (await ProbeAsync(ico, "ico"))["height"]));
-        Assert.Equal(ConversionFailureReason.ToolFailed, ex.Reason);
+        Assert.Equal(ConversionFailureReason.InvalidParameters, ex.Reason);
+        Assert.Equal(ConversionStage.Conversion, ex.Stage);
         Assert.Contains("256", ex.Message);
         Assert.Contains("масштаба", ex.Message);
         Assert.Equal(0, output.Length);

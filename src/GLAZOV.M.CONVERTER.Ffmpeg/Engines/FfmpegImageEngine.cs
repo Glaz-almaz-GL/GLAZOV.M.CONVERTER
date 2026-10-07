@@ -81,6 +81,11 @@ internal sealed class FfmpegImageEngine : IConversionEngine
 
             if (result.ExitCode != 0)
             {
+                if (request.To.Equals(FileFormat.Ico) && result.ErrorOutput.Contains("dimensions cannot exceed", StringComparison.Ordinal))
+                {
+                    throw ConversionException.InvalidParameters("Изображение больше 256×256 пикселей, а значок ICO больше не бывает: уменьшите его действием масштаба.");
+                }
+
                 throw ConversionException.ToolFailed(request.Tool!.Name, result.ExitCode, Explain(request.To, result.ErrorOutput));
             }
 
@@ -105,11 +110,6 @@ internal sealed class FfmpegImageEngine : IConversionEngine
         if (to.Equals(FileFormat.Avif) && IsMissingEncoder(output))
         {
             return $"{output}\nваш FFmpeg собран без кодировщика AV1 ({string.Join(", ", FfmpegImageArguments.Av1Encoders)}), AVIF записать нельзя";
-        }
-
-        if (to.Equals(FileFormat.Ico) && output.Contains("dimensions cannot exceed", StringComparison.Ordinal))
-        {
-            return $"{output}\nизображение больше 256×256 пикселей, а значок ICO больше не бывает: уменьшите его действием масштаба";
         }
 
         return output;

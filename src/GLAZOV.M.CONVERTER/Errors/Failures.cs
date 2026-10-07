@@ -199,6 +199,13 @@ internal static class Failures
         };
     }
 
+    /// <summary>
+    /// The call asks for what the result format cannot hold.
+    /// </summary>
+    /// <param name="message">What is wrong and what to change, in plain words.</param>
+    internal static ConversionException InvalidParameters(string message) =>
+        new(ConversionStage.Conversion, ConversionFailureReason.InvalidParameters, message);
+
     // ERROR_HANDLE_DISK_FULL (0x27) and ERROR_DISK_FULL (0x70) on Windows, ENOSPC (28) elsewhere.
     private static bool IsDiskFull(IOException error)
     {

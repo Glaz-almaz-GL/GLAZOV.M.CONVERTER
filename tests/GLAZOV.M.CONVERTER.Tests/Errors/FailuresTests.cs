@@ -92,6 +92,18 @@ public class FailuresTests
     }
 
     [Fact]
+    public void InvalidParameters_IsTheConversionStage_WithTheGivenMessage_AndRefusesAnEmptyOne()
+    {
+        ConversionException error = ConversionException.InvalidParameters("Сторона больше 256 пикселей.");
+
+        Assert.Equal(ConversionFailureReason.InvalidParameters, error.Reason);
+        Assert.Equal(ConversionStage.Conversion, error.Stage);
+        Assert.Equal("Сторона больше 256 пикселей.", error.Message);
+        Assert.Null(error.ToolName);
+        Assert.Throws<ArgumentException>(() => ConversionException.InvalidParameters(" "));
+    }
+
+    [Fact]
     public void ToolFailed_WithoutOutput_StillSaysExitCode()
     {
         var ex = Failures.ToolFailed("утилита", 137, null);

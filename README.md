@@ -10,12 +10,12 @@
 |---|---|---|
 | `GLAZOV.M.CONVERTER` | ядро: `Converter`, `Source`, `Target`, очередь, отчёт, механизм расширений | .NET 10 |
 | `GLAZOV.M.CONVERTER.Formats` | значения стандартных форматов (`FileFormat.Mp3` … `Text`) и определение типа; приходит зависимостью остальных | — |
-| `GLAZOV.M.CONVERTER.Ffmpeg` | **звук** MP3, WAV, OGG, FLAC, M4A; **изображения** PNG, JPEG, WebP, BMP, GIF, TIFF, TGA (DDS и PSD — как вход) с поворотом, масштабом, качеством; **видео** MP4, MKV, WebM, MOV, AVI между собой и в звук (без перекодирования, если можно) | программа FFmpeg |
+| `GLAZOV.M.CONVERTER.Ffmpeg` | **звук** MP3, WAV, OGG, FLAC, M4A; **изображения** PNG, JPEG, WebP, BMP, GIF, TIFF, TGA, AVIF, ICO (DDS и PSD — как вход) с поворотом, масштабом, качеством; **видео** MP4, MKV, WebM, MOV, AVI между собой и в звук (без перекодирования, если можно) | программа FFmpeg |
 | `GLAZOV.M.CONVERTER.Office` | **документы в PDF**: DOCX, DOC, ODT, RTF, XLSX, XLS, ODS, PPTX, PPT, ODP, HTML, текст и Markdown; макросы выключены, внешние ссылки не загружаются | программа LibreOffice |
 | `GLAZOV.M.CONVERTER.Svg` | **SVG** в PNG, JPEG, WebP; внешние ссылки внутри SVG не загружаются | — (SkiaSharp) |
 | `GLAZOV.M.CONVERTER.Pdf` | **картинки в PDF**: PNG, JPEG, WebP, BMP, GIF одной страницей размером с картинку | — (SkiaSharp) |
 
-Все пять вместе дают 151 пару и 33 формата. **Свои форматы** приносит свой пакет (пример в руководстве).
+Все пять вместе дают 185 пар и 35 форматов. **Свои форматы** приносит свой пакет (пример в руководстве).
 
 ## Быстрый старт
 

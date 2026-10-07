@@ -60,4 +60,15 @@ public sealed class ConversionException : Exception
     {
         return Failures.ToolFailed(tool, exitCode, output);
     }
+
+    /// <summary>
+    /// Creates the error for a call that asks for what the result format cannot hold: stage <see cref="ConversionStage.Conversion"/>,
+    /// reason <see cref="ConversionFailureReason.InvalidParameters"/>, the given message.
+    /// </summary>
+    /// <param name="message">What is wrong and what to change, in plain words.</param>
+    public static ConversionException InvalidParameters(string message)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(message);
+        return Failures.InvalidParameters(message);
+    }
 }
