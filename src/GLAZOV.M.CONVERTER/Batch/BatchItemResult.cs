@@ -14,8 +14,12 @@ public sealed class BatchItemResult
         ConversionStage? stage,
         ConversionFailureReason? reason,
         string? message,
-        string? outputPath)
+        string? outputPath,
+        IReadOnlyList<string>? outputPaths = null,
+        IReadOnlyList<string>? notes = null)
     {
+        OutputPaths = outputPaths ?? (outputPath is null ? [] : [outputPath]);
+        Notes = notes ?? [];
         SourceName = sourceName;
         Succeeded = succeeded;
         Canceled = canceled;
@@ -30,9 +34,11 @@ public sealed class BatchItemResult
     /// </summary>
     /// <param name="sourceName">Имя входа.</param>
     /// <param name="outputPath">Куда записан результат; пусто, если не в файл.</param>
-    internal static BatchItemResult Success(string sourceName, string? outputPath)
+    /// <param name="outputPaths">Every file written for this input.</param>
+    /// <param name="notes">Lines the engine added about this input.</param>
+    internal static BatchItemResult Success(string sourceName, string? outputPath, IReadOnlyList<string>? outputPaths = null, IReadOnlyList<string>? notes = null)
     {
-        return new BatchItemResult(sourceName, true, false, null, null, null, outputPath);
+        return new BatchItemResult(sourceName, true, false, null, null, null, outputPath, outputPaths, notes);
     }
 
     /// <summary>
@@ -86,7 +92,17 @@ public sealed class BatchItemResult
     public string? Message { get; }
 
     /// <summary>
-    /// Куда записан результат, если он записан в файл.
+    /// Куда записан результат, если он записан в файл; при нескольких файлах — первый из <see cref="OutputPaths"/>.
     /// </summary>
     public string? OutputPath { get; }
+
+    /// <summary>
+    /// Every file written for this input; empty when it failed or was canceled.
+    /// </summary>
+    public IReadOnlyList<string> OutputPaths { get; }
+
+    /// <summary>
+    /// Lines the engine added about this input; empty when it failed or was canceled.
+    /// </summary>
+    public IReadOnlyList<string> Notes { get; }
 }

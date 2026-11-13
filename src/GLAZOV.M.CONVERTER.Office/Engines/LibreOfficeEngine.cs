@@ -13,7 +13,7 @@ namespace GLAZOV.M.CONVERTER.Office.Engines;
 /// Text is the one format with two names: a file named <c>.md</c> or <c>.markdown</c> goes as <c>.md</c> so that it is laid out as Markdown,
 /// anything else as <c>.txt</c>; the name only hints the layout, it does not prove the type.
 /// </summary>
-internal sealed class LibreOfficeEngine : IConversionEngine
+internal sealed class LibreOfficeEngine(OfficeSettings settings) : IConversionEngine
 {
     private static readonly FileFormat[] Inputs =
     [
@@ -44,7 +44,7 @@ internal sealed class LibreOfficeEngine : IConversionEngine
             string output = Path.Combine(work, "out");
             string profile = Path.Combine(work, "profile");
             Directory.CreateDirectory(output);
-            LibreOfficeProfile.Write(profile);
+            LibreOfficeProfile.Write(profile, settings.AllowExternalResources);
 
             string input = await PlaceInputAsync(request, work, cancellationToken).ConfigureAwait(false);
             request.ReportProgress(0);
@@ -65,7 +65,7 @@ internal sealed class LibreOfficeEngine : IConversionEngine
         }
         finally
         {
-            await RemoveAsync(work).ConfigureAwait(false);
+            await WorkFolder.RemoveAsync(work).ConfigureAwait(false);
         }
     }
 
@@ -105,21 +105,5 @@ internal sealed class LibreOfficeEngine : IConversionEngine
         }
 
         return "." + request.From.Extension;
-    }
-
-    // The program may still hold the profile for a moment after it was killed, so removal is retried a few times.
-    private static async Task RemoveAsync(string folder)
-    {
-        for (int attempt = 0; attempt < 10 && Directory.Exists(folder); attempt++)
-        {
-            try
-            {
-                Directory.Delete(folder, recursive: true);
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
-                await Task.Delay(100).ConfigureAwait(false);
-            }
-        }
     }
 }

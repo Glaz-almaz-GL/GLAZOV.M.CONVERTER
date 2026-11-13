@@ -21,9 +21,9 @@ internal sealed class DetectorChain
     /// </summary>
     internal const long DefaultInspectBudget = 16L * 1024 * 1024;
 
-    private readonly IReadOnlyList<IFormatDetector> _labels;
-    private readonly IReadOnlyList<IStreamFormatDetector> _inspectors;
-    private readonly IReadOnlyList<IFormatDetector> _contents;
+    private readonly IFormatDetector[] _labels;
+    private readonly IStreamFormatDetector[] _inspectors;
+    private readonly IFormatDetector[] _contents;
     private readonly long _inspectBudget;
 
     internal DetectorChain(
@@ -32,6 +32,9 @@ internal sealed class DetectorChain
         long inspectBudget = DefaultInspectBudget)
     {
         ArgumentNullException.ThrowIfNull(detectors);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(window);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(inspectBudget);
+
         HashSet<IFormatDetector> seen = new(ReferenceEqualityComparer.Instance);
         List<IFormatDetector> all = [.. detectors.Where(seen.Add)];
 
@@ -67,7 +70,7 @@ internal sealed class DetectorChain
         FileFormat? found = MatchLabels(head.Span);
         if (found is null && handle.CanProbe && _inspectors.Any(d => d.CanInspect(head.Span)))
         {
-            found = await Task.Run(() => Inspect(head.Span.ToArray(), handle), cancellationToken).ConfigureAwait(false);
+            found = await Task.Run(() => Inspect(head.Span, handle), cancellationToken).ConfigureAwait(false);
         }
 
         return found ?? MatchContent(head.Span) ?? FileFormat.Unknown;
@@ -102,11 +105,11 @@ internal sealed class DetectorChain
     }
 
     // Each inspector reads on its own view of the input, at most the budget in all; what it cannot read it does not claim.
-    private FileFormat? Inspect(byte[] head, InputHandle handle)
+    private FileFormat? Inspect(ReadOnlySpan<byte> headSpan, InputHandle handle)
     {
         foreach (IStreamFormatDetector detector in _inspectors)
         {
-            if (!detector.CanInspect(head))
+            if (!detector.CanInspect(headSpan))
             {
                 continue;
             }

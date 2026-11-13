@@ -29,23 +29,25 @@ public sealed class CatalogTests
             IReadOnlyList<FileFormat> formats = AllPackages.Converter(order).Capabilities.Formats;
 
             Assert.True(formats.Count == formats.Distinct().Count(), $"order {order}: a format is listed twice");
-            Assert.True(formats.Count == 45, $"order {order}: {formats.Count} formats");
+            Assert.True(formats.Count == 47, $"order {order}: {formats.Count} formats");
         }
     }
 
     [Fact]
     public void Catalog_IsTheSumOfThePairsOfThePackages_InEveryOrder()
     {
-        // Ffmpeg 165 + Office 12 + Svg 3 + Pdf 5 + Archives 16 + ArchivesExtra 44; the Formats package brings no pair.
+        // Ffmpeg 165 + Office 12 + tables 32 + Svg 3 + Pdf 5 + Archives 16 + ArchivesExtra 44; the Formats package brings no pair.
         foreach (string order in Orders)
         {
             ConverterCapabilities caps = AllPackages.Converter(order).Capabilities;
             IReadOnlyList<Conversion> all = caps.All;
 
-            Assert.True(all.Count == 245, $"order {order}: {all.Count} pairs");
+            Assert.True(all.Count == 277, $"order {order}: {all.Count} pairs");
             Assert.Equal(all.Count, all.Select(c => (c.From, c.To)).Distinct().Count());
             Assert.True(caps.CanConvert(FileFormat.Png, FileFormat.Pdf), $"order {order}: PNG → PDF");
             Assert.True(caps.CanConvert(FileFormat.Docx, FileFormat.Pdf), $"order {order}: DOCX → PDF");
+            Assert.True(caps.CanConvert(FileFormat.Xlsx, FileFormat.Csv), $"order {order}: XLSX → CSV");
+            Assert.True(caps.CanConvert(FileFormat.Text, FileFormat.Xlsx), $"order {order}: Text → XLSX");
             Assert.True(caps.CanConvert(FileFormat.Svg, FileFormat.Webp), $"order {order}: SVG → WebP");
             Assert.True(caps.CanConvert(FileFormat.Mp4, FileFormat.Mp3), $"order {order}: MP4 → MP3");
         }

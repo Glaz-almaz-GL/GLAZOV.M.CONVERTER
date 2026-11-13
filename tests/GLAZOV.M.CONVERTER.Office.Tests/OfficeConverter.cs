@@ -10,12 +10,12 @@ namespace GLAZOV.M.CONVERTER.Office.Tests;
 internal static class OfficeConverter
 {
     /// <summary>
-    /// A converter with <see cref="OfficeExtension"/>; <paramref name="settings"/> are used when given.
+    /// A converter with <see cref="OfficeExtension"/>; <paramref name="settings"/> and <paramref name="office"/> are used when given.
     /// </summary>
-    internal static Converter Create(ConverterSettings? settings = null)
+    internal static Converter Create(ConverterSettings? settings = null, OfficeSettings? office = null)
     {
         settings ??= new ConverterSettings();
-        settings.Extensions.Add(new OfficeExtension());
+        settings.Extensions.Add(office is null ? new OfficeExtension() : new OfficeExtension(office));
         return new Converter(settings);
     }
 

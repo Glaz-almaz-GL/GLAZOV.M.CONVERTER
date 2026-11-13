@@ -13,5 +13,5 @@ public enum ConversionAvailability
     /// <summary>
     /// Нужна внешняя программа, которой нет.
     /// </summary>
-    ToolMissing,
+    ToolMissing
 }

@@ -21,6 +21,7 @@ public sealed class FormatsExtension : IConverterExtension
         DocumentFormats.Pdf, DocumentFormats.Docx, DocumentFormats.Doc, DocumentFormats.Odt, DocumentFormats.Rtf,
         DocumentFormats.Xlsx, DocumentFormats.Xls, DocumentFormats.Ods, DocumentFormats.Pptx, DocumentFormats.Ppt, DocumentFormats.Odp,
         DocumentFormats.Html, DocumentFormats.Text,
+        TableFormats.Csv, TableFormats.Tsv,
         ArchiveFormats.Zip, ArchiveFormats.Tar, ArchiveFormats.TarGz, ArchiveFormats.Gzip,
     ];
 
@@ -28,11 +29,11 @@ public sealed class FormatsExtension : IConverterExtension
     /// <remarks>
     /// Images, video and documents go first: they have strong signs and exclude each other. Audio goes after them
     /// because its last sign, MP3 without a tag, is the weakest. SVG is found by markup; archives go after documents, whose packages
-    /// are ZIP files too (the archive detector leaves them alone); text goes last.
+    /// are ZIP files too (the archive detector leaves them alone); tables go just before text, which would name them plain text.
     /// </remarks>
     public IReadOnlyList<IFormatDetector> Detectors { get; } =
     [
-        StandardDetectors.Image, StandardDetectors.Video, StandardDetectors.Documents, StandardDetectors.Archives, StandardDetectors.Audio, StandardDetectors.Svg, StandardDetectors.Text,
+        StandardDetectors.Image, StandardDetectors.Video, StandardDetectors.Documents, StandardDetectors.Archives, StandardDetectors.Audio, StandardDetectors.Svg, StandardDetectors.Tables, StandardDetectors.Text,
     ];
 
     /// <inheritdoc />

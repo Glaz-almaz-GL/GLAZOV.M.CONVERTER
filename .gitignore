@@ -31,3 +31,5 @@ crashlytics-build.properties
 # Результаты живого прогона для прослушивания
 run-output/
 /references/FileConverter-integration
+/docs/Задачи
+/docs/VisualReferences/Эталон использования.md

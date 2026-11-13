@@ -6,18 +6,14 @@ namespace GLAZOV.M.CONVERTER.Converting;
 /// </summary>
 public sealed class AudioOptions
 {
-    private int? _bitrate;
-    private int? _sampleRate;
-    private int? _channels;
-
     /// <summary>
     /// Битрейт результата, бит/с (например, 192000). Для WAV без сжатия не действует.
     /// Не задан — умолчание движка для формата.
     /// </summary>
     public int? Bitrate
     {
-        get => _bitrate;
-        set => _bitrate = Positive(value, nameof(Bitrate));
+        get;
+        set => field = CheckPositive(value, nameof(Bitrate));
     }
 
     /// <summary>
@@ -26,8 +22,8 @@ public sealed class AudioOptions
     /// </summary>
     public int? SampleRate
     {
-        get => _sampleRate;
-        set => _sampleRate = Positive(value, nameof(SampleRate));
+        get;
+        set => field = CheckPositive(value, nameof(SampleRate));
     }
 
     /// <summary>
@@ -36,17 +32,14 @@ public sealed class AudioOptions
     /// </summary>
     public int? Channels
     {
-        get => _channels;
-        set => _channels = Positive(value, nameof(Channels));
+        get;
+        set => field = CheckPositive(value, nameof(Channels));
     }
 
-    private static int? Positive(int? value, string name)
+    private static int? CheckPositive(int? value, string name)
     {
-        if (value is <= 0)
-        {
-            throw new ArgumentOutOfRangeException(name, value, $"Параметр {name} должен быть больше нуля или не задан.");
-        }
-
-        return value;
+        return value is <= 0
+            ? throw new ArgumentOutOfRangeException(name, value, $"Параметр {name} должен быть больше нуля или не задан.")
+            : value;
     }
 }

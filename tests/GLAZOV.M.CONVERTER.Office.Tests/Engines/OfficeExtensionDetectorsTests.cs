@@ -8,8 +8,8 @@ namespace GLAZOV.M.CONVERTER.Office.Tests.Engines;
 public sealed class OfficeExtensionDetectorsTests
 {
     [Fact]
-    public void Extension_NamesTheDocumentDetector_AndTextLast()
+    public void Extension_NamesTheDocumentAndTableDetectors_AndTextLast()
     {
-        Assert.Equal([StandardDetectors.Documents, StandardDetectors.Text], new OfficeExtension().Detectors);
+        Assert.Equal([StandardDetectors.Documents, StandardDetectors.Tables, StandardDetectors.Text], new OfficeExtension().Detectors);
     }
 }

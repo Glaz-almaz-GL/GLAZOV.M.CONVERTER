@@ -111,7 +111,7 @@ internal sealed class BatchConversion
     {
         return result.Outcome switch
         {
-            WorkOutcome.Completed => BatchItemResult.Success(result.Name, result.Value!.OutputPath),
+            WorkOutcome.Completed => BatchItemResult.Success(result.Name, result.Value!.OutputPath, result.Value.OutputPaths, result.Value.Notes),
             WorkOutcome.Canceled => BatchItemResult.Cancelled(result.Name),
             _ when result.Error is ConversionException failure => BatchItemResult.Failure(result.Name, failure),
             _ => throw RethrowUnexpected(result.Error!),

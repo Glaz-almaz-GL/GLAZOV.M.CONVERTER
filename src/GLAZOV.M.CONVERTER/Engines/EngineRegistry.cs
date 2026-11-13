@@ -8,18 +8,16 @@ namespace GLAZOV.M.CONVERTER.Engines;
 /// </summary>
 internal sealed class EngineRegistry
 {
-    private readonly IReadOnlyList<IConversionEngine> _engines;
-
     internal EngineRegistry(IEnumerable<IConversionEngine> engines)
     {
         ArgumentNullException.ThrowIfNull(engines);
-        _engines = [.. engines];
+        Engines = [.. engines];
     }
 
     /// <summary>
     /// Все движки, по порядку подбора.
     /// </summary>
-    internal IReadOnlyList<IConversionEngine> Engines => _engines;
+    internal IReadOnlyList<IConversionEngine> Engines { get; }
 
     /// <summary>
     /// Реестр по умолчанию: встроенные движки; у ядра их нет, движки приносят расширения.
@@ -37,7 +35,7 @@ internal sealed class EngineRegistry
     internal IConversionEngine? Find(FileFormat from, FileFormat to)
     {
         ConversionPair pair = new(from, to);
-        return _engines.FirstOrDefault(engine => engine.Pairs.Contains(pair));
+        return Engines.FirstOrDefault(engine => engine.Pairs.Contains(pair));
     }
 
     /// <summary>
@@ -48,15 +46,10 @@ internal sealed class EngineRegistry
     {
         List<(FileFormat From, FileFormat To, IReadOnlyList<ToolSpec> Tools)> pairs = [];
         HashSet<ConversionPair> seen = [];
-        foreach (IConversionEngine engine in _engines)
+
+        foreach (IConversionEngine engine in Engines)
         {
-            foreach (ConversionPair pair in engine.Pairs)
-            {
-                if (seen.Add(pair))
-                {
-                    pairs.Add((pair.From, pair.To, engine.Tools));
-                }
-            }
+            pairs.AddRange(engine.Pairs.Where(seen.Add).Select(pair => (pair.From, pair.To, engine.Tools)));
         }
 
         return pairs;

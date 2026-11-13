@@ -35,9 +35,15 @@ public sealed partial class LibreOfficeSecurityTests : IDisposable
     [GeneratedRegex(@"ConvertToURL\(&quot;MARKER_PATH&quot;\)")]
     private static partial Regex MarkerCall();
 
-    private Converter Converter()
+    private Converter Converter(OfficeSettings? office = null)
     {
-        return OfficeConverter.Create(new ConverterSettings { TempFolder = Path.Combine(_temp, "work") });
+        return OfficeConverter.Create(new ConverterSettings { TempFolder = Path.Combine(_temp, "work") }, office);
+    }
+
+    private static string[] Pairs(string profile)
+    {
+        XDocument settings = XDocument.Parse(profile);
+        return [.. settings.Descendants("item").Select(item => $"{item.Elements("prop").Single().Attribute(XName.Get("name", "http://openoffice.org/2001/registry"))!.Value}={item.Descendants("value").Single().Value}")];
     }
 
     /// <summary>
@@ -109,15 +115,43 @@ public sealed partial class LibreOfficeSecurityTests : IDisposable
     [Fact]
     public void Profile_TurnsMacrosOff_AndBlocksOutsideLinks()
     {
-        XDocument settings = XDocument.Parse(LibreOfficeProfile.Settings);
-
-        string[] pairs = [.. settings.Descendants("item").Select(item => $"{item.Elements("prop").Single().Attribute(XName.Get("name", "http://openoffice.org/2001/registry"))!.Value}={item.Descendants("value").Single().Value}")];
+        string[] pairs = Pairs(LibreOfficeProfile.Settings);
         Assert.Contains("MacroSecurityLevel=3", pairs);
         Assert.Contains("DisableMacrosExecution=true", pairs);
         Assert.Contains("BlockUntrustedRefererLinks=true", pairs);
         Assert.Contains("ooInetProxyType=2", pairs);
         Assert.Contains("ooInetHTTPProxyPort=9", pairs);
         Assert.Contains("ooInetNoProxy=", pairs);
+    }
+
+    [Fact]
+    public void ProfileWithExternalResources_KeepsMacrosOff_AndRestrictsNothingElse()
+    {
+        string[] pairs = Pairs(LibreOfficeProfile.SettingsWithExternalResources);
+
+        Assert.Contains("MacroSecurityLevel=3", pairs);
+        Assert.Contains("DisableMacrosExecution=true", pairs);
+        Assert.Equal(2, pairs.Length);
+    }
+
+    [Fact]
+    public void Profile_IsChosenBySetting_AndStrictByDefault()
+    {
+        string strict = Path.Combine(_temp, "strict");
+        string open = Path.Combine(_temp, "open");
+
+        LibreOfficeProfile.Write(strict);
+        LibreOfficeProfile.Write(open, allowExternalResources: true);
+
+        Assert.Equal(LibreOfficeProfile.Settings, File.ReadAllText(Path.Combine(strict, "user", "registrymodifications.xcu")));
+        Assert.Equal(LibreOfficeProfile.SettingsWithExternalResources, File.ReadAllText(Path.Combine(open, "user", "registrymodifications.xcu")));
+        Assert.False(new OfficeSettings().AllowExternalResources);
+    }
+
+    [Fact]
+    public void Extension_RejectsNullSettings()
+    {
+        Assert.Throws<ArgumentNullException>(() => new OfficeExtension(null!));
     }
 
     [Fact]
@@ -180,6 +214,37 @@ public sealed partial class LibreOfficeSecurityTests : IDisposable
     }
 
     [OfficeFact]
+    public async Task HtmlWithAnOutsidePicture_ReachesTheNetwork_WhenExternalResourcesAreAllowed()
+    {
+        using CountingServer server = new();
+        string html = Path.Combine(_temp, "внешний-разрешён.html");
+        await File.WriteAllTextAsync(html, $"""<html><head><meta charset="utf-8"></head><body><p>Внешняя картинка</p><img src="{server.Url("picture.png")}"></body></html>""", new UTF8Encoding(false));
+
+        ConversionResult result = await Converter(new OfficeSettings { AllowExternalResources = true }).ConvertAsync(Source.File(html), Target.Memory(FileFormat.Pdf));
+
+        Assert.True(result.Succeeded);
+        Assert.True(server.Connections > 0, "The picture was not requested although outside resources are allowed.");
+    }
+
+    [OfficeFact]
+    public async Task DocxWithALinkedPicture_ReachesTheNetwork_WhenExternalResourcesAreAllowed()
+    {
+        using CountingServer server = new();
+        string docx = DocxWithLinkedPicture(server.Url("picture.png"));
+        try
+        {
+            ConversionResult result = await Converter(new OfficeSettings { AllowExternalResources = true }).ConvertAsync(Source.File(docx), Target.Memory(FileFormat.Pdf));
+
+            Assert.True(result.Succeeded);
+            Assert.True(server.Connections > 0, "The linked picture was not requested although outside resources are allowed.");
+        }
+        finally
+        {
+            File.Delete(docx);
+        }
+    }
+
+    [OfficeFact]
     public async Task HtmlWithAnEmbeddedPicture_StillShowsIt()
     {
         string html = Path.Combine(_temp, "встроенный.html");
@@ -194,8 +259,10 @@ public sealed partial class LibreOfficeSecurityTests : IDisposable
         Assert.NotEmpty(pdf.GetPage(1).GetImages());
     }
 
-    [OfficeFact]
-    public async Task DocumentWithAMacroOnLoad_DoesNotRunIt()
+    [OfficeTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task DocumentWithAMacroOnLoad_DoesNotRunIt(bool allowExternalResources)
     {
         string marker = Path.Combine(_temp, "macro-ran.txt");
         string document = Path.Combine(_temp, "макрос.odt");
@@ -215,7 +282,7 @@ public sealed partial class LibreOfficeSecurityTests : IDisposable
             await writer.WriteAsync(MarkerCall().Replace(text, $"ConvertToURL(&quot;{marker.Replace('\\', '/')}&quot;)"));
         }
 
-        ConversionResult result = await Converter().ConvertAsync(Source.File(document), Target.Memory(FileFormat.Pdf));
+        ConversionResult result = await Converter(new OfficeSettings { AllowExternalResources = allowExternalResources }).ConvertAsync(Source.File(document), Target.Memory(FileFormat.Pdf));
 
         Assert.True(result.Succeeded);
         Assert.False(File.Exists(marker), "The macro of the document ran.");

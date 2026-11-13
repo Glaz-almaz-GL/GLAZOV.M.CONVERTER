@@ -12,7 +12,7 @@ public sealed class Target
         ArgumentNullException.ThrowIfNull(format);
         if (format.Equals(FileFormat.Unknown))
         {
-            throw new ArgumentException("Формат «Unknown» означает «тип не распознан» и не может быть целью конвертации.", nameof(format));
+            throw new ArgumentException("Формат \"Unknown\" означает \"тип не распознан\" и не может быть целью конвертации.", nameof(format));
         }
 
         Kind = kind;
@@ -21,13 +21,13 @@ public sealed class Target
         FileFormat = format;
     }
 
-    internal TargetKind Kind { get; }
+    internal TargetKind Kind { get; init; }
 
-    internal string? Path { get; }
+    internal string? Path { get; init; }
 
-    internal Stream? OutputStream { get; }
+    internal Stream? OutputStream { get; init; }
 
-    internal FileFormat FileFormat { get; }
+    internal FileFormat FileFormat { get; init; }
 
     /// <summary>
     /// Файл на диске.

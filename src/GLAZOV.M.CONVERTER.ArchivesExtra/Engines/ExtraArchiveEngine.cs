@@ -1,5 +1,3 @@
-using System.IO.Compression;
-using System.Text;
 using GLAZOV.M.CONVERTER.ArchivesExtra.Model;
 using GLAZOV.M.CONVERTER.ArchivesExtra.Reading;
 using GLAZOV.M.CONVERTER.ArchivesExtra.Safety;
@@ -8,10 +6,12 @@ using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Extensions;
 using GLAZOV.M.CONVERTER.Formats;
 using GLAZOV.M.CONVERTER.IO;
-using NetMode = System.IO.Compression.CompressionMode;
-using SharpMode = SharpCompress.Compressors.CompressionMode;
 using SharpCompress.Compressors.BZip2;
 using SharpCompress.Compressors.Xz;
+using System.IO.Compression;
+using System.Text;
+using NetMode = System.IO.Compression.CompressionMode;
+using SharpMode = SharpCompress.Compressors.CompressionMode;
 
 namespace GLAZOV.M.CONVERTER.ArchivesExtra.Engines;
 
@@ -34,6 +34,7 @@ internal sealed class ExtraArchiveEngine : IConversionEngine
     private readonly ArchivesExtraSettings _settings;
     private readonly ArchivesLimits _limits;
     private readonly Encoding _zipNames;
+    private static readonly string[] _singleArchiveExtensions = [".gz", ".bz2", ".xz"];
 
     /// <summary>
     /// Creates the engine.
@@ -62,7 +63,18 @@ internal sealed class ExtraArchiveEngine : IConversionEngine
         bool needsFile = request.From.Equals(FileFormat.Zip) || request.From.Equals(ArchivesExtraFormats.SevenZip) || request.From.Equals(ArchivesExtraFormats.Rar);
         await using InputFile? file = needsFile ? await request.EnsureInputFileAsync(cancellationToken).ConfigureAwait(false) : null;
         CountingStream? counted = file is null ? new CountingStream(request.Input) : null;
-        long? inputBytes = file is not null ? new FileInfo(file.Path).Length : request.Input.CanSeek ? request.Input.Length : null;
+
+        long? inputBytes;
+        if (request.Input.CanSeek)
+        {
+            // The input stream is seekable, so its length is known. The file is not null only if the input is a ZIP, 7z or RAR file, and then the length of the file is used.
+            inputBytes = file is not null ? new FileInfo(file.Path).Length : request.Input.Length;
+        }
+        else
+        {
+            inputBytes = file is not null ? new FileInfo(file.Path).Length : null;
+        }
+
         ArchiveGuard guard = new(_limits, inputBytes, () => counted?.Count ?? 0);
 
         await using IArchiveReader reader = OpenReader(request, file?.Path, counted);
@@ -132,17 +144,30 @@ internal sealed class ExtraArchiveEngine : IConversionEngine
     {
         try
         {
-            if (from.Equals(FileFormat.Gzip) || from.Equals(FileFormat.TarGz))
-            {
-                return new GZipStream(packed, NetMode.Decompress);
-            }
-
             if (from.Equals(ArchivesExtraFormats.Xz) || from.Equals(ArchivesExtraFormats.TarXz))
             {
-                return new ForwardReadStream(new XZStream(packed));
+                if (from.Equals(FileFormat.Gzip) || from.Equals(FileFormat.TarGz))
+                {
+                    // The GZipStream of System.IO.Compression supports leaving the output open, so it is used directly.
+                    return new GZipStream(packed, NetMode.Decompress);
+                }
+                else
+                {
+                    return new ForwardReadStream(new XZStream(packed));
+                }
             }
-
-            return new ForwardReadStream(new BZip2Stream(packed, SharpMode.Decompress, false));
+            else
+            {
+                if (from.Equals(FileFormat.Gzip) || from.Equals(FileFormat.TarGz))
+                {
+                    // The GZipStream of System.IO.Compression supports leaving the output open, so it is used directly.
+                    return new GZipStream(packed, NetMode.Decompress);
+                }
+                else
+                {
+                    return new ForwardReadStream(new BZip2Stream(packed, SharpMode.Decompress, false));
+                }
+            }
         }
         catch (Exception ex) when (ex is not (OperationCanceledException or OutOfMemoryException))
         {
@@ -180,27 +205,31 @@ internal sealed class ExtraArchiveEngine : IConversionEngine
             return new TarGzArchiveWriter(request.Output, _settings.CompressionLevel, request.TempFolder);
         }
 
-        if (to.Equals(ArchivesExtraFormats.TarBz2))
+        if (to.Equals(ArchivesExtraFormats.Bzip2))
         {
-            return new TarBz2ArchiveWriter(request.Output, request.TempFolder);
+            // The BZip2Stream of SharpCompress does not support leaving the output open, so the output is wrapped in a stream that does.
+            return to.Equals(ArchivesExtraFormats.TarBz2)
+                ? new TarBz2ArchiveWriter(request.Output, request.TempFolder)
+                : new SingleFileArchiveWriter(new BZip2Stream(new KeepOpenStream(request.Output), SharpMode.Compress, false), "BZip2");
         }
-
-        return to.Equals(ArchivesExtraFormats.Bzip2)
-            ? new SingleFileArchiveWriter(new BZip2Stream(new KeepOpenStream(request.Output), SharpMode.Compress, false), "BZip2")
-            : new SingleFileArchiveWriter(new GZipStream(request.Output, _settings.CompressionLevel, leaveOpen: true), "GZip");
+        else
+        {
+            // The GZipStream of System.IO.Compression supports leaving the output open, so it is used directly.
+            return to.Equals(ArchivesExtraFormats.TarBz2)
+                ? new TarBz2ArchiveWriter(request.Output, request.TempFolder)
+                : new SingleFileArchiveWriter(new GZipStream(request.Output, _settings.CompressionLevel, leaveOpen: true), "GZip");
+        }
     }
 
     // The one file of a compressed input is named like the input without ".gz", ".bz2" or ".xz"; a stream has no name, so the file is called "data".
     private static string SingleName(string? inputPath)
     {
         string name = inputPath is null ? string.Empty : Path.GetFileName(inputPath);
-        foreach (string extension in new[] { ".gz", ".bz2", ".xz" })
+        string? matchedExt = _singleArchiveExtensions.FirstOrDefault(ext => name.EndsWith(ext, StringComparison.OrdinalIgnoreCase));
+
+        if (matchedExt is not null)
         {
-            if (name.EndsWith(extension, StringComparison.OrdinalIgnoreCase))
-            {
-                name = name[..^extension.Length];
-                break;
-            }
+            name = name[..^matchedExt.Length];
         }
 
         return name.Length == 0 ? "data" : name;

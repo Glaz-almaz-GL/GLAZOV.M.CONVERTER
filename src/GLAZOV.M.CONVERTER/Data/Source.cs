@@ -3,7 +3,7 @@ namespace GLAZOV.M.CONVERTER.Data;
 /// <summary>
 /// Откуда берутся данные: файл, поток или папка с файлами.
 /// </summary>
-public sealed class Source
+public sealed record Source
 {
     private Source(SourceKind kind, string? path, Stream? stream, string pattern, bool recursive)
     {
@@ -14,15 +14,15 @@ public sealed class Source
         Recursive = recursive;
     }
 
-    internal SourceKind Kind { get; }
+    internal SourceKind Kind { get; init; }
 
-    internal string? Path { get; }
+    internal string? Path { get; init; }
 
-    internal Stream? InputStream { get; }
+    internal Stream? InputStream { get; init; }
 
-    internal string Pattern { get; }
+    internal string Pattern { get; init; }
 
-    internal bool Recursive { get; }
+    internal bool Recursive { get; init; }
 
     /// <summary>
     /// Один файл на диске.

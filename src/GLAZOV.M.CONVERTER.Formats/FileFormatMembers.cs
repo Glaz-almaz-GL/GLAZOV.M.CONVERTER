@@ -105,4 +105,12 @@ public static class FileFormatMembers
         /// <summary>Same as <see cref="DocumentFormats.Text"/>.</summary>
         public static FileFormat Text => DocumentFormats.Text;
     }
+
+    extension(FileFormat)
+    {
+        /// <summary>Same as <see cref="TableFormats.Csv"/>.</summary>
+        public static FileFormat Csv => TableFormats.Csv;
+        /// <summary>Same as <see cref="TableFormats.Tsv"/>.</summary>
+        public static FileFormat Tsv => TableFormats.Tsv;
+    }
 }

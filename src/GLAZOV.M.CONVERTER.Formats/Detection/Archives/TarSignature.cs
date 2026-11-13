@@ -22,12 +22,7 @@ internal static class TarSignature
     /// <param name="head">Leading bytes of the input (the detection window).</param>
     internal static bool Matches(ReadOnlySpan<byte> head)
     {
-        if (head.Length < BlockLength || ReadOctal(head.Slice(ChecksumOffset, ChecksumLength)) is not { } written || written != Sum(head[..BlockLength]))
-        {
-            return false;
-        }
-
-        return head.Slice(MagicOffset, 5).SequenceEqual("ustar"u8) || LooksLikeOldHeader(head);
+        return head.Length >= BlockLength && ReadOctal(head.Slice(ChecksumOffset, ChecksumLength)) is { } written && written == Sum(head[..BlockLength]) && (head.Slice(MagicOffset, 5).SequenceEqual("ustar"u8) || LooksLikeOldHeader(head));
     }
 
     // The old format has no magic: a name, an octal mode (bytes 100-107) and size (124-135), a type flag that is 0 or "0"-"7".
@@ -46,7 +41,14 @@ internal static class TarSignature
         long sum = 0;
         for (int i = 0; i < block.Length; i++)
         {
-            sum += i is >= ChecksumOffset and < ChecksumOffset + ChecksumLength ? (byte)' ' : block[i];
+            if (i is >= ChecksumOffset and < (ChecksumOffset + ChecksumLength))
+            {
+                sum += (byte)' ';
+            }
+            else
+            {
+                sum += block[i];
+            }
         }
 
         return sum;

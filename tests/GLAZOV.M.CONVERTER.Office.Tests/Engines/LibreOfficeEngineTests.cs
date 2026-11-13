@@ -59,7 +59,7 @@ public sealed partial class LibreOfficeEngineTests : IDisposable
     [Fact]
     public void Engine_DeclaresTwelvePairs_NeedsTheProgram_NoOperations()
     {
-        LibreOfficeEngine engine = new();
+        LibreOfficeEngine engine = new(new OfficeSettings());
 
         Assert.Equal("soffice", Assert.Single(engine.Tools).Name);
         Assert.False(engine.SupportsOperations);
@@ -75,7 +75,7 @@ public sealed partial class LibreOfficeEngineTests : IDisposable
     {
         ConverterCapabilities caps = OfficeConverter.Create().Capabilities;
 
-        Conversion[] documents = [.. caps.All.Where(c => c.To.Equals(FileFormat.Pdf))];
+        Conversion[] documents = [.. caps.All.Where(c => c.To.Equals(FileFormat.Pdf) && !c.From.Equals(FileFormat.Csv) && !c.From.Equals(FileFormat.Tsv))];
 
         Assert.Equal(12, documents.Length);
         Assert.True(caps.CanConvert(FileFormat.Docx, FileFormat.Pdf));

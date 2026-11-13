@@ -25,7 +25,7 @@ public sealed class InputFileTests : IDisposable
 
     private ConversionRequest Request(Stream input, string? inputPath = null)
     {
-        return new ConversionRequest(input, new MemoryStream(), TestFormats.Beta, TestFormats.Beta, new ConversionOptions(), null, _folder, inputPath);
+        return new ConversionRequest(input, new MemoryStream(), TestFormats.Beta, TestFormats.Beta, new ConversionOptions(), null, _folder) { InputPath = inputPath };
     }
 
     [Fact]

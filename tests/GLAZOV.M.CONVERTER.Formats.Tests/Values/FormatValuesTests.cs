@@ -49,9 +49,11 @@ public sealed class FormatValuesTests
         ("Odp", "ODP", "application/vnd.oasis.opendocument.presentation", "odp"),
         ("Html", "HTML", "text/html", "html"),
         ("Text", "Text", "text/plain", "txt"),
+        ("Csv", "CSV", "text/csv", "csv"),
+        ("Tsv", "TSV", "text/tab-separated-values", "tsv"),
     ];
 
-    private static readonly Type[] Classes = [typeof(AudioFormats), typeof(ImageFormats), typeof(VideoFormats), typeof(DocumentFormats), typeof(ArchiveFormats)];
+    private static readonly Type[] Classes = [typeof(AudioFormats), typeof(ImageFormats), typeof(VideoFormats), typeof(DocumentFormats), typeof(ArchiveFormats), typeof(TableFormats)];
 
     private static FileFormat Field(string field)
     {
@@ -90,6 +92,8 @@ public sealed class FormatValuesTests
         Assert.Same(VideoFormats.Mkv, FileFormat.Mkv);
         Assert.Same(DocumentFormats.Pdf, FileFormat.Pdf);
         Assert.Same(DocumentFormats.Text, FileFormat.Text);
+        Assert.Same(TableFormats.Csv, FileFormat.Csv);
+        Assert.Same(TableFormats.Tsv, FileFormat.Tsv);
     }
 
     [Fact]
@@ -108,7 +112,7 @@ public sealed class FormatValuesTests
         FormatsExtension extension = new();
 
         Assert.Equal(
-            [StandardDetectors.Image, StandardDetectors.Video, StandardDetectors.Documents, StandardDetectors.Archives, StandardDetectors.Audio, StandardDetectors.Svg, StandardDetectors.Text],
+            [StandardDetectors.Image, StandardDetectors.Video, StandardDetectors.Documents, StandardDetectors.Archives, StandardDetectors.Audio, StandardDetectors.Svg, StandardDetectors.Tables, StandardDetectors.Text],
             extension.Detectors);
     }
 

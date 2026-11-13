@@ -59,18 +59,64 @@ internal sealed class SingleConversion
         IConversionEngine engine = ChooseEngine(from, target.FileFormat, callOptions);
         (ToolStatus? tool, IReadOnlyDictionary<string, ToolStatus> tools) = LocateTools(engine);
 
+        if (target.Kind == TargetKind.Folder && WritesSeveralFiles(engine, from, target.FileFormat))
+        {
+            return await RunSeveralFilesAsync(engine, input, from, target, callOptions, (tool, tools), progress, watch, cancellationToken).ConfigureAwait(false);
+        }
+
         await using OutputSink sink = await OutputSink.OpenAsync(target, input.Name, _settings, cancellationToken: cancellationToken).ConfigureAwait(false);
 
         progress?.Report(new ConversionProgress(0));
         ProgressGate? gate = progress is null ? null : new ProgressGate(progress);
-        ConversionRequest request = new(
-            input.Stream, sink.Stream, from, target.FileFormat, callOptions, tool, _settings.TempFolder ?? Path.GetTempPath(), input.Path, gate is null ? null : gate.Report, tools);
+        ConversionRequest request = new(input.Stream, sink.Stream, from, target.FileFormat, callOptions, tool, _settings.TempFolder ?? Path.GetTempPath())
+        {
+            InputPath = input.Path,
+            OnProgress = gate is null ? null : gate.Report,
+            Tools = tools,
+        };
         await RunEngineAsync(engine, request, cancellationToken).ConfigureAwait(false);
         SinkResult written = await sink.CommitAsync(cancellationToken).ConfigureAwait(false);
         progress?.Report(new ConversionProgress(100));
 
         watch.Stop();
-        return new ConversionResult(true, from, target.FileFormat, watch.Elapsed, written.OutputPath, written.Bytes, written.Stream, request.Reencoded);
+        return new ConversionResult(true, from, target.FileFormat, watch.Elapsed, written.OutputPath, written.Bytes, written.Stream, request.Reencoded, notes: request.Notes);
+    }
+
+    // The engine writes the files into a staging folder; they reach the target folder together or not at all.
+    private async Task<ConversionResult> RunSeveralFilesAsync(
+        IConversionEngine engine,
+        InputHandle input,
+        FileFormat from,
+        Target target,
+        ConversionOptions callOptions,
+        (ToolStatus? Tool, IReadOnlyDictionary<string, ToolStatus> Tools) located,
+        IProgress<ConversionProgress>? progress,
+        Stopwatch watch,
+        CancellationToken cancellationToken)
+    {
+        using MultiFileOutput output = MultiFileOutput.Open(target.Path!, _settings);
+
+        progress?.Report(new ConversionProgress(0));
+        ProgressGate? gate = progress is null ? null : new ProgressGate(progress);
+        ConversionRequest request = new(input.Stream, Stream.Null, from, target.FileFormat, callOptions, located.Tool, _settings.TempFolder ?? Path.GetTempPath())
+        {
+            InputPath = input.Path,
+            OnProgress = gate is null ? null : gate.Report,
+            Tools = located.Tools,
+            OutputFolder = output.StagingFolder,
+        };
+        await RunEngineAsync(engine, request, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        IReadOnlyList<string> paths = output.Commit(engine.GetType().Name);
+        progress?.Report(new ConversionProgress(100));
+
+        watch.Stop();
+        return new ConversionResult(true, from, target.FileFormat, watch.Elapsed, paths[0], null, null, request.Reencoded, paths, request.Notes);
+    }
+
+    private static bool WritesSeveralFiles(IConversionEngine engine, FileFormat from, FileFormat to)
+    {
+        return engine.Pairs.Any(pair => pair.From.Equals(from) && pair.To.Equals(to) && pair.WritesSeveralFiles);
     }
 
     // Тип определяется по начальным байтам; имя файла — только подсказка для сообщения, доказательством не служит.

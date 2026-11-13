@@ -5,7 +5,7 @@ namespace GLAZOV.M.CONVERTER.Data;
 /// Тип расширяем: формат — значение, равное по имени, MIME-типу и расширению; значения стандартных форматов даёт пакет GLAZOV.M.CONVERTER.Formats,
 /// свой формат создаётся через <see cref="Create"/>.
 /// </summary>
-public sealed class FileFormat : IEquatable<FileFormat>
+public sealed record FileFormat : IEquatable<FileFormat>
 {
     private FileFormat(string name, string mimeType, string extension)
     {
@@ -47,8 +47,10 @@ public sealed class FileFormat : IEquatable<FileFormat>
         ArgumentException.ThrowIfNullOrWhiteSpace(extension);
 
         string normalized = extension.Trim().TrimStart('.').ToLowerInvariant();
+
         if (normalized.Length == 0 || normalized.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 || normalized.EndsWith('.') || normalized.Contains("..", StringComparison.Ordinal))
         {
+            // Гарантирует корректность расширения файла
             throw new ArgumentException(
                 $"Расширение «{extension}» не подходит: нужны буквы и цифры, части можно разделять одной точкой (например, tar.gz), без разделителей путей.",
                 nameof(extension));
@@ -64,12 +66,6 @@ public sealed class FileFormat : IEquatable<FileFormat>
             && string.Equals(Name, other.Name, StringComparison.OrdinalIgnoreCase)
             && string.Equals(MimeType, other.MimeType, StringComparison.OrdinalIgnoreCase)
             && Extension == other.Extension;
-    }
-
-    /// <inheritdoc />
-    public override bool Equals(object? obj)
-    {
-        return Equals(obj as FileFormat);
     }
 
     /// <inheritdoc />

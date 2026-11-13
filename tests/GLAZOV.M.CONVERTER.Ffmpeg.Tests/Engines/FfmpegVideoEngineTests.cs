@@ -79,8 +79,11 @@ public sealed class FfmpegVideoEngineTests : IClassFixture<VideoSourcesFixture>,
         await using FileStream input = File.OpenRead(sourcePath);
         using MemoryStream output = new();
         FileFormat from = Sniff.Match(await File.ReadAllBytesAsync(sourcePath));
-        ConversionRequest request = new(
-            input, output, from, to, options ?? new ConversionOptions(), tool ?? Ffmpeg(), _temp, withPath ? sourcePath : null, onProgress);
+        ConversionRequest request = new(input, output, from, to, options ?? new ConversionOptions(), tool ?? Ffmpeg(), _temp)
+        {
+            InputPath = withPath ? sourcePath : null,
+            OnProgress = onProgress,
+        };
 
         await _engine.ConvertAsync(request, cancellationToken);
 

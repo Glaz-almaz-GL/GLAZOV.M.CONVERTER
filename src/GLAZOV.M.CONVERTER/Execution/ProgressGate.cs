@@ -9,7 +9,7 @@ namespace GLAZOV.M.CONVERTER.Execution;
 internal sealed class ProgressGate
 {
     private readonly IProgress<ConversionProgress> _target;
-    private readonly object _lock = new();
+    private readonly Lock _lock = new();
     private int _last;
 
     internal ProgressGate(IProgress<ConversionProgress> target)

@@ -1,12 +1,11 @@
 using GLAZOV.M.CONVERTER.Data;
-using GLAZOV.M.CONVERTER.Detection;
 
 namespace GLAZOV.M.CONVERTER.Capabilities;
 
 /// <summary>
 /// Одна поддерживаемая конвертация: из какого типа в какой формат и можно ли её выполнить сейчас.
 /// </summary>
-public sealed class Conversion
+public sealed record Conversion
 {
     internal Conversion(FileFormat from, FileFormat to, ConversionAvailability availability)
     {
@@ -18,15 +17,15 @@ public sealed class Conversion
     /// <summary>
     /// Тип входа.
     /// </summary>
-    public FileFormat From { get; }
+    public FileFormat From { get; init; }
 
     /// <summary>
     /// Формат результата.
     /// </summary>
-    public FileFormat To { get; }
+    public FileFormat To { get; init; }
 
     /// <summary>
     /// Готова ли конвертация или нужна программа.
     /// </summary>
-    public ConversionAvailability Availability { get; }
+    public ConversionAvailability Availability { get; init; }
 }

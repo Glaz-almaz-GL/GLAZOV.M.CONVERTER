@@ -4,6 +4,7 @@ using GLAZOV.M.CONVERTER.Formats.Detection.Audio;
 using GLAZOV.M.CONVERTER.Formats.Detection.Documents;
 using GLAZOV.M.CONVERTER.Formats.Detection.Image;
 using GLAZOV.M.CONVERTER.Formats.Detection.Svg;
+using GLAZOV.M.CONVERTER.Formats.Detection.Tables;
 using GLAZOV.M.CONVERTER.Formats.Detection.Text;
 using GLAZOV.M.CONVERTER.Formats.Detection.Video;
 
@@ -44,6 +45,11 @@ public static class StandardDetectors
     /// SVG by its markup, including compressed SVGZ.
     /// </summary>
     public static IFormatDetector Svg { get; } = new SvgDetector();
+
+    /// <summary>
+    /// Delimited-text tables by content: TSV and CSV. They have no label of their own, so they have to be connected before the text detector.
+    /// </summary>
+    public static IFormatDetector Tables { get; } = new TableDetector();
 
     /// <summary>
     /// Plain text, by content: data that no other sign claimed and that reads as text. It has no label of its own,

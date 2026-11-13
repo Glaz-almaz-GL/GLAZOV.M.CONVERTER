@@ -16,8 +16,12 @@ public sealed class ConversionResult
         string? outputPath,
         byte[]? bytes,
         Stream? stream,
-        bool reencoded = true)
+        bool reencoded = true,
+        IReadOnlyList<string>? outputPaths = null,
+        IReadOnlyList<string>? notes = null)
     {
+        OutputPaths = outputPaths ?? (outputPath is null ? [] : [outputPath]);
+        Notes = notes ?? [];
         Succeeded = succeeded;
         SourceType = sourceType;
         TargetFormat = targetFormat;
@@ -52,6 +56,16 @@ public sealed class ConversionResult
     /// Путь к файлу результата, если результат записан в файл.
     /// </summary>
     public string? OutputPath { get; }
+
+    /// <summary>
+    /// Every file of the result: one for a file or a folder target, several when the pair writes several files to a folder, none for a stream or memory.
+    /// </summary>
+    public IReadOnlyList<string> OutputPaths { get; }
+
+    /// <summary>
+    /// Lines the engine added about this input, such as the sheet that was taken; empty when it had nothing to say.
+    /// </summary>
+    public IReadOnlyList<string> Notes { get; }
 
     /// <summary>
     /// Данные результата, если он оставлен в памяти.
