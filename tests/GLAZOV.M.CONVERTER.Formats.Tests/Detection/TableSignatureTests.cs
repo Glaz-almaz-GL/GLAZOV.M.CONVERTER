@@ -1,6 +1,6 @@
-using System.Text;
 using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Formats.Detection.Tables;
+using System.Text;
 using DetectorChain = GLAZOV.M.CONVERTER.Detection.DetectorChain;
 
 namespace GLAZOV.M.CONVERTER.Formats.Tests.Detection;

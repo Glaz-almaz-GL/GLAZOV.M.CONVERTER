@@ -1,11 +1,12 @@
-using System.Diagnostics;
 using GLAZOV.M.CONVERTER.Batch;
 using GLAZOV.M.CONVERTER.Converting;
 using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Errors;
 using GLAZOV.M.CONVERTER.Formats;
+using GLAZOV.M.CONVERTER.Formats.Options;
 using GLAZOV.M.CONVERTER.Settings;
 using SkiaSharp;
+using System.Diagnostics;
 using Xunit.Abstractions;
 
 namespace GLAZOV.M.CONVERTER.Svg.Tests.Live;
@@ -32,6 +33,7 @@ public sealed class SvgRunTests(ITestOutputHelper output) : IDisposable
     private static readonly FileFormat[] Targets = [FileFormat.Png, FileFormat.Jpeg, FileFormat.Webp];
 
     private readonly string _work = Path.Combine(Path.GetTempPath(), "convrun-svg-" + Guid.NewGuid().ToString("N"));
+    private static readonly string SamplesDir = Path.Combine(AppContext.BaseDirectory, "Samples");
 
     public void Dispose()
     {
@@ -43,7 +45,7 @@ public sealed class SvgRunTests(ITestOutputHelper output) : IDisposable
 
     private static string Sample(string name)
     {
-        return Path.Combine(AppContext.BaseDirectory, "Samples", name);
+        return Path.Combine(SamplesDir, name);
     }
 
     private string Out(string name)
@@ -160,15 +162,15 @@ public sealed class SvgRunTests(ITestOutputHelper output) : IDisposable
         await converter.ConvertAsync(
             Source.File(Sample("run-diagram.svg")),
             Target.File(rotated, FileFormat.Png),
-            new ConversionOptions { Operations = { Operation.RotateRight, Operation.ScalePercent(150) } });
+            new ConversionOptions { Operations = { VisualOperations.RotateRight, VisualOperations.ScalePercent(150) } });
         await converter.ConvertAsync(
             Source.File(Sample("run-document.svg")),
             Target.File(half, FileFormat.Webp),
-            new ConversionOptions { Operations = { Operation.ScalePercent(50) }, Image = new ImageOptions { Quality = 90 } });
+            new ConversionOptions { Operations = { VisualOperations.ScalePercent(50) }, Image = new ImageOptions { Quality = 90 } });
         await converter.ConvertAsync(
             Source.File(Sample("run-icon.svg")),
             Target.File(icon, FileFormat.Jpeg),
-            new ConversionOptions { Operations = { Operation.ScalePercent(400) }, Image = new ImageOptions { Quality = 95 } });
+            new ConversionOptions { Operations = { VisualOperations.ScalePercent(400) }, Image = new ImageOptions { Quality = 95 } });
 
         using SKBitmap r = Decode(rotated);
         using SKBitmap h = Decode(half);
@@ -253,11 +255,10 @@ public sealed class SvgRunTests(ITestOutputHelper output) : IDisposable
         Keep(produced, "svg-внешняя-ссылка");
     }
 
-    [CorpusFact]
+    [Fact]
     public async Task ForeignCorpus_EveryFile_ConvertsOrFailsCleanly_WithinTimeLimit()
     {
-        string corpus = Environment.GetEnvironmentVariable(CorpusFactAttribute.Variable)!;
-        string[] files = Directory.GetFiles(corpus, "*.svg", SearchOption.AllDirectories);
+        string[] files = Directory.GetFiles(SamplesDir, "*.svg", SearchOption.AllDirectories);
         Converter converter = Svg();
         Dictionary<string, int> outcomes = [];
         List<string> unexpected = [];

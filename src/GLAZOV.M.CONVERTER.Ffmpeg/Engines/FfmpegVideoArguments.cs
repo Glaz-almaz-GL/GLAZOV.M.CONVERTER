@@ -1,7 +1,8 @@
-using System.Globalization;
 using GLAZOV.M.CONVERTER.Converting;
 using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Formats;
+using GLAZOV.M.CONVERTER.Formats.Options;
+using System.Globalization;
 
 namespace GLAZOV.M.CONVERTER.Ffmpeg.Engines;
 
@@ -25,23 +26,32 @@ internal static class FfmpegVideoArguments
     }
 
     /// <summary>
-    /// Builds the arguments.
+    /// Builds FFmpeg command-line arguments for video-to-video conversion.
     /// </summary>
-    /// <param name="to">Target container: MP4, MKV, WebM, MOV or AVI.</param>
-    /// <param name="video">Video settings; only the set ones reach the arguments.</param>
-    /// <param name="audio">Audio settings for the audio track.</param>
-    /// <param name="inputPath">Path of the input file.</param>
-    /// <param name="outputPath">Path of the result file.</param>
-    /// <param name="plan">Which tracks are copied instead of encoded; <c>null</c> — both are encoded.</param>
-    /// <param name="codecs">Codecs of the input tracks, when known; a copied HEVC track needs a tag for MP4 and MOV.</param>
-    /// <param name="operations">Actions in order: rotate right and scale in percent; they apply after the frame size of the video settings.</param>
-    /// <param name="settings">Defaults used when the options set none; <c>null</c> — the default settings.</param>
-    internal static IReadOnlyList<string> Build(FileFormat to, VideoOptions? video, AudioOptions? audio, string inputPath, string outputPath, CopyPlan? plan = null, TrackCodecs? codecs = null, IEnumerable<Operation>? operations = null, FfmpegSettings? settings = null)
+    /// <param name="to">Target container format (MP4, MKV, WebM, MOV, or AVI).</param>
+    /// <param name="options">Per-call conversion options containing video settings, audio settings, and visual operations.</param>
+    /// <param name="inputPath">Path to the input file.</param>
+    /// <param name="outputPath">Path to the output file.</param>
+    /// <param name="plan">Stream copy plan per track; <c>null</c> encodes both tracks.</param>
+    /// <param name="codecs">Probed input track codecs; used to apply required container tags when copying HEVC.</param>
+    /// <param name="settings">Default encoding settings used when <paramref name="options"/> specifies none.</param>
+    internal static IReadOnlyList<string> Build(
+        FileFormat to,
+        ConversionOptions? options,
+        string inputPath,
+        string outputPath,
+        CopyPlan? plan = null,
+        TrackCodecs? codecs = null,
+        FfmpegSettings? settings = null)
     {
         ArgumentNullException.ThrowIfNull(to);
         ArgumentException.ThrowIfNullOrWhiteSpace(inputPath);
         ArgumentException.ThrowIfNullOrWhiteSpace(outputPath);
         settings ??= new FfmpegSettings();
+
+        VideoOptions? video = options?.Video;
+        AudioOptions? audio = options?.Audio;
+        IEnumerable<IConversionOperation>? operations = options?.Operations;
 
         Codec codec = VideoCodec(to);
         List<string> args =
@@ -56,7 +66,6 @@ internal static class FfmpegVideoArguments
             args.AddRange(["-c:v", "copy"]);
             if (codecs?.Video == "hevc" && (to.Equals(FileFormat.Mp4) || to.Equals(FileFormat.Mov)))
             {
-                // Matroska keeps HEVC as "hev1"; QuickTime, Safari and iOS read only "hvc1".
                 args.AddRange(["-tag:v", "hvc1"]);
             }
         }
@@ -85,6 +94,7 @@ internal static class FfmpegVideoArguments
         return args;
     }
 
+
     /// <summary>
     /// Name of the video encoder for a container (also used to explain a missing encoder).
     /// </summary>
@@ -96,19 +106,15 @@ internal static class FfmpegVideoArguments
 
     private static Codec VideoCodec(FileFormat to)
     {
-        if (to.Equals(FileFormat.Webm))
+        return to switch
         {
-            return Codec.Vp9;
-        }
-
-        if (to.Equals(FileFormat.Avi))
-        {
-            return Codec.Mpeg4;
-        }
-
-        return to.Equals(FileFormat.Mp4) || to.Equals(FileFormat.Mov) || to.Equals(FileFormat.Mkv)
-            ? Codec.H264
-            : throw new ArgumentException($"Видео-движок не умеет формат «{to.Name}».", nameof(to));
+            _ when to.Equals(FileFormat.Webm) => Codec.Vp9,
+            _ when to.Equals(FileFormat.Avi) => Codec.Mpeg4,
+            _ when to.Equals(FileFormat.Mp4) ||
+                   to.Equals(FileFormat.Mov) ||
+                   to.Equals(FileFormat.Mkv) => Codec.H264,
+            _ => throw new ArgumentException($"Видео-движок не умеет формат «{to.Name}».", nameof(to))
+        };
     }
 
     private static string Muxer(FileFormat to)
@@ -160,7 +166,7 @@ internal static class FfmpegVideoArguments
         return (int)Math.Round(range.AtLowest + ((quality - 1) * (range.AtHighest - range.AtLowest) / 99.0));
     }
 
-    private static void AddFilters(List<string> args, Codec codec, VideoOptions? video, IEnumerable<Operation>? operations)
+    private static void AddFilters(List<string> args, Codec codec, VideoOptions? video, IEnumerable<IConversionOperation>? operations)
     {
         List<string> filters = [];
         if (video?.Width is not null || video?.Height is not null)
@@ -175,7 +181,7 @@ internal static class FfmpegVideoArguments
             filters.Add("scale=trunc(iw/2)*2:trunc(ih/2)*2");
         }
 
-        foreach (Operation operation in operations ?? [])
+        foreach (IConversionOperation operation in operations ?? [])
         {
             filters.Add(OperationFilter(operation));
         }
@@ -192,21 +198,19 @@ internal static class FfmpegVideoArguments
     }
 
     // Rotate right is a transpose; a percent scale rounds each side down to even, never below 2.
-    private static string OperationFilter(Operation operation)
+    private static string OperationFilter(IConversionOperation operation)
     {
-        if (operation.Kind == OperationKind.RotateRight)
+        return operation switch
         {
-            return "transpose=1";
-        }
-
-        if (operation is { Kind: OperationKind.ScalePercent, Percent: int percent })
-        {
-            string p = Text(percent);
-            return $"scale=w='max(2,trunc(iw*{p}/200)*2)':h='max(2,trunc(ih*{p}/200)*2)'";
-        }
-
-        throw new ArgumentException($"Действие «{operation.Kind}» видео-движок не умеет.", nameof(operation));
+            RotateOperation { Angle: RotationAngle.Degrees90 } => "transpose=1",
+            RotateOperation { Angle: RotationAngle.Degrees180 } => "transpose=1,transpose=1",
+            RotateOperation { Angle: RotationAngle.Degrees270 } => "transpose=2",
+            ScalePercentOperation { Percent: int percent } =>
+                $"scale=w='max(2,trunc(iw*{Text(percent)}/200)*2)':h='max(2,trunc(ih*{Text(percent)}/200)*2)'",
+            _ => throw new ArgumentException($"Действие «{operation.Name}» видео-движок не умеет.", nameof(operation)),
+        };
     }
+
 
     // Sizes are rounded down to even numbers, never below 2.
     private static int Even(int value)

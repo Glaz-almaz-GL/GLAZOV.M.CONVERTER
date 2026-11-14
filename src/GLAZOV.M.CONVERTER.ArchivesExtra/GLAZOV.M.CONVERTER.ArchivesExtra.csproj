@@ -29,8 +29,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\GLAZOV.M.CONVERTER.Archives\GLAZOV.M.CONVERTER.Archives.csproj" />
     <ProjectReference Include="..\GLAZOV.M.CONVERTER\GLAZOV.M.CONVERTER.csproj" />
-    <ProjectReference Include="..\GLAZOV.M.CONVERTER.Formats\GLAZOV.M.CONVERTER.Formats.csproj" />
   </ItemGroup>
 
 </Project>

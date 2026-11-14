@@ -1,12 +1,11 @@
 using GLAZOV.M.CONVERTER.Capabilities;
 using GLAZOV.M.CONVERTER.Converting;
 using GLAZOV.M.CONVERTER.Data;
-using GLAZOV.M.CONVERTER.Engines;
 using GLAZOV.M.CONVERTER.Errors;
 using GLAZOV.M.CONVERTER.Extensions;
 using GLAZOV.M.CONVERTER.Ffmpeg.Engines;
-using GLAZOV.M.CONVERTER.Ffmpeg.Progress;
 using GLAZOV.M.CONVERTER.Formats;
+using GLAZOV.M.CONVERTER.Formats.Options;
 using GLAZOV.M.CONVERTER.Settings;
 using GLAZOV.M.CONVERTER.Tooling;
 
@@ -42,12 +41,12 @@ public sealed class ImageOperationsTests : IDisposable
         return Path.Combine(Path.GetDirectoryName(Ffmpeg().Path!)!, OperatingSystem.IsWindows() ? "ffprobe.exe" : "ffprobe");
     }
 
-    private async Task<byte[]> Run(byte[] input, FileFormat from, FileFormat to, params Operation[] operations)
+    private async Task<byte[]> Run(byte[] input, FileFormat from, FileFormat to, params IConversionOperation[] operations)
     {
         using MemoryStream source = new(input);
         using MemoryStream output = new();
         ConversionOptions options = new();
-        foreach (Operation operation in operations)
+        foreach (IConversionOperation operation in operations)
         {
             options.Operations.Add(operation);
         }
@@ -113,9 +112,9 @@ public sealed class ImageOperationsTests : IDisposable
     {
         Assert.Empty(FfmpegImageArguments.Filters(null));
         Assert.Empty(FfmpegImageArguments.Filters([]));
-        Assert.Equal(["transpose=1"], FfmpegImageArguments.Filters([Operation.RotateRight]));
+        Assert.Equal(["transpose=1"], FfmpegImageArguments.Filters([VisualOperations.RotateRight]));
 
-        string scale = Assert.Single(FfmpegImageArguments.Filters([Operation.ScalePercent(75)]));
+        string scale = Assert.Single(FfmpegImageArguments.Filters([VisualOperations.ScalePercent(75)]));
         Assert.Contains("max(1,trunc(iw*75/100))", scale);
         Assert.Contains("max(1,trunc(ih*75/100))", scale);
     }
@@ -123,8 +122,8 @@ public sealed class ImageOperationsTests : IDisposable
     [Fact]
     public void Filters_KeepTheGivenOrder_RotateThenScaleDiffersFromScaleThenRotate()
     {
-        IReadOnlyList<string> rotateFirst = FfmpegImageArguments.Filters([Operation.RotateRight, Operation.ScalePercent(50)]);
-        IReadOnlyList<string> scaleFirst = FfmpegImageArguments.Filters([Operation.ScalePercent(50), Operation.RotateRight]);
+        IReadOnlyList<string> rotateFirst = FfmpegImageArguments.Filters([VisualOperations.RotateRight, VisualOperations.ScalePercent(50)]);
+        IReadOnlyList<string> scaleFirst = FfmpegImageArguments.Filters([VisualOperations.ScalePercent(50), VisualOperations.RotateRight]);
 
         Assert.Equal("transpose=1", rotateFirst[0]);
         Assert.StartsWith("scale=", rotateFirst[1]);
@@ -141,7 +140,7 @@ public sealed class ImageOperationsTests : IDisposable
         {
             System.Globalization.CultureInfo.CurrentCulture = new System.Globalization.CultureInfo("ar-SA");
 
-            string scale = FfmpegImageArguments.Filters([Operation.ScalePercent(1234)]).Single();
+            string scale = FfmpegImageArguments.Filters([VisualOperations.ScalePercent(1234)]).Single();
 
             Assert.Contains("iw*1234/100", scale);
         }
@@ -163,7 +162,7 @@ public sealed class ImageOperationsTests : IDisposable
     {
         Converter converter = FfmpegConverter.Create();
         using MemoryStream wav = new(File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Samples", "sample.wav")));
-        ConversionOptions options = new() { Operations = { Operation.RotateRight } };
+        ConversionOptions options = new() { Operations = { VisualOperations.RotateRight } };
 
         Task<ConversionResult> call = converter.ConvertAsync(Source.Stream(wav), Target.Memory(FileFormat.Mp3), options);
 
@@ -175,7 +174,7 @@ public sealed class ImageOperationsTests : IDisposable
     [ExternalFact]
     public async Task RotateRight_SwapsWidthAndHeight()
     {
-        byte[] result = await Run(Sample(), FileFormat.Png, FileFormat.Png, Operation.RotateRight);
+        byte[] result = await Run(Sample(), FileFormat.Png, FileFormat.Png, VisualOperations.RotateRight);
 
         Assert.Equal((16, 24), await SizeOf(result, "png"));
     }
@@ -183,7 +182,7 @@ public sealed class ImageOperationsTests : IDisposable
     [ExternalFact]
     public async Task RotateRight_TurnsTheImageClockwise_PixelByPixel()
     {
-        byte[] result = await Run(await FourColorsPng(), FileFormat.Png, FileFormat.Png, Operation.RotateRight);
+        byte[] result = await Run(await FourColorsPng(), FileFormat.Png, FileFormat.Png, VisualOperations.RotateRight);
 
         // Исходно: красный, зелёный / синий, жёлтый. По часовой стрелке: синий, красный / жёлтый, зелёный.
         byte[] rgb = await Rgb24(result);
@@ -193,15 +192,15 @@ public sealed class ImageOperationsTests : IDisposable
     [ExternalFact]
     public async Task ScalePercent_GivesTheRightFractionOfTheSize()
     {
-        Assert.Equal((12, 8), await SizeOf(await Run(Sample(), FileFormat.Png, FileFormat.Png, Operation.ScalePercent(50)), "png"));
-        Assert.Equal((18, 12), await SizeOf(await Run(Sample(), FileFormat.Png, FileFormat.Png, Operation.ScalePercent(75)), "png"));
-        Assert.Equal((48, 32), await SizeOf(await Run(Sample(), FileFormat.Png, FileFormat.Png, Operation.ScalePercent(200)), "png"));
+        Assert.Equal((12, 8), await SizeOf(await Run(Sample(), FileFormat.Png, FileFormat.Png, VisualOperations.ScalePercent(50)), "png"));
+        Assert.Equal((18, 12), await SizeOf(await Run(Sample(), FileFormat.Png, FileFormat.Png, VisualOperations.ScalePercent(75)), "png"));
+        Assert.Equal((48, 32), await SizeOf(await Run(Sample(), FileFormat.Png, FileFormat.Png, VisualOperations.ScalePercent(200)), "png"));
     }
 
     [ExternalFact]
     public async Task ScaleToAFractionOfAPixel_StaysOnePixel_NotAnEmptyFile()
     {
-        byte[] result = await Run(Sample(), FileFormat.Png, FileFormat.Png, Operation.ScalePercent(1));
+        byte[] result = await Run(Sample(), FileFormat.Png, FileFormat.Png, VisualOperations.ScalePercent(1));
 
         Assert.Equal((1, 1), await SizeOf(result, "png"));
     }
@@ -209,7 +208,7 @@ public sealed class ImageOperationsTests : IDisposable
     [ExternalFact]
     public async Task ChainOfThree_RotateScaleRotate_AppliesInOrder()
     {
-        byte[] result = await Run(Sample(), FileFormat.Png, FileFormat.Png, Operation.RotateRight, Operation.ScalePercent(50), Operation.RotateRight);
+        byte[] result = await Run(Sample(), FileFormat.Png, FileFormat.Png, VisualOperations.RotateRight, VisualOperations.ScalePercent(50), VisualOperations.RotateRight);
 
         // 24×16 → 16×24 → 8×12 → 12×8
         Assert.Equal((12, 8), await SizeOf(result, "png"));
@@ -220,7 +219,7 @@ public sealed class ImageOperationsTests : IDisposable
     {
         foreach (FileFormat to in new[] { FileFormat.Png, FileFormat.Jpeg, FileFormat.Webp, FileFormat.Bmp, FileFormat.Gif, FileFormat.Tiff, FileFormat.Tga })
         {
-            byte[] result = await Run(Sample(), FileFormat.Png, to, Operation.RotateRight, Operation.ScalePercent(75));
+            byte[] result = await Run(Sample(), FileFormat.Png, to, VisualOperations.RotateRight, VisualOperations.ScalePercent(75));
 
             // 24×16 → 16×24 → 12×18
             Assert.Equal((12, 18), await SizeOf(result, to.Extension));
@@ -239,7 +238,7 @@ public sealed class ImageOperationsTests : IDisposable
             Target.File(output, FileFormat.Jpeg),
             new ConversionOptions
             {
-                Operations = { Operation.RotateRight, Operation.ScalePercent(75) },
+                Operations = { VisualOperations.RotateRight, VisualOperations.ScalePercent(75) },
                 Image = new ImageOptions { Quality = 85 },
             });
 

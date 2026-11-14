@@ -1,16 +1,14 @@
-using System.Globalization;
 using GLAZOV.M.CONVERTER.Capabilities;
 using GLAZOV.M.CONVERTER.Converting;
 using GLAZOV.M.CONVERTER.Data;
-using GLAZOV.M.CONVERTER.Detection;
-using GLAZOV.M.CONVERTER.Engines;
 using GLAZOV.M.CONVERTER.Errors;
 using GLAZOV.M.CONVERTER.Extensions;
 using GLAZOV.M.CONVERTER.Ffmpeg.Engines;
-using GLAZOV.M.CONVERTER.Ffmpeg.Progress;
 using GLAZOV.M.CONVERTER.Formats;
+using GLAZOV.M.CONVERTER.Formats.Options;
 using GLAZOV.M.CONVERTER.Settings;
 using GLAZOV.M.CONVERTER.Tooling;
+using System.Globalization;
 
 namespace GLAZOV.M.CONVERTER.Ffmpeg.Tests.Engines;
 
@@ -45,15 +43,18 @@ public sealed class FfmpegVideoToAudioTests : IClassFixture<VideoSourcesFixture>
         Directory.Delete(_temp, recursive: true);
     }
 
-    public static IEnumerable<object[]> AllPairs()
+    public static TheoryData<string, string> AllPairs()
     {
-        foreach (string source in new[] { "mp4", "mkv", "webm", "mov", "avi" })
+        TheoryData<string, string> data = [];
+        foreach (string source in (string[])["mp4", "mkv", "webm", "mov", "avi"])
         {
             foreach ((string name, _, _) in Targets)
             {
-                yield return new object[] { source, name };
+                data.Add(source, name);
             }
         }
+
+        return data;
     }
 
     private static ToolStatus Ffmpeg()
@@ -71,7 +72,7 @@ public sealed class FfmpegVideoToAudioTests : IClassFixture<VideoSourcesFixture>
     {
         await using FileStream input = File.OpenRead(sourcePath);
         using MemoryStream output = new();
-        FileFormat from = Sniff.Match(await File.ReadAllBytesAsync(sourcePath));
+        FileFormat from = Sniff.Match(await File.ReadAllBytesAsync(sourcePath, cancellationToken));
         ConversionRequest request = new(input, output, from, to, new ConversionOptions(), Ffmpeg(), _temp)
         {
             InputPath = withPath ? sourcePath : null,
@@ -89,9 +90,7 @@ public sealed class FfmpegVideoToAudioTests : IClassFixture<VideoSourcesFixture>
         FileFormat[] videos = [FileFormat.Mp4, FileFormat.Mkv, FileFormat.Webm, FileFormat.Mov, FileFormat.Avi];
 
         Assert.All(videos, v => Assert.All(Targets, t => Assert.Contains(new ConversionPair(v, t.Format), _engine.Pairs)));
-        Assert.All(videos, v => Assert.All(Targets, t => Assert.True(_engine.CanConvert(v, t.Format))));
         Assert.DoesNotContain(new ConversionPair(FileFormat.Mp3, FileFormat.Mp4), _engine.Pairs);
-        Assert.False(_engine.CanConvert(FileFormat.Mp4, FileFormat.Jpeg));
     }
 
     [ExternalTheory]
@@ -186,7 +185,7 @@ public sealed class FfmpegVideoToAudioTests : IClassFixture<VideoSourcesFixture>
     public async Task OperationsOnVideoToAudio_AreRefusedBeforeAnyWork()
     {
         Converter converter = FfmpegConverter.Create();
-        ConversionOptions options = new() { Operations = { Operation.RotateRight } };
+        ConversionOptions options = new() { Operations = { VisualOperations.RotateRight } };
 
         ConversionException ex = await Assert.ThrowsAsync<ConversionException>(() =>
             converter.ConvertAsync(Source.File(_fixture.Source("mp4")), Target.Memory(FileFormat.Mp3), options));

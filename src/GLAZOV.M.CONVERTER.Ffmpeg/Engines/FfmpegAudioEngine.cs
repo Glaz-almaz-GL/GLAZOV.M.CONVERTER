@@ -3,6 +3,7 @@ using GLAZOV.M.CONVERTER.Errors;
 using GLAZOV.M.CONVERTER.Extensions;
 using GLAZOV.M.CONVERTER.Ffmpeg.Progress;
 using GLAZOV.M.CONVERTER.Formats;
+using GLAZOV.M.CONVERTER.Formats.Options;
 using GLAZOV.M.CONVERTER.IO;
 using GLAZOV.M.CONVERTER.Tooling;
 
@@ -14,21 +15,16 @@ namespace GLAZOV.M.CONVERTER.Ffmpeg.Engines;
 /// Видео читается файлом (индекс MP4, MOV и AVI может стоять в конце, из канала такой файл не прочитать), результат пишется во временный файл, ход работы идёт процентами.
 /// Результат OGG — Vorbis; вход Opus принимается.
 /// </summary>
-internal sealed class FfmpegAudioEngine : IConversionEngine
+/// <remarks>
+/// Creates the engine.
+/// </remarks>
+/// <param name="settings">Defaults for quality; <c>null</c> — the default settings.</param>
+internal sealed class FfmpegAudioEngine(FfmpegSettings? settings = null) : IConversionEngine
 {
     private static readonly FileFormat[] Supported = [FileFormat.Mp3, FileFormat.Wav, FileFormat.Ogg, FileFormat.Flac, FileFormat.M4a];
     private static readonly FileFormat[] VideoInputs = [FileFormat.Mp4, FileFormat.Mkv, FileFormat.Webm, FileFormat.Mov, FileFormat.Avi];
 
-    private readonly FfmpegSettings _settings;
-
-    /// <summary>
-    /// Creates the engine.
-    /// </summary>
-    /// <param name="settings">Defaults for quality; <c>null</c> — the default settings.</param>
-    public FfmpegAudioEngine(FfmpegSettings? settings = null)
-    {
-        _settings = settings ?? new FfmpegSettings();
-    }
+    private readonly FfmpegSettings _settings = settings ?? new FfmpegSettings();
 
     /// <inheritdoc />
     public IReadOnlyList<ToolSpec> Tools { get; } = [FfmpegTools.Ffmpeg];
@@ -41,13 +37,7 @@ internal sealed class FfmpegAudioEngine : IConversionEngine
         [.. Supported.Concat(VideoInputs).SelectMany(from => Supported.Select(to => new ConversionPair(from, to)))];
 
     /// <inheritdoc />
-    public bool CanConvert(FileFormat from, FileFormat to)
-    {
-        return (Supported.Contains(from) || VideoInputs.Contains(from)) && Supported.Contains(to);
-    }
-
-    /// <inheritdoc />
-    public async Task ConvertAsync(ConversionRequest request, CancellationToken cancellationToken)
+    public async Task ConvertAsync(ConversionRequest request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
 

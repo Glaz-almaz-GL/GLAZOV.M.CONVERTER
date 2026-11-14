@@ -1,5 +1,4 @@
 using GLAZOV.M.CONVERTER.Capabilities;
-using GLAZOV.M.CONVERTER.Engines;
 using GLAZOV.M.CONVERTER.Extensions;
 using GLAZOV.M.CONVERTER.Settings;
 using GLAZOV.M.CONVERTER.Tooling;
@@ -86,13 +85,25 @@ public sealed class ToolLocatorTests : IDisposable
         return spec;
     }
 
-    private static ToolSpec Ffmpeg(params string[] places) => Bare(FfmpegLike, places);
+    private static ToolSpec Ffmpeg(params string[] places)
+    {
+        return Bare(FfmpegLike, places);
+    }
 
-    private static ToolSpec Ffprobe() => Bare(FfprobeLike);
+    private static ToolSpec Ffprobe()
+    {
+        return Bare(FfprobeLike);
+    }
 
-    private static ToolSpec Soffice(params string[] places) => Bare(SofficeLike, places);
+    private static ToolSpec Soffice(params string[] places)
+    {
+        return Bare(SofficeLike, places);
+    }
 
-    private static ToolSpec[] Siblings() => [Ffmpeg(), Ffprobe()];
+    private static ToolSpec[] Siblings()
+    {
+        return [Ffmpeg(), Ffprobe()];
+    }
 
     private static ToolLocator Locator(ToolEnvironment environment, ConverterSettings? settings = null)
     {
@@ -252,9 +263,24 @@ public sealed class ToolLocatorTests : IDisposable
 
         Assert.False(status.Found);
         Assert.Null(status.Path);
-        string expected = OperatingSystem.IsWindows() ? "winget install Gyan.FFmpeg"
-            : OperatingSystem.IsMacOS() ? "brew install ffmpeg"
-            : "apt install ffmpeg";
+
+        string expected;
+
+        if (OperatingSystem.IsWindows())
+        {
+            // windows
+            expected = "winget install Gyan.FFmpeg";
+        }
+        else if (OperatingSystem.IsMacOS())
+        {
+            // macos
+            expected = "brew install ffmpeg";
+        }
+        else
+        {
+            expected = "apt install ffmpeg";
+        }
+
         Assert.Contains(expected, status.InstallHint);
     }
 
@@ -393,7 +419,7 @@ public sealed class ToolLocatorTests : IDisposable
         Folder(Path.Combine("opt", "other"));
         string sep = Path.DirectorySeparatorChar.ToString();
 
-        string[] expanded = ToolEnvironment.ExpandPlace(parent + sep + "libreoffice*" + sep + "program").ToArray();
+        string[] expanded = [.. ToolEnvironment.ExpandPlace(parent + sep + "libreoffice*" + sep + "program")];
 
         Assert.Equal([Path.Combine(parent, "libreoffice26.8", "program"), Path.Combine(parent, "libreoffice7.6", "program")], expanded);
         Assert.Empty(ToolEnvironment.ExpandPlace(Path.Combine(_root, "нет") + sep + "libreoffice*" + sep + "program"));

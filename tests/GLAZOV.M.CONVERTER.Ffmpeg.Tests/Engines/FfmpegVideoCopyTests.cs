@@ -9,6 +9,7 @@ using GLAZOV.M.CONVERTER.Extensions;
 using GLAZOV.M.CONVERTER.Ffmpeg.Engines;
 using GLAZOV.M.CONVERTER.Ffmpeg.Progress;
 using GLAZOV.M.CONVERTER.Formats;
+using GLAZOV.M.CONVERTER.Formats.Options;
 using GLAZOV.M.CONVERTER.Settings;
 using GLAZOV.M.CONVERTER.Tooling;
 

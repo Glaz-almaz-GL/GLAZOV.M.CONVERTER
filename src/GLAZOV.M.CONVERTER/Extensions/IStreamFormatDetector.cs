@@ -3,22 +3,23 @@ using GLAZOV.M.CONVERTER.Data;
 namespace GLAZOV.M.CONVERTER.Extensions;
 
 /// <summary>
-/// Определитель, которому для признака нужно читать вход дальше начала: архив, составной файл.
-/// Спрашивается только на входе с перемоткой и только если метки ничего не назвали.
+/// Format detector that inspects the stream beyond the initial header window (for example, archives or compound containers).
+/// Invoked only on seekable inputs and only after fast header detectors find no match.
 /// </summary>
 public interface IStreamFormatDetector : IFormatDetector
 {
     /// <summary>
-    /// Стоит ли открывать вход: по началу видно, что он похож на тот контейнер, который определитель умеет разбирать.
+    /// Checks whether the leading bytes look like a container this detector can inspect.
     /// </summary>
-    /// <param name="head">Начальные байты входа.</param>
+    /// <param name="head">Leading bytes of the input.</param>
     bool CanInspect(ReadOnlySpan<byte> head);
 
     /// <summary>
-    /// Определяет формат, читая вход где угодно. Позиция 0 — начало входа; всего читать можно не больше 16 МБ.
-    /// Превышение, ошибка ввода-вывода и <see cref="InvalidDataException"/> библиотека считает ответом «не мой».
+    /// Detects the format by reading from the seekable stream. Position 0 is the start of the input;
+    /// total bytes read are capped by the library's inspection budget.
     /// </summary>
-    /// <param name="input">Вход с перемоткой.</param>
-    /// <returns>Формат либо <c>null</c>, если тип не этого детектора.</returns>
-    FileFormat? Detect(Stream input);
+    /// <param name="input">Seekable stream positioned at the start of the input.</param>
+    /// <param name="cancellationToken">Token to cancel the inspection.</param>
+    /// <returns>The detected <see cref="FileFormat"/>, or <c>null</c> if the input does not match.</returns>
+    ValueTask<FileFormat?> DetectAsync(Stream input, CancellationToken cancellationToken = default);
 }

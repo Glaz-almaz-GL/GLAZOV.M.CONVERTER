@@ -1,4 +1,5 @@
 using GLAZOV.M.CONVERTER.Converting;
+using GLAZOV.M.CONVERTER.Formats.Options;
 using SkiaSharp;
 
 namespace GLAZOV.M.CONVERTER.Svg.Rendering;
@@ -22,7 +23,7 @@ internal sealed record RasterPlan(int Width, int Height, SKMatrix Matrix)
     /// <exception cref="InvalidDataException">
     /// У документа нет размера, результат больше предела или одна сторона больше предела на каком-либо шаге.
     /// </exception>
-    internal static RasterPlan Build(SKRect bounds, IEnumerable<Operation> operations, long maxPixels)
+    internal static RasterPlan Build(SKRect bounds, IEnumerable<IConversionOperation> operations, long maxPixels)
     {
         ArgumentNullException.ThrowIfNull(operations);
 
@@ -35,48 +36,48 @@ internal sealed record RasterPlan(int Width, int Height, SKMatrix Matrix)
         long height = ToPixels(Math.Ceiling((double)bounds.Height), maxPixels);
         SKMatrix matrix = SKMatrix.CreateTranslation(-bounds.Left, -bounds.Top);
 
-        foreach (Operation operation in operations)
+        foreach (IConversionOperation operation in operations)
         {
-            switch (operation.Kind)
+            switch (operation)
             {
-                case OperationKind.RotateRight:
-                    // По часовой стрелке: точка (x, y) переходит в (h − y, x), ширина и высота меняются местами.
-                    SKMatrix rotate = new(0, -1, height, 1, 0, 0, 0, 0, 1);
-                    matrix = SKMatrix.Concat(rotate, matrix);
+                case RotateOperation { Angle: RotationAngle.Degrees90 }:
+                    matrix = SKMatrix.Concat(new SKMatrix(0, -1, height, 1, 0, 0, 0, 0, 1), matrix);
                     (width, height) = (height, width);
                     break;
 
-                case OperationKind.ScalePercent when operation.Percent is int percent:
+                case RotateOperation { Angle: RotationAngle.Degrees180 }:
+                    matrix = SKMatrix.Concat(new SKMatrix(-1, 0, width, 0, -1, height, 0, 0, 1), matrix);
+                    break;
+
+                case RotateOperation { Angle: RotationAngle.Degrees270 }:
+                    matrix = SKMatrix.Concat(new SKMatrix(0, 1, 0, -1, 0, width, 0, 0, 1), matrix);
+                    (width, height) = (height, width);
+                    break;
+
+                case ScalePercentOperation { Percent: int percent }:
                     long scaledWidth = ToPixels(Math.Floor((double)width * percent / 100), maxPixels);
                     long scaledHeight = ToPixels(Math.Floor((double)height * percent / 100), maxPixels);
-                    SKMatrix scale = SKMatrix.CreateScale((float)scaledWidth / width, (float)scaledHeight / height);
-                    matrix = SKMatrix.Concat(scale, matrix);
+                    matrix = SKMatrix.Concat(SKMatrix.CreateScale((float)scaledWidth / width, (float)scaledHeight / height), matrix);
                     (width, height) = (scaledWidth, scaledHeight);
                     break;
 
                 default:
-                    throw new NotSupportedException($"Действие «{operation.Kind}» движок SVG не умеет.");
+                    throw new NotSupportedException($"Действие «{operation.Name}» движок SVG не умеет.");
             }
         }
 
-        if (width * height > maxPixels)
-        {
-            throw new InvalidDataException(
-                $"Результат {width}×{height} пикселей больше предела {maxPixels} (настройка SvgSettings.MaxPixels).");
-        }
-
-        return new RasterPlan((int)width, (int)height, matrix);
+        return width * height > maxPixels
+            ? throw new InvalidDataException(
+                $"Результат {width}×{height} пикселей больше предела {maxPixels} (настройка SvgSettings.MaxPixels).")
+            : new RasterPlan((int)width, (int)height, matrix);
     }
 
     // Сторона больше предела пикселей не поместится ни при какой второй стороне: отказ сразу, на любом шаге, до переполнения.
     private static long ToPixels(double size, long maxPixels)
     {
-        if (size > Math.Min(maxPixels, int.MaxValue))
-        {
-            throw new InvalidDataException(
-                $"Сторона результата {size:0} пикселей больше предела {maxPixels} (настройка SvgSettings.MaxPixels).");
-        }
-
-        return Math.Max(1, (long)size);
+        return size > Math.Min(maxPixels, int.MaxValue)
+            ? throw new InvalidDataException(
+                $"Сторона результата {size:0} пикселей больше предела {maxPixels} (настройка SvgSettings.MaxPixels).")
+            : Math.Max(1, (long)size);
     }
 }

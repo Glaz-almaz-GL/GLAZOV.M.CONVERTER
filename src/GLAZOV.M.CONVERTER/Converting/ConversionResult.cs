@@ -1,10 +1,9 @@
 using GLAZOV.M.CONVERTER.Data;
-using GLAZOV.M.CONVERTER.Detection;
 
 namespace GLAZOV.M.CONVERTER.Converting;
 
 /// <summary>
-/// Итог одиночной конвертации.
+/// Outcome of a single conversion operation.
 /// </summary>
 public sealed class ConversionResult
 {
@@ -12,74 +11,62 @@ public sealed class ConversionResult
         bool succeeded,
         FileFormat sourceType,
         FileFormat targetFormat,
-        TimeSpan duration,
-        string? outputPath,
-        byte[]? bytes,
-        Stream? stream,
-        bool reencoded = true,
-        IReadOnlyList<string>? outputPaths = null,
-        IReadOnlyList<string>? notes = null)
+        TimeSpan duration)
     {
-        OutputPaths = outputPaths ?? (outputPath is null ? [] : [outputPath]);
-        Notes = notes ?? [];
         Succeeded = succeeded;
         SourceType = sourceType;
         TargetFormat = targetFormat;
         Duration = duration;
-        OutputPath = outputPath;
-        Bytes = bytes;
-        Stream = stream;
-        Reencoded = reencoded;
     }
 
     /// <summary>
-    /// Удалась ли конвертация.
+    /// Gets whether the conversion succeeded.
     /// </summary>
     public bool Succeeded { get; }
 
     /// <summary>
-    /// Подтверждённый тип входа.
+    /// Gets the confirmed input format detected from leading bytes.
     /// </summary>
     public FileFormat SourceType { get; }
 
     /// <summary>
-    /// Формат результата.
+    /// Gets the target output format.
     /// </summary>
     public FileFormat TargetFormat { get; }
 
     /// <summary>
-    /// Сколько заняла конвертация.
+    /// Gets the elapsed time of the conversion.
     /// </summary>
     public TimeSpan Duration { get; }
 
     /// <summary>
-    /// Путь к файлу результата, если результат записан в файл.
+    /// Gets the primary output file path when written to disk; otherwise <c>null</c>.
     /// </summary>
-    public string? OutputPath { get; }
+    public string? OutputPath { get; internal init; }
 
     /// <summary>
-    /// Every file of the result: one for a file or a folder target, several when the pair writes several files to a folder, none for a stream or memory.
+    /// Gets every file written by the conversion: one for a file target, several when a pair writes multiple files to a folder,
+    /// or empty for stream and memory targets.
     /// </summary>
-    public IReadOnlyList<string> OutputPaths { get; }
+    public IReadOnlyList<string> OutputPaths { get; internal init; } = [];
 
     /// <summary>
-    /// Lines the engine added about this input, such as the sheet that was taken; empty when it had nothing to say.
+    /// Gets diagnostic notes added by the engine (such as the selected spreadsheet sheet); empty when none were recorded.
     /// </summary>
-    public IReadOnlyList<string> Notes { get; }
+    public IReadOnlyList<string> Notes { get; internal init; } = [];
 
     /// <summary>
-    /// Данные результата, если он оставлен в памяти.
+    /// Gets the output bytes when targeting memory; otherwise <c>null</c>.
     /// </summary>
-    public byte[]? Bytes { get; }
+    public byte[]? Bytes { get; internal init; }
 
     /// <summary>
-    /// Читаемый поток с результатом, если он оставлен в памяти.
+    /// Gets a readable stream over the output when targeting memory; otherwise <c>null</c>.
     /// </summary>
-    public Stream? Stream { get; }
+    public Stream? Stream { get; internal init; }
 
     /// <summary>
-    /// <c>true</c>, если хотя бы одна дорожка перекодирована; для звука и изображений всегда <c>true</c>.
-    /// Значение задаёт библиотека.
+    /// Gets whether at least one track was re-encoded; <c>false</c> only when all tracks were stream-copied without re-encoding.
     /// </summary>
-    public bool Reencoded { get; }
+    public bool Reencoded { get; internal init; } = true;
 }

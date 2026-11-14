@@ -1,9 +1,9 @@
 namespace GLAZOV.M.CONVERTER.Archives.Safety;
 
 /// <summary>
-/// Reads through another stream and counts the bytes that were read: the size of the input consumed so far, for the ratio and the progress.
+/// Wraps a readable stream and counts the total number of consumed bytes for progress reporting and compression-ratio checks.
 /// </summary>
-/// <param name="inner">The stream to read.</param>
+/// <param name="inner">Underlying readable stream.</param>
 internal sealed class CountingStream(Stream inner) : Stream
 {
     internal long Count { get; private set; }
@@ -16,9 +16,10 @@ internal sealed class CountingStream(Stream inner) : Stream
 
     public override long Length => throw new NotSupportedException();
 
+    // SharpCompress XZStream queries Position while reading from the start of the stream.
     public override long Position
     {
-        get => throw new NotSupportedException();
+        get => Count;
         set => throw new NotSupportedException();
     }
 

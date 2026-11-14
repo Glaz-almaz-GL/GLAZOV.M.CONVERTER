@@ -1,7 +1,8 @@
-using System.Globalization;
 using GLAZOV.M.CONVERTER.Converting;
 using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Formats;
+using GLAZOV.M.CONVERTER.Formats.Options;
+using System.Globalization;
 
 namespace GLAZOV.M.CONVERTER.Ffmpeg.Engines;
 
@@ -118,28 +119,38 @@ internal static class FfmpegImageArguments
     /// масштаб в процентах — <c>scale</c> с округлением вниз и размером не меньше одного пикселя.
     /// </summary>
     /// <param name="operations">Действия по порядку; пусто или <c>null</c> — без фильтров.</param>
-    internal static IReadOnlyList<string> Filters(IEnumerable<Operation>? operations)
+    internal static IReadOnlyList<string> Filters(IEnumerable<IConversionOperation>? operations)
     {
         List<string> filters = [];
-        foreach (Operation operation in operations ?? [])
+        foreach (IConversionOperation operation in operations ?? [])
         {
-            if (operation.Kind == OperationKind.RotateRight)
+            switch (operation)
             {
-                filters.Add("transpose=1");
-            }
-            else if (operation.Kind == OperationKind.ScalePercent && operation.Percent is int percent)
-            {
-                string p = percent.ToString(CultureInfo.InvariantCulture);
-                filters.Add($"scale=w='max(1,trunc(iw*{p}/100))':h='max(1,trunc(ih*{p}/100))'");
-            }
-            else
-            {
-                throw new ArgumentException($"Действие «{operation.Kind}» движок изображений не умеет.", nameof(operations));
+                case RotateOperation { Angle: RotationAngle.Degrees90 }:
+                    filters.Add("transpose=1");
+                    break;
+
+                case RotateOperation { Angle: RotationAngle.Degrees180 }:
+                    filters.Add("transpose=1,transpose=1");
+                    break;
+
+                case RotateOperation { Angle: RotationAngle.Degrees270 }:
+                    filters.Add("transpose=2");
+                    break;
+
+                case ScalePercentOperation { Percent: int percent }:
+                    string p = percent.ToString(CultureInfo.InvariantCulture);
+                    filters.Add($"scale=w='max(1,trunc(iw*{p}/100))':h='max(1,trunc(ih*{p}/100))'");
+                    break;
+
+                default:
+                    throw new ArgumentException($"Действие «{operation.Name}» движок изображений не умеет.", nameof(operations));
             }
         }
 
         return filters;
     }
+
 
     private static string Flatten(FfmpegSettings settings)
     {

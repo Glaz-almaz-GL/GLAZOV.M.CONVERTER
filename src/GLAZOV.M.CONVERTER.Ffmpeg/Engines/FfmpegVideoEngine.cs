@@ -1,12 +1,13 @@
-using System.Text.RegularExpressions;
 using GLAZOV.M.CONVERTER.Capabilities;
 using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Errors;
 using GLAZOV.M.CONVERTER.Extensions;
 using GLAZOV.M.CONVERTER.Ffmpeg.Progress;
 using GLAZOV.M.CONVERTER.Formats;
+using GLAZOV.M.CONVERTER.Formats.Options;
 using GLAZOV.M.CONVERTER.IO;
 using GLAZOV.M.CONVERTER.Tooling;
+using System.Text.RegularExpressions;
 
 namespace GLAZOV.M.CONVERTER.Ffmpeg.Engines;
 
@@ -17,20 +18,15 @@ namespace GLAZOV.M.CONVERTER.Ffmpeg.Engines;
 /// index back to the start) and is then copied to the output. The first video and the first audio track are taken;
 /// subtitles, attachments and other tracks are dropped. Progress comes from FFmpeg's own output.
 /// </summary>
-internal sealed partial class FfmpegVideoEngine : IConversionEngine
+/// <remarks>
+/// Creates the engine.
+/// </remarks>
+/// <param name="settings">Defaults for quality and VP9 speed; <c>null</c> — the default settings.</param>
+internal sealed partial class FfmpegVideoEngine(FfmpegSettings? settings = null) : IConversionEngine
 {
     private static readonly FileFormat[] Supported = [FileFormat.Mp4, FileFormat.Mkv, FileFormat.Webm, FileFormat.Mov, FileFormat.Avi];
 
-    private readonly FfmpegSettings _settings;
-
-    /// <summary>
-    /// Creates the engine.
-    /// </summary>
-    /// <param name="settings">Defaults for quality and VP9 speed; <c>null</c> — the default settings.</param>
-    public FfmpegVideoEngine(FfmpegSettings? settings = null)
-    {
-        _settings = settings ?? new FfmpegSettings();
-    }
+    private readonly FfmpegSettings _settings = settings ?? new FfmpegSettings();
 
     /// <inheritdoc />
     public IReadOnlyList<ToolSpec> Tools { get; } = [FfmpegTools.Ffmpeg, FfmpegTools.Ffprobe];
@@ -46,7 +42,7 @@ internal sealed partial class FfmpegVideoEngine : IConversionEngine
     private static partial Regex UnknownEncoderPattern();
 
     /// <inheritdoc />
-    public async Task ConvertAsync(ConversionRequest request, CancellationToken cancellationToken)
+    public async Task ConvertAsync(ConversionRequest request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
 
@@ -97,7 +93,7 @@ internal sealed partial class FfmpegVideoEngine : IConversionEngine
         CancellationToken cancellationToken)
     {
         IReadOnlyList<string> args = FfmpegProgressArguments.Add(
-            FfmpegVideoArguments.Build(request.To, request.Options.Video, request.Options.Audio, inputPath, outputPath, plan, codecs, request.Options.Operations, _settings));
+            FfmpegVideoArguments.Build(request.To, request.Options, inputPath, outputPath, plan, codecs, _settings));
         ToolInvocation invocation = new(
             request.Tool!.Path!,
             args,
@@ -107,6 +103,7 @@ internal sealed partial class FfmpegVideoEngine : IConversionEngine
         return ToolRunner.RunAsync(invocation, cancellationToken);
     }
 
+
     // FFmpeg says only "Unknown encoder" or "matches no streams"; the last line becomes the message, so the plain words go last.
     // Only the video track is required (the map of the sound track is optional), so a missing stream means no video.
     private static string Explain(string output)
@@ -114,6 +111,7 @@ internal sealed partial class FfmpegVideoEngine : IConversionEngine
         Match match = UnknownEncoderPattern().Match(output);
         if (match.Success)
         {
+            // Unknown encoder
             return $"{output}\nваш FFmpeg собран без кодека {match.Groups[1].Value}";
         }
 

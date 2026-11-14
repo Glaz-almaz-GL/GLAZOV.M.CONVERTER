@@ -1,36 +1,20 @@
-using System.Runtime.ExceptionServices;
 using GLAZOV.M.CONVERTER.Batch;
 using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Errors;
-using GLAZOV.M.CONVERTER.Execution;
 using GLAZOV.M.CONVERTER.IO;
 using GLAZOV.M.CONVERTER.Settings;
 
 namespace GLAZOV.M.CONVERTER.Converting;
 
 /// <summary>
-/// Пакетная конвертация: раскрыть входы, выполнить параллельно (число задач — настройка), собрать отчёт.
-/// Неудача отдельного входа в отчёте, а не исключением; исключение — только на неверное использование,
-/// на отмену до начала работы и на непредвиденный сбой (его нельзя выдавать за неудачу одного входа).
+/// Executes batch conversions over a folder or a list of sources with bounded parallelism.
+/// Individual item conversion failures are captured in <see cref="BatchReport"/>; unexpected system failures are rethrown.
 /// </summary>
-internal sealed class BatchConversion
+internal sealed class BatchConversion(ConverterSettingsSnapshot settings, SingleConversion single)
 {
-    private readonly ConverterSettingsSnapshot _settings;
-    private readonly SingleConversion _single;
-
-    internal BatchConversion(ConverterSettingsSnapshot settings, SingleConversion single)
-    {
-        _settings = settings;
-        _single = single;
-    }
-
     /// <summary>
-    /// Конвертирует файлы папки (маска и рекурсия — из <see cref="Source.Folder"/>).
+    /// Converts matching files inside a folder source into the target folder.
     /// </summary>
-    /// <param name="folder">Источник-папка.</param>
-    /// <param name="target">Целевая папка и формат.</param>
-    /// <param name="progress">Приёмник хода.</param>
-    /// <param name="cancellationToken">Отмена.</param>
     internal Task<BatchReport> RunFolderAsync(
         Source folder,
         Target target,
@@ -39,19 +23,16 @@ internal sealed class BatchConversion
     {
         if (folder.Kind != SourceKind.Folder)
         {
-            throw new ArgumentException("Ожидалась папка (Source.Folder); для файлов и потоков передайте их списком.", nameof(folder));
+            // Source is not folder
+            throw new ArgumentException("Expected a folder source (Source.Folder); pass files or streams as a list.", nameof(folder));
         }
 
         return RunAsync(InputReader.Expand(folder), target, progress, cancellationToken);
     }
 
     /// <summary>
-    /// Конвертирует список входов — файлов и потоков.
+    /// Converts a collection of file or stream sources into the target folder.
     /// </summary>
-    /// <param name="sources">Входы; пустой список — неверное использование.</param>
-    /// <param name="target">Целевая папка и формат.</param>
-    /// <param name="progress">Приёмник хода.</param>
-    /// <param name="cancellationToken">Отмена.</param>
     internal Task<BatchReport> RunListAsync(
         IEnumerable<Source> sources,
         Target target,
@@ -61,12 +42,13 @@ internal sealed class BatchConversion
         Source[] list = [.. sources];
         if (list.Length == 0)
         {
-            throw new ArgumentException("Список входов пуст: нечего конвертировать.", nameof(sources));
+            throw new ArgumentException("The source list is empty: nothing to convert.", nameof(sources));
         }
 
         if (list.Any(s => s is null || s.Kind == SourceKind.Folder))
         {
-            throw new ArgumentException("В списке допустимы файлы и потоки; папку передайте отдельным вызовом.", nameof(sources));
+            // Folders not allowed
+            throw new ArgumentException("Only file and stream sources are allowed in a list; convert a folder with a separate call.", nameof(sources));
         }
 
         return RunAsync(list, target, progress, cancellationToken);
@@ -80,55 +62,111 @@ internal sealed class BatchConversion
     {
         if (target.Kind != TargetKind.Folder)
         {
-            throw new ArgumentException("Для пакета нужна целевая папка (Target.Folder).", nameof(target));
+            throw new ArgumentException("Batch conversion requires a folder target (Target.Folder).", nameof(target));
         }
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        HashSet<string> taken = new(StringComparer.OrdinalIgnoreCase);
-        List<WorkItem<ConversionResult>> items = [];
-        foreach (Source source in sources)
+        PlannedItem[] plan = BuildPlan(sources, target.FileFormat.Extension);
+        BatchItemResult[] results = new BatchItemResult[plan.Length];
+        BatchState state = new(plan, results, target, progress, cancellationToken);
+
+        int workerCount = Math.Min(settings.MaxParallelTasks, plan.Length);
+        await Task.WhenAll(Enumerable.Range(0, workerCount).Select(_ => Task.Run(() => RunWorkerAsync(state), CancellationToken.None))).ConfigureAwait(false);
+
+        return new BatchReport(results, sources);
+    }
+
+    private static PlannedItem[] BuildPlan(IReadOnlyList<Source> sources, string targetExtension)
+    {
+        HashSet<string> takenNames = new(StringComparer.OrdinalIgnoreCase);
+        PlannedItem[] plan = new PlannedItem[sources.Count];
+
+        for (int i = 0; i < sources.Count; i++)
         {
-            string name = InputReader.NameOf(source);
-            string outputName = Path.GetFileNameWithoutExtension(name) + "." + target.FileFormat.Extension;
-            bool duplicate = !taken.Add(outputName);
-            items.Add(new WorkItem<ConversionResult>(name, ct => duplicate
-                ? Task.FromException<ConversionResult>(Failures.DuplicateOutput(name, outputName))
-                : _single.RunAsync(source, target, null, null, ct)));
+            string name = InputReader.NameOf(sources[i]);
+            string outputName = $"{Path.GetFileNameWithoutExtension(name)}.{targetExtension}";
+            string? duplicateName = takenNames.Add(outputName) ? null : outputName;
+            plan[i] = new PlannedItem(sources[i], name, duplicateName);
         }
 
-        IReadOnlyList<WorkResult<ConversionResult>> results = await WorkQueue.RunAsync(
-            items,
-            _settings.MaxParallelTasks,
-            progress is null ? null : new Adapter(progress),
-            cancellationToken).ConfigureAwait(false);
-
-        return new BatchReport([.. results.Select(ToItem)], sources);
+        return plan;
     }
 
-    // Непредвиденный сбой (не ошибка конвертации) пакетом не прячется: он выбрасывается как есть.
-    private static BatchItemResult ToItem(WorkResult<ConversionResult> result)
+    private async Task RunWorkerAsync(BatchState state)
     {
-        return result.Outcome switch
+        while (true)
         {
-            WorkOutcome.Completed => BatchItemResult.Success(result.Name, result.Value!.OutputPath, result.Value.OutputPaths, result.Value.Notes),
-            WorkOutcome.Canceled => BatchItemResult.Cancelled(result.Name),
-            _ when result.Error is ConversionException failure => BatchItemResult.Failure(result.Name, failure),
-            _ => throw RethrowUnexpected(result.Error!),
-        };
+            int index = state.ClaimNextIndex();
+            if (index >= state.Plan.Length)
+            {
+                return;
+            }
+
+            PlannedItem item = state.Plan[index];
+            state.Results[index] = await ExecuteItemAsync(item, state.Target, state.CancellationToken).ConfigureAwait(false);
+            state.ReportItemCompleted(item.Name);
+        }
     }
 
-    private static Exception RethrowUnexpected(Exception error)
+    private async Task<BatchItemResult> ExecuteItemAsync(
+        PlannedItem item,
+        Target target,
+        CancellationToken cancellationToken)
     {
-        ExceptionDispatchInfo.Capture(error).Throw();
-        return error;
-    }
-
-    private sealed class Adapter(IProgress<BatchProgress> target) : IProgress<(int Completed, int Total, string Current)>
-    {
-        public void Report((int Completed, int Total, string Current) value)
+        if (cancellationToken.IsCancellationRequested)
         {
-            target.Report(new BatchProgress(value.Completed, value.Total, value.Current));
+            return BatchItemResult.Cancelled(item.Name);
+        }
+
+        if (item.DuplicateOutputName is not null)
+        {
+            return BatchItemResult.Failure(item.Name, Failures.DuplicateOutput(item.Name, item.DuplicateOutputName));
+        }
+
+        try
+        {
+            ConversionResult result = await single.RunAsync(item.Source, target, null, null, cancellationToken).ConfigureAwait(false);
+            return BatchItemResult.Success(item.Name, result);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            return BatchItemResult.Cancelled(item.Name);
+        }
+        catch (ConversionException ex)
+        {
+            return BatchItemResult.Failure(item.Name, ex);
+        }
+    }
+
+    private readonly record struct PlannedItem(Source Source, string Name, string? DuplicateOutputName);
+
+    private sealed class BatchState(
+        PlannedItem[] plan,
+        BatchItemResult[] results,
+        Target target,
+        IProgress<BatchProgress>? progress,
+        CancellationToken cancellationToken)
+    {
+        private int _nextIndex = -1;
+        private int _completedCount;
+
+        internal PlannedItem[] Plan => plan;
+
+        internal BatchItemResult[] Results => results;
+
+        internal Target Target => target;
+
+        internal CancellationToken CancellationToken => cancellationToken;
+
+        internal int ClaimNextIndex()
+        {
+            return Interlocked.Increment(ref _nextIndex);
+        }
+
+        internal void ReportItemCompleted(string currentName)
+        {
+            progress?.Report(new BatchProgress(Interlocked.Increment(ref _completedCount), plan.Length, currentName));
         }
     }
 }

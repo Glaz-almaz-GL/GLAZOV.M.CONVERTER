@@ -1,13 +1,11 @@
-using System.Diagnostics;
 using GLAZOV.M.CONVERTER.Batch;
 using GLAZOV.M.CONVERTER.Converting;
 using GLAZOV.M.CONVERTER.Data;
-using GLAZOV.M.CONVERTER.Detection;
 using GLAZOV.M.CONVERTER.Errors;
-using GLAZOV.M.CONVERTER.Ffmpeg.Engines;
-using GLAZOV.M.CONVERTER.Ffmpeg.Progress;
 using GLAZOV.M.CONVERTER.Formats;
+using GLAZOV.M.CONVERTER.Formats.Options;
 using GLAZOV.M.CONVERTER.Settings;
+using System.Diagnostics;
 
 namespace GLAZOV.M.CONVERTER.Ffmpeg.Tests.Live;
 
@@ -104,7 +102,7 @@ public sealed class ImageRunTests(ImageFixture fixture) : IClassFixture<ImageFix
         await FfmpegConverter.Create().ConvertAsync(
             Source.File(fixture.Photo.Path),
             Target.File(output, FileFormat.Ico),
-            new ConversionOptions { Operations = { Operation.ScalePercent(30) } });
+            new ConversionOptions { Operations = { VisualOperations.ScalePercent(30) } });
 
         (string codec, int width, int height) = await fixture.ProbeAsync(output);
         Assert.Equal(("bmp", 192, 144), (codec, width, height)); // 640×480 at 30 percent
@@ -162,7 +160,7 @@ public sealed class ImageRunTests(ImageFixture fixture) : IClassFixture<ImageFix
         await FfmpegConverter.Create().ConvertAsync(
             Source.File(fixture.Photo.Path),
             Target.File(output, FileFormat.Jpeg),
-            new ConversionOptions { Operations = { Operation.RotateRight, Operation.ScalePercent(50) }, Image = new ImageOptions { Quality = 85 } });
+            new ConversionOptions { Operations = { VisualOperations.RotateRight, VisualOperations.ScalePercent(50) }, Image = new ImageOptions { Quality = 85 } });
 
         (string codec, int width, int height) = await fixture.ProbeAsync(output);
         Assert.Equal("mjpeg", codec);

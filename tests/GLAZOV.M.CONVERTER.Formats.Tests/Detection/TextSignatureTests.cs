@@ -1,8 +1,6 @@
-using DetectorChain = GLAZOV.M.CONVERTER.Detection.DetectorChain;
-using System.Text;
 using GLAZOV.M.CONVERTER.Data;
-using GLAZOV.M.CONVERTER.Formats.Detection;
-using GLAZOV.M.CONVERTER.Formats;
+using System.Text;
+using DetectorChain = GLAZOV.M.CONVERTER.Detection.DetectorChain;
 
 namespace GLAZOV.M.CONVERTER.Formats.Tests.Detection;
 
@@ -167,11 +165,11 @@ public sealed class TextSignatureTests
         Assert.True(new DetectorChain([]).HeadLength >= 4096);
     }
 
-    private sealed class Prefix(string start, FileFormat format) : GLAZOV.M.CONVERTER.Extensions.IFormatDetector
+    private sealed class Prefix(string start, FileFormat format) : Extensions.IFormatDetector
     {
         public int HeadLength => 16;
 
-        public FileFormat? Detect(ReadOnlySpan<byte> head)
+        FileFormat? Extensions.IFormatDetector.Detect(ReadOnlySpan<byte> head)
         {
             return head.StartsWith(Encoding.ASCII.GetBytes(start)) ? format : null;
         }

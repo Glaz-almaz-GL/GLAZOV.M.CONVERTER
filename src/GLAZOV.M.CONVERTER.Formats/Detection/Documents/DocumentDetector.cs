@@ -30,8 +30,9 @@ internal sealed class DocumentDetector() : FamilyDetector(
     }
 
     /// <inheritdoc />
-    public FileFormat? Detect(Stream input)
+    /// <inheritdoc />
+    public ValueTask<FileFormat?> DetectAsync(Stream input, CancellationToken cancellationToken = default)
     {
-        return ContainerProbe.Match(input);
+        return ContainerProbe.MatchAsync(input, cancellationToken);
     }
 }

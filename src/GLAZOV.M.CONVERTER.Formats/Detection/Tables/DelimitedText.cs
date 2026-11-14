@@ -1,5 +1,6 @@
-using System.Text;
 using GLAZOV.M.CONVERTER.Formats.Detection.Text;
+using System.Text;
+using System.Text.Unicode;
 
 namespace GLAZOV.M.CONVERTER.Formats.Detection.Tables;
 
@@ -23,7 +24,7 @@ internal static class DelimitedText
     internal static bool TryFind(ReadOnlySpan<byte> head, ReadOnlySpan<char> delimiters, out char fitting)
     {
         fitting = '\0';
-        if (!TextSignature.Matches(head))
+        if (head.IsEmpty || (!TextSignature.Matches(head) && !IsSingleByteText(head)))
         {
             return false;
         }
@@ -48,6 +49,19 @@ internal static class DelimitedText
         return false;
     }
 
+    private static bool IsSingleByteText(ReadOnlySpan<byte> bytes)
+    {
+        foreach (byte b in bytes)
+        {
+            if (b is (< 0x20 and not (0x09 or 0x0A or 0x0C or 0x0D)) or 0x7F)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     private static string Decode(ReadOnlySpan<byte> head)
     {
         if (head.Length >= 2 && head[0] == 0xFF && head[1] == 0xFE)
@@ -61,7 +75,9 @@ internal static class DelimitedText
         }
 
         ReadOnlySpan<byte> body = head.Length >= 3 && head[0] == 0xEF && head[1] == 0xBB && head[2] == 0xBF ? head[3..] : head;
-        return Encoding.UTF8.GetString(body);
+        return Utf8.IsValid(body)
+            ? Encoding.UTF8.GetString(body)
+            : Encoding.Latin1.GetString(body);
     }
 
     // JSON, JSON lines and markup are text with commas in it; they are not tables.
@@ -83,55 +99,91 @@ internal static class DelimitedText
     private static bool HasEqualCounts(string text, char delimiter, bool windowCut)
     {
         List<int> counts = [];
-        int count = 0;
-        bool inQuotes = false;
-        bool rowHasContent = false;
-        bool rowOpen = false;
+        RowCountState state = new(delimiter);
 
         for (int i = 0; i < text.Length && counts.Count < MaxRows; i++)
         {
-            char c = text[i];
-            rowOpen = true;
-            if (c == '"')
-            {
-                inQuotes = !inQuotes;
-                rowHasContent = true;
-            }
-            else if (inQuotes)
-            {
-                rowHasContent = true;
-            }
-            else if (c is '\n' or '\r')
-            {
-                if (c == '\r' && i + 1 < text.Length && text[i + 1] == '\n')
-                {
-                    i++;
-                }
-
-                if (rowHasContent)
-                {
-                    counts.Add(count);
-                }
-
-                count = 0;
-                rowHasContent = false;
-                rowOpen = false;
-            }
-            else
-            {
-                rowHasContent = true;
-                if (c == delimiter)
-                {
-                    count++;
-                }
-            }
+            state.ProcessChar(text[i], counts);
         }
 
-        if (rowOpen && rowHasContent && !inQuotes && !windowCut && counts.Count < MaxRows)
-        {
-            counts.Add(count);
-        }
+        state.CompleteIfNeeded(counts, windowCut);
 
         return counts.Count >= MinRows && counts[0] > 0 && counts.All(n => n == counts[0]);
+    }
+
+    private ref struct RowCountState(char delimiter)
+    {
+        private int _count = 0;
+        private bool _inQuotes = false;
+        private bool _rowHasContent = false;
+        private bool _rowOpen = false;
+        private bool _lastWasCarriageReturn = false;
+
+        public void ProcessChar(char c, List<int> counts)
+        {
+            if (ShouldSkipLineFeed(c))
+            {
+                return;
+            }
+
+            _rowOpen = true;
+
+            if (c == '"')
+            {
+                _inQuotes = !_inQuotes;
+                _rowHasContent = true;
+                return;
+            }
+
+            if (_inQuotes)
+            {
+                _rowHasContent = true;
+                return;
+            }
+
+            if (c is '\n' or '\r')
+            {
+                CompleteRow(counts, c == '\r');
+                return;
+            }
+
+            _rowHasContent = true;
+            if (c == delimiter)
+            {
+                _count++;
+            }
+        }
+
+        private bool ShouldSkipLineFeed(char c)
+        {
+            if (!_lastWasCarriageReturn)
+            {
+                return false;
+            }
+
+            _lastWasCarriageReturn = false;
+            return c == '\n';
+        }
+
+        private void CompleteRow(List<int> counts, bool isCarriageReturn)
+        {
+            if (_rowHasContent)
+            {
+                counts.Add(_count);
+            }
+
+            _count = 0;
+            _rowHasContent = false;
+            _rowOpen = false;
+            _lastWasCarriageReturn = isCarriageReturn;
+        }
+
+        public readonly void CompleteIfNeeded(List<int> counts, bool windowCut)
+        {
+            if (_rowOpen && _rowHasContent && !_inQuotes && !windowCut && counts.Count < MaxRows)
+            {
+                counts.Add(_count);
+            }
+        }
     }
 }

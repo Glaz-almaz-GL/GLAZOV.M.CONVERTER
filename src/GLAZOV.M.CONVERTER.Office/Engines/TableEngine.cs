@@ -1,10 +1,10 @@
-using System.Text;
 using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Errors;
 using GLAZOV.M.CONVERTER.Extensions;
 using GLAZOV.M.CONVERTER.Formats;
 using GLAZOV.M.CONVERTER.IO;
 using GLAZOV.M.CONVERTER.Tooling;
+using System.Text;
 
 namespace GLAZOV.M.CONVERTER.Office.Engines;
 
@@ -35,7 +35,7 @@ internal sealed class TableEngine(OfficeSettings settings) : IConversionEngine
     public IReadOnlyList<ConversionPair> Pairs { get; } = BuildPairs();
 
     /// <inheritdoc />
-    public async Task ConvertAsync(ConversionRequest request, CancellationToken cancellationToken)
+    public async Task ConvertAsync(ConversionRequest request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
 
@@ -61,12 +61,25 @@ internal sealed class TableEngine(OfficeSettings settings) : IConversionEngine
             IReadOnlyList<string> arguments = TableArguments.Convert(input, output, profile, importFilter, convertTo);
             ToolResult result = await ToolRunner.RunAsync(new ToolInvocation(request.Tool!.Path!, arguments, OnOutputLine: _ => { }), cancellationToken).ConfigureAwait(false);
 
-            string[] produced = [.. new DirectoryInfo(output).GetFiles().Where(file => file.Length > 0).OrderBy(file => file.CreationTimeUtc).ThenBy(file => file.Name, StringComparer.Ordinal).Select(file => file.FullName)];
+            IReadOnlyList<string> sheetOrder = Books.Contains(request.From)
+                ? BookSize.SheetNames(input, request.From)
+                : [];
+
+            string[] produced =
+            [
+                .. new DirectoryInfo(output).GetFiles()
+                    .Where(file => file.Length > 0)
+                    .OrderBy(file => SheetIndex(file.FullName, stem, sheetOrder))
+                    .ThenBy(file => file.CreationTimeUtc)
+                    .ThenBy(file => file.Name, StringComparer.Ordinal)
+                    .Select(file => file.FullName)
+            ];
+
             if (result.ExitCode != 0 || produced.Length == 0)
             {
                 // LibreOffice exits with 0 when it cannot load a file; the missing result is the failure.
                 string name = request.InputPath is null ? "таблица" : Path.GetFileName(request.InputPath);
-                throw ConversionException.ToolFailed(request.Tool!.Name, result.ExitCode, $"{result.ErrorOutput}\nLibreOffice не смог открыть файл «{name}»".TrimStart());
+                throw ConversionException.ToolFailed(request.Tool.Name, result.ExitCode, $"{result.ErrorOutput}\nLibreOffice не смог открыть файл «{name}»".TrimStart());
             }
 
             if (request.To.Equals(FileFormat.Csv) || request.To.Equals(FileFormat.Tsv))
@@ -83,6 +96,25 @@ internal sealed class TableEngine(OfficeSettings settings) : IConversionEngine
         {
             await WorkFolder.RemoveAsync(work).ConfigureAwait(false);
         }
+    }
+
+    private static int SheetIndex(string path, string stem, IReadOnlyList<string> sheetOrder)
+    {
+        if (sheetOrder.Count == 0)
+        {
+            return int.MaxValue;
+        }
+
+        string sheet = SheetName(path, stem);
+        for (int i = 0; i < sheetOrder.Count; i++)
+        {
+            if (string.Equals(sheetOrder[i], sheet, StringComparison.Ordinal))
+            {
+                return i;
+            }
+        }
+
+        return int.MaxValue;
     }
 
     // Delimited text goes to LibreOffice as UTF-8 with a separator that is known and a size that fits the result.

@@ -1,4 +1,5 @@
-using GLAZOV.M.CONVERTER.ArchivesExtra.Model;
+using GLAZOV.M.CONVERTER.Archives.Model;
+using GLAZOV.M.CONVERTER.Archives.Writing;
 using SharpCompress.Compressors;
 using SharpCompress.Compressors.BZip2;
 
@@ -24,7 +25,7 @@ internal sealed class TarBz2ArchiveWriter : IArchiveWriter
     }
 
     /// <inheritdoc />
-    public Task WriteAsync(ArchiveEntryInfo info, Stream? content, CancellationToken cancellationToken)
+    public Task WriteAsync(ArchiveEntryInfo info, Stream? content, CancellationToken cancellationToken = default)
     {
         return _tar.WriteAsync(info, content, cancellationToken);
     }

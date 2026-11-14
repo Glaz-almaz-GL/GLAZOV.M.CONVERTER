@@ -4,86 +4,74 @@ using System.Text;
 namespace GLAZOV.M.CONVERTER.Archives;
 
 /// <summary>
-/// Settings of the archive engine. Passed to <see cref="ArchivesExtension"/> when it is created;
-/// the extension keeps a copy, so later changes of this object do not affect it.
+/// Settings for archive conversion engines. Passed to <see cref="ArchivesExtension"/> upon creation;
+/// the extension retains a snapshot copy so subsequent mutations do not affect active conversions.
 /// </summary>
-/// <remarks>
-/// The limits protect against archive bombs: an archive that goes over any of them is refused with an error that names the limit,
-/// never cut short.
-/// </remarks>
-public sealed class ArchivesSettings
+public class ArchivesSettings
 {
-    private int _maxEntries = 100_000;
-    private long _maxTotalBytes = 10L * 1024 * 1024 * 1024;
-    private long _maxEntryBytes = 4L * 1024 * 1024 * 1024;
-    private int _maxCompressionRatio = 500;
-    private int _zipNameCodePage = 437;
-
     /// <summary>
-    /// The largest number of entries (files and folders) in an archive. 100 000 by default.
+    /// Maximum allowed number of entries (files and directories) in an archive. Defaults to 100,000.
     /// </summary>
     public int MaxEntries
     {
-        get => _maxEntries;
+        get;
         set
         {
-            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(value, nameof(MaxEntries));
-            _maxEntries = value;
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(value);
+            field = value;
         }
-    }
+    } = 100_000;
 
     /// <summary>
-    /// The largest total size of all entries when unpacked, in bytes. 10 GB by default.
+    /// Maximum total unpacked size across all entries in bytes. Defaults to 10 GB.
     /// </summary>
     public long MaxTotalBytes
     {
-        get => _maxTotalBytes;
+        get;
         set
         {
-            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(value, nameof(MaxTotalBytes));
-            _maxTotalBytes = value;
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(value);
+            field = value;
         }
-    }
+    } = 10L * 1024 * 1024 * 1024;
 
     /// <summary>
-    /// The largest size of one entry when unpacked, in bytes. 4 GB by default.
+    /// Maximum unpacked size of a single archive entry in bytes. Defaults to 4 GB.
     /// </summary>
     public long MaxEntryBytes
     {
-        get => _maxEntryBytes;
+        get;
         set
         {
-            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(value, nameof(MaxEntryBytes));
-            _maxEntryBytes = value;
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(value);
+            field = value;
         }
-    }
+    } = 4L * 1024 * 1024 * 1024;
 
     /// <summary>
-    /// The largest ratio of the unpacked size to the size of the input archive. It is checked once more than a megabyte has been unpacked,
-    /// so a small honest archive of zeroes is not taken for a bomb. 500 by default.
+    /// Maximum allowed ratio of total unpacked bytes to input archive size. Checked once more than 1 MB has been unpacked. Defaults to 500.
     /// </summary>
     public int MaxCompressionRatio
     {
-        get => _maxCompressionRatio;
+        get;
         set
         {
-            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(value, nameof(MaxCompressionRatio));
-            _maxCompressionRatio = value;
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(value);
+            field = value;
         }
-    }
+    } = 500;
 
     /// <summary>
-    /// How hard the result (ZIP, TAR.GZ, GZip) is compressed. <see cref="CompressionLevel.Optimal"/> by default.
+    /// Compression level applied when writing compressed output archives (ZIP, TAR.GZ, GZip). Defaults to <see cref="CompressionLevel.Optimal"/>.
     /// </summary>
     public CompressionLevel CompressionLevel { get; set; } = CompressionLevel.Optimal;
 
     /// <summary>
-    /// The code page of the names in a ZIP input whose entries are not marked as UTF-8. 437 (IBM437), as the format says, by default;
-    /// old archives made in Russian are usually 866 (IBM866). Names of a ZIP result are always UTF-8.
+    /// Code page used to decode entry names in ZIP archives that lack the UTF-8 flag. Defaults to 437 (IBM437).
     /// </summary>
     public int ZipNameCodePage
     {
-        get => _zipNameCodePage;
+        get;
         set
         {
             try
@@ -96,11 +84,14 @@ public sealed class ArchivesSettings
                 throw new ArgumentOutOfRangeException(nameof(ZipNameCodePage), value, "Кодовая страница не поддерживается.");
             }
 
-            _zipNameCodePage = value;
+            field = value;
         }
-    }
+    } = 437;
 
-    internal ArchivesSettings Copy()
+    /// <summary>
+    /// Creates a shallow snapshot copy of the current settings.
+    /// </summary>
+    protected internal virtual ArchivesSettings Copy()
     {
         return (ArchivesSettings)MemberwiseClone();
     }

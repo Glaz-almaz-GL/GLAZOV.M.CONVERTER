@@ -6,4 +6,4 @@ namespace GLAZOV.M.CONVERTER.Archives.Model;
 /// <param name="Info">Description.</param>
 /// <param name="Content">Content stream.</param>
 /// <param name="CompressedLength">Size of the entry inside the archive, if the archive says so; it feeds the progress.</param>
-internal sealed record ArchiveItem(ArchiveEntryInfo Info, Stream? Content, long? CompressedLength = null);
+public sealed record ArchiveItem(ArchiveEntryInfo Info, Stream? Content, long? CompressedLength = null);

@@ -32,12 +32,7 @@ internal static class TextSignature
             return IsUtf16Text(head[2..], littleEndian: true);
         }
 
-        if (head.Length >= 2 && head[0] == 0xFE && head[1] == 0xFF)
-        {
-            return IsUtf16Text(head[2..], littleEndian: false);
-        }
-
-        return IsUtf8Text(head);
+        return head.Length >= 2 && head[0] == 0xFE && head[1] == 0xFF ? IsUtf16Text(head[2..], littleEndian: false) : IsUtf8Text(head);
     }
 
     private static bool IsUtf8Text(ReadOnlySpan<byte> bytes)
@@ -86,41 +81,53 @@ internal static class TextSignature
             return false;
         }
 
+        bool expectLowSurrogate = false;
+
         for (int i = 0; i < units; i++)
         {
-            char c = (char)(littleEndian ? bytes[2 * i] | (bytes[(2 * i) + 1] << 8) : (bytes[2 * i] << 8) | bytes[(2 * i) + 1]);
-            if (c < 0x20 ? IsControl((byte)c) : c == 0x7F)
-            {
-                return false;
-            }
+            char c = ReadCodeUnit(bytes, i, littleEndian);
 
-            if (char.IsHighSurrogate(c))
+            if (expectLowSurrogate)
             {
-                if (i + 1 == units)
-                {
-                    break;
-                }
-
-                char next = (char)(littleEndian ? bytes[2 * (i + 1)] | (bytes[(2 * (i + 1)) + 1] << 8) : (bytes[2 * (i + 1)] << 8) | bytes[(2 * (i + 1)) + 1]);
-                if (!char.IsLowSurrogate(next))
+                if (!char.IsLowSurrogate(c))
                 {
                     return false;
                 }
 
-                i++;
+                expectLowSurrogate = false;
+                continue;
             }
-            else if (char.IsLowSurrogate(c))
+
+            if (IsDisallowedControl(c) || char.IsLowSurrogate(c))
             {
                 return false;
             }
+
+            expectLowSurrogate = char.IsHighSurrogate(c);
         }
 
         return true;
     }
 
+    private static char ReadCodeUnit(ReadOnlySpan<byte> bytes, int index, bool littleEndian)
+    {
+        int offset = 2 * index;
+        int value = littleEndian
+            ? bytes[offset] | (bytes[offset + 1] << 8)
+            : (bytes[offset] << 8) | bytes[offset + 1];
+
+        return (char)value;
+    }
+
+    private static bool IsDisallowedControl(char c)
+    {
+        return c < 0x20 ? IsControl((byte)c) : c == 0x7F;
+    }
+
+
     // Tab, line feed, form feed and carriage return are text; the rest below the space, and DEL, are not.
     private static bool IsControl(byte b)
     {
-        return (b < 0x20 && b is not (0x09 or 0x0A or 0x0C or 0x0D)) || b == 0x7F;
+        return b is < 0x20 and not (0x09 or 0x0A or 0x0C or 0x0D) or 0x7F;
     }
 }
