@@ -2,9 +2,9 @@ using GLAZOV.M.CONVERTER.Batch;
 using GLAZOV.M.CONVERTER.Capabilities;
 using GLAZOV.M.CONVERTER.Converting;
 using GLAZOV.M.CONVERTER.Data;
-using GLAZOV.M.CONVERTER.Detection;
 using GLAZOV.M.CONVERTER.Errors;
 using GLAZOV.M.CONVERTER.Formats;
+using GLAZOV.M.CONVERTER.Formats.Options;
 using GLAZOV.M.CONVERTER.Settings;
 using GLAZOV.M.CONVERTER.Tests.Extension;
 
@@ -20,7 +20,7 @@ public class ScenarioShapeTests
     public void OneFileStreamAndMemory_ShapeCompiles()
     {
         // Форма вызовов записана как в эталоне; вызовы не выполняются — их поведение проверяют тесты конвертации.
-        var converter = new Converter();
+        Converter converter = new();
         MemoryStream input = new();
         MemoryStream output = new();
         CancellationToken token = CancellationToken.None;
@@ -33,7 +33,7 @@ public class ScenarioShapeTests
             () => converter.ConvertAsync(
                 Source.File("фото.png"),
                 Target.File("фото.jpg", TestFormats.Delta),
-                new ConversionOptions { Operations = { Operation.RotateRight, Operation.ScalePercent(75) } }),
+                new ConversionOptions { Operations = { VisualOperations.RotateRight, VisualOperations.ScalePercent(75) } }),
             () => converter.ConvertAsync(
                 Source.File("песня.wav"),
                 Target.File("песня.mp3", TestFormats.Alpha),
@@ -53,7 +53,7 @@ public class ScenarioShapeTests
     [Fact]
     public void BatchAndReport_ShapeCompiles()
     {
-        var converter = new Converter();
+        Converter converter = new();
         CancellationToken token = CancellationToken.None;
 
         Func<Task<BatchReport>>[] calls =
@@ -64,7 +64,7 @@ public class ScenarioShapeTests
                 progress: new Progress<BatchProgress>(p => _ = (p.Completed, p.Total, p.CurrentName)),
                 cancellationToken: token),
             () => converter.ConvertBatchAsync(
-                new[] { Source.File("a.ogg"), Source.File("b.wav") },
+                [Source.File("a.ogg"), Source.File("b.wav")],
                 Target.Folder("готово", TestFormats.Alpha)),
         ];
         Assert.All(calls, Assert.NotNull);
@@ -87,9 +87,9 @@ public class ScenarioShapeTests
     [Fact]
     public void Capabilities_ShapeCompiles()
     {
-        var converter = new Converter();
+        Converter converter = new();
 
-        var caps = converter.Capabilities;
+        ConverterCapabilities caps = converter.Capabilities;
         Func<bool> can = () => caps.CanConvert(TestFormats.Gamma, TestFormats.Alpha);
         Func<IReadOnlyList<Conversion>> all = () => caps.All;
         Func<ToolStatus> tool = () => caps.Tool("sometool");
@@ -115,7 +115,7 @@ public class ScenarioShapeTests
     [Fact]
     public void Settings_DefaultsAndInitializersMatchTheSketch()
     {
-        var settings = new ConverterSettings
+        ConverterSettings settings = new()
         {
             MaxParallelTasks = 8,
             TempFolder = "D:/tmp/convert",
@@ -133,7 +133,7 @@ public class ScenarioShapeTests
     [Fact]
     public void AudioOptions_DefaultToNotSetAndRejectNonPositive()
     {
-        var audio = new AudioOptions();
+        AudioOptions audio = new();
         Assert.Null(audio.Bitrate);
         Assert.Null(audio.SampleRate);
         Assert.Null(audio.Channels);
@@ -220,7 +220,7 @@ public class ScenarioShapeTests
     [Fact]
     public void NewFormatsAndImageOptions_ShapeCompilesAsInTheSketch()
     {
-        var converter = new Converter();
+        Converter converter = new();
 
         Func<Task<ConversionResult>>[] calls =
         [
@@ -231,7 +231,7 @@ public class ScenarioShapeTests
                 Target.File("фото-75.jpg", TestFormats.Delta),
                 new ConversionOptions
                 {
-                    Operations = { Operation.RotateRight, Operation.ScalePercent(75) },
+                    Operations = { VisualOperations.RotateRight, VisualOperations.ScalePercent(75) },
                     Image = new ImageOptions { Quality = 85 },
                 }),
         ];

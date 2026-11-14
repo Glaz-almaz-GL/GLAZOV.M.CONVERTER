@@ -1,11 +1,11 @@
-using GLAZOV.M.CONVERTER.Converting;
 using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Errors;
 using GLAZOV.M.CONVERTER.Formats;
 using SkiaSharp;
-using UglyToad.PdfPig.Content;
-using UglyToad.PdfPig.Graphics.Operations.SpecialGraphicsState;
 using UglyToad.PdfPig;
+using UglyToad.PdfPig.Content;
+using UglyToad.PdfPig.Graphics.Operations;
+using UglyToad.PdfPig.Graphics.Operations.SpecialGraphicsState;
 
 namespace GLAZOV.M.CONVERTER.Pdf.Tests.Engines;
 
@@ -49,7 +49,7 @@ public sealed class PdfRegressionTests
         using PdfDocument document = PdfDocument.Open(pdf);
         Page page = document.GetPage(1);
         IPdfImage image = Assert.Single(page.GetImages());
-        byte[] bytes = image.TryGetPng(out byte[]? png) ? png! : image.RawBytes.ToArray();
+        byte[] bytes = image.TryGetPng(out byte[]? png) ? png : image.RawBytes.ToArray();
         using SKBitmap bitmap = SKBitmap.Decode(bytes);
         Assert.NotNull(bitmap);
 
@@ -65,25 +65,25 @@ public sealed class PdfRegressionTests
         }
 
         Assert.True(n > 0);
-        double u = ((double)sx / n + 0.5) / bitmap.Width;
-        double v = 1 - (((double)sy / n + 0.5) / bitmap.Height);
+        double u = (((double)sx / n) + 0.5) / bitmap.Width;
+        double v = 1 - ((((double)sy / n) + 0.5) / bitmap.Height);
 
         // Compose the matrices of the page content in order: new = M x current (row vectors).
         double[] ctm = [1, 0, 0, 1, 0, 0];
-        foreach (var op in page.Operations)
+        foreach (IGraphicsStateOperation op in page.Operations)
         {
             if (op is ModifyCurrentTransformationMatrix cm)
             {
                 double[] m = [cm.Value[0], cm.Value[1], cm.Value[2], cm.Value[3], cm.Value[4], cm.Value[5]];
                 ctm = [
-                    m[0] * ctm[0] + m[1] * ctm[2], m[0] * ctm[1] + m[1] * ctm[3],
-                    m[2] * ctm[0] + m[3] * ctm[2], m[2] * ctm[1] + m[3] * ctm[3],
-                    m[4] * ctm[0] + m[5] * ctm[2] + ctm[4], m[4] * ctm[1] + m[5] * ctm[3] + ctm[5]];
+                    (m[0] * ctm[0]) + (m[1] * ctm[2]), (m[0] * ctm[1]) + (m[1] * ctm[3]),
+                    (m[2] * ctm[0]) + (m[3] * ctm[2]), (m[2] * ctm[1]) + (m[3] * ctm[3]),
+                    (m[4] * ctm[0]) + (m[5] * ctm[2]) + ctm[4], (m[4] * ctm[1]) + (m[5] * ctm[3]) + ctm[5]];
             }
         }
 
-        double px = u * ctm[0] + v * ctm[2] + ctm[4];
-        double py = u * ctm[1] + v * ctm[3] + ctm[5];
+        double px = (u * ctm[0]) + (v * ctm[2]) + ctm[4];
+        double py = (u * ctm[1]) + (v * ctm[3]) + ctm[5];
 
         (double ex, double ey) = Upright(orientation, w / 8.0, h / 8.0, w, h);
 

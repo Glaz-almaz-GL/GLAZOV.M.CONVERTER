@@ -1,13 +1,11 @@
-using System.Diagnostics;
 using GLAZOV.M.CONVERTER.Batch;
 using GLAZOV.M.CONVERTER.Converting;
 using GLAZOV.M.CONVERTER.Data;
-using GLAZOV.M.CONVERTER.Detection;
 using GLAZOV.M.CONVERTER.Errors;
-using GLAZOV.M.CONVERTER.Ffmpeg.Engines;
-using GLAZOV.M.CONVERTER.Ffmpeg.Progress;
 using GLAZOV.M.CONVERTER.Formats;
+using GLAZOV.M.CONVERTER.Formats.Options;
 using GLAZOV.M.CONVERTER.Settings;
+using System.Diagnostics;
 
 namespace GLAZOV.M.CONVERTER.Ffmpeg.Tests.Live;
 
@@ -272,8 +270,8 @@ public sealed class VideoRunTests(VideoRunFixture fixture) : IClassFixture<Video
         await converter.ConvertAsync(Source.File(source), Target.File(size, FileFormat.Mp4), new ConversionOptions { Video = new VideoOptions { Width = 160 } });
         await converter.ConvertAsync(Source.File(source), Target.File(rate, FileFormat.Mp4), new ConversionOptions { Video = new VideoOptions { FrameRate = 10 } });
         ConversionResult forcedResult = await converter.ConvertAsync(Source.File(source), Target.File(forced, FileFormat.Mp4), new ConversionOptions { Video = new VideoOptions { Reencode = true } });
-        await converter.ConvertAsync(Source.File(source), Target.File(rotated, FileFormat.Mp4), new ConversionOptions { Operations = { Operation.RotateRight } });
-        await converter.ConvertAsync(Source.File(source), Target.File(scaled, FileFormat.Mp4), new ConversionOptions { Operations = { Operation.ScalePercent(50) } });
+        await converter.ConvertAsync(Source.File(source), Target.File(rotated, FileFormat.Mp4), new ConversionOptions { Operations = { VisualOperations.RotateRight } });
+        await converter.ConvertAsync(Source.File(source), Target.File(scaled, FileFormat.Mp4), new ConversionOptions { Operations = { VisualOperations.ScalePercent(50) } });
 
         Assert.True(lowResult.Reencoded);
         Assert.True(new FileInfo(low).Length < new FileInfo(high).Length, "Quality 10 must give a smaller file than 90.");

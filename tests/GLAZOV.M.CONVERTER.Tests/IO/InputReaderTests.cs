@@ -12,14 +12,19 @@ public sealed class InputReaderTests : IDisposable
 {
     private readonly string _folder = Path.Combine(Path.GetTempPath(), "convtests-" + Guid.NewGuid().ToString("N"));
 
-    public InputReaderTests() => Directory.CreateDirectory(_folder);
+    public InputReaderTests()
+    {
+        Directory.CreateDirectory(_folder);
+    }
 
-    public void Dispose() => Directory.Delete(_folder, recursive: true);
-
+    public void Dispose()
+    {
+        Directory.Delete(_folder, recursive: true);
+    }
 
     private string Put(string relative, byte[]? data = null)
     {
-        var path = Path.Combine(_folder, relative);
+        string path = Path.Combine(_folder, relative);
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllBytes(path, data ?? [1, 2, 3]);
         return path;
@@ -27,7 +32,7 @@ public sealed class InputReaderTests : IDisposable
 
     private static async Task<byte[]> ReadAll(Stream stream)
     {
-        using var copy = new MemoryStream();
+        using MemoryStream copy = new();
         await stream.CopyToAsync(copy);
         return copy.ToArray();
     }
@@ -35,8 +40,8 @@ public sealed class InputReaderTests : IDisposable
     [Fact]
     public async Task OpenFile_NameIsFileName_ContentIsWhole()
     {
-        var expected = TestFormats.Sample(TestFormats.Beta, 200);
-        var path = Put("a.wav", expected);
+        byte[] expected = TestFormats.Sample(TestFormats.Beta, 200);
+        string path = Put("a.wav", expected);
 
         await using var handle = await InputReader.OpenAsync(Source.File(path));
 
@@ -47,8 +52,8 @@ public sealed class InputReaderTests : IDisposable
     [Fact]
     public async Task OpenFile_HeadDoesNotConsumeBytes()
     {
-        var expected = TestFormats.Sample(TestFormats.Gamma, 200);
-        var path = Put("b.ogg", expected);
+        byte[] expected = TestFormats.Sample(TestFormats.Gamma, 200);
+        string path = Put("b.ogg", expected);
 
         await using var handle = await InputReader.OpenAsync(Source.File(path));
         var head = await handle.HeadAsync(16);
@@ -60,7 +65,7 @@ public sealed class InputReaderTests : IDisposable
     [Fact]
     public async Task OpenFile_HeadLongerThanFile_ReturnsWhatThereIs()
     {
-        var path = Put("short.bin", [9, 8, 7]);
+        string path = Put("short.bin", [9, 8, 7]);
 
         await using var handle = await InputReader.OpenAsync(Source.File(path));
         var head = await handle.HeadAsync(4096);
@@ -71,8 +76,8 @@ public sealed class InputReaderTests : IDisposable
     [Fact]
     public async Task SeekableStream_HeadReturnsPositionAndLeavesStreamOpen()
     {
-        var data = TestFormats.Sample(TestFormats.Beta, 200);
-        var source = new MemoryStream(data) { Position = 5 };
+        byte[] data = TestFormats.Sample(TestFormats.Beta, 200);
+        MemoryStream source = new(data) { Position = 5 };
 
         await using (var handle = await InputReader.OpenAsync(Source.Stream(source)))
         {
@@ -80,7 +85,7 @@ public sealed class InputReaderTests : IDisposable
             Assert.Equal(data.AsSpan(5, 12).ToArray(), head.ToArray());
             Assert.Equal(5, source.Position);
             Assert.Equal(data.AsSpan(5).ToArray(), await ReadAll(handle.Stream));
-            Assert.Equal("поток", handle.Name);
+            Assert.Equal("stream", handle.Name);
         }
 
         Assert.True(source.CanRead);
@@ -89,14 +94,14 @@ public sealed class InputReaderTests : IDisposable
     [Fact]
     public async Task NonSeekableStream_HeadTwiceGivesSameBytes_AndReaderSeesEverything()
     {
-        var data = TestFormats.Sample(TestFormats.Alpha, 200);
-        var source = new NonSeekableStream(data);
+        byte[] data = TestFormats.Sample(TestFormats.Alpha, 200);
+        NonSeekableStream source = new(data);
 
         await using (var handle = await InputReader.OpenAsync(Source.Stream(source)))
         {
-            var first = (await handle.HeadAsync(32)).ToArray();
-            var second = (await handle.HeadAsync(32)).ToArray();
-            var longer = (await handle.HeadAsync(100)).ToArray();
+            byte[] first = (await handle.HeadAsync(32)).ToArray();
+            byte[] second = (await handle.HeadAsync(32)).ToArray();
+            byte[] longer = (await handle.HeadAsync(100)).ToArray();
 
             Assert.Equal(data.AsSpan(0, 32).ToArray(), first);
             Assert.Equal(first, second);
@@ -110,9 +115,9 @@ public sealed class InputReaderTests : IDisposable
     [Fact]
     public async Task NonSeekableStream_HeadAfterReadStarted_IsRefused()
     {
-        var source = new NonSeekableStream(TestFormats.Sample(TestFormats.Beta, 200));
+        NonSeekableStream source = new(TestFormats.Sample(TestFormats.Beta, 200));
         await using var handle = await InputReader.OpenAsync(Source.Stream(source));
-        var read = await handle.Stream.ReadAsync(new byte[10]);
+        int read = await handle.Stream.ReadAsync(new byte[10]);
         Assert.True(read > 0);
 
         await Assert.ThrowsAsync<InvalidOperationException>(async () => await handle.HeadAsync(500));
@@ -132,8 +137,8 @@ public sealed class InputReaderTests : IDisposable
     [Fact]
     public async Task FileLockedExclusively_IsInputUnreadable()
     {
-        var path = Put("locked.mp3");
-        await using var holder = new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+        string path = Put("locked.mp3");
+        await using FileStream holder = new(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
 
         var ex = await Assert.ThrowsAsync<ConversionException>(async () => await InputReader.OpenAsync(Source.File(path)));
 
@@ -158,8 +163,8 @@ public sealed class InputReaderTests : IDisposable
     [Fact]
     public async Task Cancelled_BeforeOpen_ThrowsOperationCanceled()
     {
-        using var cts = new CancellationTokenSource();
-        cts.Cancel();
+        using CancellationTokenSource cts = new();
+        await cts.CancelAsync();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
             await InputReader.OpenAsync(Source.File(Put("c.mp3")), cts.Token));
@@ -173,9 +178,9 @@ public sealed class InputReaderTests : IDisposable
         Put("c.mp3");
         Put(Path.Combine("sub", "d.ogg"));
 
-        var flat = InputReader.Expand(Source.Folder(_folder, "*.ogg", recursive: false)).Select(NameOf).ToArray();
-        var deep = InputReader.Expand(Source.Folder(_folder, "*.ogg", recursive: true)).Select(NameOf).ToArray();
-        var all = InputReader.Expand(Source.Folder(_folder, "*", recursive: true)).Select(NameOf).ToArray();
+        string[] flat = InputReader.Expand(Source.Folder(_folder, "*.ogg", recursive: false)).Select(NameOf).ToArray();
+        string[] deep = InputReader.Expand(Source.Folder(_folder, "*.ogg", recursive: true)).Select(NameOf).ToArray();
+        string[] all = InputReader.Expand(Source.Folder(_folder, "*", recursive: true)).Select(NameOf).ToArray();
 
         Assert.Equal(["a.ogg", "b.ogg"], flat);
         Assert.Equal(["a.ogg", "b.ogg", Path.Combine("sub", "d.ogg")], deep);
@@ -203,7 +208,10 @@ public sealed class InputReaderTests : IDisposable
         Assert.Throws<ArgumentException>(() => InputReader.Expand(Source.File(Put("x.mp3"))));
     }
 
-    private string NameOf(Source source) => Path.GetRelativePath(_folder, source.Path!);
+    private string NameOf(Source source)
+    {
+        return Path.GetRelativePath(_folder, source.Path!);
+    }
 
     private sealed class NonSeekableStream(byte[] data) : Stream
     {
@@ -225,19 +233,34 @@ public sealed class InputReaderTests : IDisposable
             set => throw new NotSupportedException();
         }
 
-        public override int Read(byte[] buffer, int offset, int count) => _inner.Read(buffer, offset, Math.Min(count, 7));
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            return _inner.Read(buffer, offset, Math.Min(count, 7));
+        }
 
-        public override int Read(Span<byte> buffer) => _inner.Read(buffer[..Math.Min(buffer.Length, 7)]);
+        public override int Read(Span<byte> buffer)
+        {
+            return _inner.Read(buffer[..Math.Min(buffer.Length, 7)]);
+        }
 
         public override void Flush()
         {
         }
 
-        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override long Seek(long offset, SeekOrigin origin)
+        {
+            throw new NotSupportedException();
+        }
 
-        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void SetLength(long value)
+        {
+            throw new NotSupportedException();
+        }
 
-        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count)
+        {
+            throw new NotSupportedException();
+        }
 
         protected override void Dispose(bool disposing)
         {
@@ -262,15 +285,24 @@ public sealed class InputReaderTests : IDisposable
             set => throw new NotSupportedException();
         }
 
-        public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            throw new NotSupportedException();
+        }
 
         public override void Flush()
         {
         }
 
-        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override long Seek(long offset, SeekOrigin origin)
+        {
+            throw new NotSupportedException();
+        }
 
-        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void SetLength(long value)
+        {
+            throw new NotSupportedException();
+        }
 
         public override void Write(byte[] buffer, int offset, int count)
         {

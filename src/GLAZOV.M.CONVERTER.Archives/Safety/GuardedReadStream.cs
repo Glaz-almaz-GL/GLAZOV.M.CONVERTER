@@ -1,10 +1,11 @@
 namespace GLAZOV.M.CONVERTER.Archives.Safety;
 
 /// <summary>
-/// Reads through the content of an entry and reports every chunk to the guard, which throws when a limit is gone over.
+/// Wraps an archive entry stream, normalizes decompressor read errors into <see cref="InvalidDataException"/>,
+/// and reports unpacked byte counts to the bomb guard.
 /// </summary>
-/// <param name="inner">The content of the entry.</param>
-/// <param name="onRead">Called with the number of bytes of every read.</param>
+/// <param name="inner">Underlying entry content stream.</param>
+/// <param name="onRead">Callback invoked with the number of bytes read on each operation.</param>
 internal sealed class GuardedReadStream(Stream inner, Action<int> onRead) : Stream
 {
     public override bool CanRead => true;
@@ -23,23 +24,60 @@ internal sealed class GuardedReadStream(Stream inner, Action<int> onRead) : Stre
 
     public override int Read(byte[] buffer, int offset, int count)
     {
-        int read = inner.Read(buffer, offset, count);
+        int read;
+        try
+        {
+            read = inner.Read(buffer, offset, count);
+        }
+        catch (Exception ex) when (IsBrokenInput(ex))
+        {
+            throw Broken(ex);
+        }
+
         onRead(read);
         return read;
     }
 
     public override int Read(Span<byte> buffer)
     {
-        int read = inner.Read(buffer);
+        int read;
+        try
+        {
+            read = inner.Read(buffer);
+        }
+        catch (Exception ex) when (IsBrokenInput(ex))
+        {
+            throw Broken(ex);
+        }
+
         onRead(read);
         return read;
     }
 
     public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
     {
-        int read = await inner.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
+        int read;
+        try
+        {
+            read = await inner.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (IsBrokenInput(ex))
+        {
+            throw Broken(ex);
+        }
+
         onRead(read);
         return read;
+    }
+
+    private static bool IsBrokenInput(Exception ex)
+    {
+        return ex is not (OperationCanceledException or OutOfMemoryException);
+    }
+
+    private static InvalidDataException Broken(Exception ex)
+    {
+        return new InvalidDataException($"Архив повреждён или оборван: {ex.Message}", ex);
     }
 
     public override void Flush()

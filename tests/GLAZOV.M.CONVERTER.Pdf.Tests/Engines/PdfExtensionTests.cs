@@ -1,4 +1,3 @@
-using System.Text;
 using GLAZOV.M.CONVERTER.Batch;
 using GLAZOV.M.CONVERTER.Capabilities;
 using GLAZOV.M.CONVERTER.Converting;
@@ -6,7 +5,9 @@ using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Errors;
 using GLAZOV.M.CONVERTER.Extensions;
 using GLAZOV.M.CONVERTER.Formats;
+using GLAZOV.M.CONVERTER.Formats.Options;
 using SkiaSharp;
+using System.Text;
 
 namespace GLAZOV.M.CONVERTER.Pdf.Tests.Engines;
 
@@ -56,8 +57,8 @@ public sealed class PdfExtensionTests : IDisposable
         Converter with = PdfKit.WithPdf();
         Converter without = new();
 
-        Conversion[] pdfPairs = [.. with.Capabilities.All.Where(c => c.To.Equals(FileFormat.Pdf) && c.From.Equals(FileFormat.Png) || c.To.Equals(FileFormat.Pdf) && c.From.Equals(FileFormat.Jpeg)
-            || c.To.Equals(FileFormat.Pdf) && c.From.Equals(FileFormat.Webp) || c.To.Equals(FileFormat.Pdf) && c.From.Equals(FileFormat.Bmp) || c.To.Equals(FileFormat.Pdf) && c.From.Equals(FileFormat.Gif))];
+        Conversion[] pdfPairs = [.. with.Capabilities.All.Where(c => (c.To.Equals(FileFormat.Pdf) && c.From.Equals(FileFormat.Png)) || (c.To.Equals(FileFormat.Pdf) && c.From.Equals(FileFormat.Jpeg))
+            || (c.To.Equals(FileFormat.Pdf) && c.From.Equals(FileFormat.Webp)) || (c.To.Equals(FileFormat.Pdf) && c.From.Equals(FileFormat.Bmp)) || (c.To.Equals(FileFormat.Pdf) && c.From.Equals(FileFormat.Gif)))];
         Assert.Equal(5, pdfPairs.Length);
         Assert.All(pdfPairs, c => Assert.Equal(ConversionAvailability.Ready, c.Availability));
         Assert.True(with.Capabilities.CanConvert(FileFormat.Gif, FileFormat.Pdf));
@@ -75,9 +76,9 @@ public sealed class PdfExtensionTests : IDisposable
 
         byte[] pdf = await PdfKit.ToPdfAsync(PdfKit.WithPdf(), picture);
 
-        (double Width, double Height) page = Assert.Single(PdfKit.Pages(pdf));
-        Assert.Equal(width, page.Width, 0.5);
-        Assert.Equal(height, page.Height, 0.5);
+        (double Width, double Height) = Assert.Single(PdfKit.Pages(pdf));
+        Assert.Equal(width, Width, 0.5);
+        Assert.Equal(height, Height, 0.5);
         Assert.StartsWith("%PDF-", Encoding.ASCII.GetString(pdf, 0, 5));
     }
 
@@ -91,9 +92,9 @@ public sealed class PdfExtensionTests : IDisposable
     {
         byte[] pdf = await PdfKit.ToPdfAsync(PdfKit.WithPdf(), PdfKit.Draw(width, height, format));
 
-        (double Width, double Height) page = Assert.Single(PdfKit.Pages(pdf));
-        Assert.Equal(width, page.Width, 0.5);
-        Assert.Equal(height, page.Height, 0.5);
+        (double Width, double Height) = Assert.Single(PdfKit.Pages(pdf));
+        Assert.Equal(width, Width, 0.5);
+        Assert.Equal(height, Height, 0.5);
     }
 
     [Fact]
@@ -104,7 +105,7 @@ public sealed class PdfExtensionTests : IDisposable
         using UglyToad.PdfPig.PdfDocument document = UglyToad.PdfPig.PdfDocument.Open(pdf);
         UglyToad.PdfPig.Content.IPdfImage embedded = Assert.Single(document.GetPage(1).GetImages());
         Assert.True(embedded.TryGetPng(out byte[]? png));
-        using SKBitmap bitmap = SKBitmap.Decode(png!);
+        using SKBitmap bitmap = SKBitmap.Decode(png);
 
         Assert.Equal((80, 60), (bitmap.Width, bitmap.Height));
         Assert.True(bitmap.GetPixel(3, 3).Blue > bitmap.GetPixel(3, 3).Red + 50, "Top left square is dark blue.");
@@ -136,9 +137,9 @@ public sealed class PdfExtensionTests : IDisposable
 
         byte[] pdf = await PdfKit.ToPdfAsync(PdfKit.WithPdf(), jpeg);
 
-        (double Width, double Height) page = Assert.Single(PdfKit.Pages(pdf));
-        Assert.Equal(pageWidth, page.Width, 0.5);
-        Assert.Equal(pageHeight, page.Height, 0.5);
+        (double Width, double Height) = Assert.Single(PdfKit.Pages(pdf));
+        Assert.Equal(pageWidth, Width, 0.5);
+        Assert.Equal(pageHeight, Height, 0.5);
     }
 
     [Fact]
@@ -179,7 +180,7 @@ public sealed class PdfExtensionTests : IDisposable
             await PdfKit.WithPdf().ConvertAsync(
                 Source.Stream(input),
                 Target.Memory(FileFormat.Pdf),
-                new ConversionOptions { Operations = { Operation.RotateRight } }));
+                new ConversionOptions { Operations = { VisualOperations.RotateRight } }));
 
         Assert.Equal(ConversionFailureReason.UnsupportedConversion, ex.Reason);
         Assert.Equal(ConversionStage.Preparation, ex.Stage);
@@ -236,7 +237,7 @@ public sealed class PdfExtensionTests : IDisposable
     public async Task TruncatedPicture_IsAClearFailure_NotACrash()
     {
         byte[] png = PdfKit.Draw(64, 64, SKEncodedImageFormat.Png);
-        using MemoryStream input = new(png.Take(40).ToArray());
+        using MemoryStream input = new([.. png.Take(40)]);
 
         ConversionException ex = await Assert.ThrowsAnyAsync<ConversionException>(async () =>
             await PdfKit.WithPdf().ConvertAsync(Source.Stream(input), Target.Memory(FileFormat.Pdf)));

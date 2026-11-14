@@ -12,7 +12,7 @@ internal static class InputReader
     /// <summary>
     /// Имя входа-потока в отчётах.
     /// </summary>
-    internal const string StreamName = "поток";
+    internal const string StreamName = "stream";
 
     /// <summary>
     /// Имя входа для отчёта и имени результата: имя файла или «поток»; папка — имя папки.
@@ -72,7 +72,7 @@ internal static class InputReader
     {
         try
         {
-            var stream = new FileStream(
+            FileStream stream = new(
                 path,
                 FileMode.Open,
                 FileAccess.Read,

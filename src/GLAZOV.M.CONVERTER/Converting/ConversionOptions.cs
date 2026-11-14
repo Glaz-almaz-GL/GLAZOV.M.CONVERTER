@@ -1,27 +1,56 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace GLAZOV.M.CONVERTER.Converting;
 
 /// <summary>
-/// Дополнительные параметры одного вызова конвертации.
+/// Extensible container for per-call conversion options and content transformations.
+/// Engines and format packages attach their own option types without modifying the core library.
 /// </summary>
 public sealed class ConversionOptions
 {
-    /// <summary>
-    /// Действия над изображением, выполняемые вместе с конвертацией.
-    /// </summary>
-    public ICollection<Operation> Operations { get; } = [];
+    private readonly Dictionary<Type, object> _entries = [];
 
     /// <summary>
-    /// Параметры качества звука. Не задано — всё берётся из источника или умолчаний движка.
+    /// Gets the ordered collection of transformations to apply during conversion.
+    /// Requires an engine with <see cref="Extensions.IConversionEngine.SupportsOperations"/> set to <c>true</c>.
     /// </summary>
-    public AudioOptions? Audio { get; set; }
+    public IList<IConversionOperation> Operations { get; } = [];
 
     /// <summary>
-    /// Параметры изображения. Не задано — всё берётся из умолчаний движка.
+    /// Stores an option object of type <typeparamref name="T"/>, replacing any previous instance of the same type.
     /// </summary>
-    public ImageOptions? Image { get; set; }
+    /// <typeparam name="T">Option type.</typeparam>
+    /// <param name="value">Option instance.</param>
+    public ConversionOptions Set<T>(T value) where T : notnull
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        _entries[typeof(T)] = value;
+        return this;
+    }
 
     /// <summary>
-    /// Параметры видео. Не задано — всё берётся из умолчаний движка.
+    /// Retrieves a stored option object of type <typeparamref name="T"/>, or <c>null</c> if not set.
     /// </summary>
-    public VideoOptions? Video { get; set; }
+    /// <typeparam name="T">Option type.</typeparam>
+    public T? Get<T>() where T : class
+    {
+        return _entries.TryGetValue(typeof(T), out object? value) ? (T)value : null;
+    }
+
+    /// <summary>
+    /// Attempts to retrieve a stored option object of type <typeparamref name="T"/>.
+    /// </summary>
+    /// <typeparam name="T">Option type.</typeparam>
+    /// <param name="value">Retrieved option instance when found.</param>
+    public bool TryGet<T>([NotNullWhen(true)] out T? value) where T : notnull
+    {
+        if (_entries.TryGetValue(typeof(T), out object? raw))
+        {
+            value = (T)raw;
+            return true;
+        }
+
+        value = default;
+        return false;
+    }
 }

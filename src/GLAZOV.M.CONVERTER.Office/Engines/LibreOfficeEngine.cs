@@ -34,7 +34,7 @@ internal sealed class LibreOfficeEngine(OfficeSettings settings) : IConversionEn
     public IReadOnlyList<ConversionPair> Pairs { get; } = [.. Inputs.Select(from => new ConversionPair(from, FileFormat.Pdf))];
 
     /// <inheritdoc />
-    public async Task ConvertAsync(ConversionRequest request, CancellationToken cancellationToken)
+    public async Task ConvertAsync(ConversionRequest request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
 
@@ -57,7 +57,7 @@ internal sealed class LibreOfficeEngine(OfficeSettings settings) : IConversionEn
             {
                 // LibreOffice exits with 0 when it cannot load a file; the missing result is the failure.
                 string name = request.InputPath is null ? "документ" : Path.GetFileName(request.InputPath);
-                throw ConversionException.ToolFailed(request.Tool!.Name, result.ExitCode, $"{result.ErrorOutput}\nLibreOffice не смог открыть файл «{name}»".TrimStart());
+                throw ConversionException.ToolFailed(request.Tool.Name, result.ExitCode, $"{result.ErrorOutput}\nLibreOffice не смог открыть файл «{name}»".TrimStart());
             }
 
             await using FileStream produced = new(pdf, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.Asynchronous | FileOptions.SequentialScan);

@@ -1,4 +1,4 @@
-namespace GLAZOV.M.CONVERTER.Converting;
+namespace GLAZOV.M.CONVERTER.Formats.Options;
 
 /// <summary>
 /// Video settings for one conversion call. All optional: not set means the engine default for the target format.
@@ -8,18 +8,12 @@ namespace GLAZOV.M.CONVERTER.Converting;
 /// </summary>
 public sealed class VideoOptions
 {
-    private int? _quality;
-    private int? _bitrate;
-    private int? _width;
-    private int? _height;
-    private double? _frameRate;
-
     /// <summary>
     /// Quality from 1 (lowest) to 100 (highest). Replaced by <see cref="Bitrate"/> when that is set.
     /// </summary>
     public int? Quality
     {
-        get => _quality;
+        get;
         set
         {
             if (value is < 1 or > 100)
@@ -27,7 +21,7 @@ public sealed class VideoOptions
                 throw new ArgumentOutOfRangeException(nameof(Quality), value, "Качество видео — число от 1 до 100 или не задано.");
             }
 
-            _quality = value;
+            field = value;
         }
     }
 
@@ -36,8 +30,8 @@ public sealed class VideoOptions
     /// </summary>
     public int? Bitrate
     {
-        get => _bitrate;
-        set => _bitrate = Positive(value, nameof(Bitrate));
+        get;
+        set => field = EnsurePositive(value, nameof(Bitrate));
     }
 
     /// <summary>
@@ -45,8 +39,8 @@ public sealed class VideoOptions
     /// </summary>
     public int? Width
     {
-        get => _width;
-        set => _width = Positive(value, nameof(Width));
+        get;
+        set => field = EnsurePositive(value, nameof(Width));
     }
 
     /// <summary>
@@ -54,8 +48,8 @@ public sealed class VideoOptions
     /// </summary>
     public int? Height
     {
-        get => _height;
-        set => _height = Positive(value, nameof(Height));
+        get;
+        set => field = EnsurePositive(value, nameof(Height));
     }
 
     /// <summary>
@@ -63,15 +57,15 @@ public sealed class VideoOptions
     /// </summary>
     public double? FrameRate
     {
-        get => _frameRate;
+        get;
         set
         {
-            if (value is <= 0 || value is { } v && !double.IsFinite(v))
+            if (value is <= 0 || (value is { } v && !double.IsFinite(v)))
             {
                 throw new ArgumentOutOfRangeException(nameof(FrameRate), value, $"Параметр {nameof(FrameRate)} должен быть больше нуля или не задан.");
             }
 
-            _frameRate = value;
+            field = value;
         }
     }
 
@@ -87,13 +81,10 @@ public sealed class VideoOptions
     /// </summary>
     public bool ConvertPixelFormat { get; set; }
 
-    private static int? Positive(int? value, string name)
+    private static int? EnsurePositive(int? value, string name)
     {
-        if (value is <= 0)
-        {
-            throw new ArgumentOutOfRangeException(name, value, $"Параметр {name} должен быть больше нуля или не задан.");
-        }
-
-        return value;
+        return value is <= 0
+            ? throw new ArgumentOutOfRangeException(name, value, $"Параметр {name} должен быть больше нуля или не задан.")
+            : value;
     }
 }

@@ -1,0 +1,2076 @@
+﻿=== F:\Programming\GES\GES Projects\UtilityProjects\GLAZOV.M.CONVERTER\src\GLAZOV.M.CONVERTER.Archives\ArchivesExtension.cs ===
+using GLAZOV.M.CONVERTER.Archives.Engines;
+using GLAZOV.M.CONVERTER.Data;
+using GLAZOV.M.CONVERTER.Extensions;
+using GLAZOV.M.CONVERTER.Formats;
+
+namespace GLAZOV.M.CONVERTER.Archives;
+
+/// <summary>
+/// Extension "Archives": an archive becomes an archive of another kind вЂ” ZIP, TAR, TAR.GZ and GZip, every pair between them.
+/// The entries move one by one, without unpacking to disk. Plugged in with <c>ConverterSettings.Extensions</c>.
+/// Needs no external program.
+/// </summary>
+public sealed class ArchivesExtension : IConverterExtension
+{
+    /// <summary>
+    /// Creates the extension with default settings.
+    /// </summary>
+    public ArchivesExtension()
+        : this(new ArchivesSettings())
+    {
+    }
+
+    /// <summary>
+    /// Creates the extension with the given settings; their values are copied.
+    /// </summary>
+    /// <param name="settings">Settings of the archive engine.</param>
+    public ArchivesExtension(ArchivesSettings settings)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        Engines = [new ArchiveEngine(settings.Copy())];
+    }
+
+    /// <inheritdoc />
+    public string Name => "Archives";
+
+    /// <inheritdoc />
+    public IReadOnlyList<FileFormat> Formats { get; } = [FileFormat.Zip, FileFormat.Tar, FileFormat.TarGz, FileFormat.Gzip];
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// Archives: the detector of the standard formats from the Formats package.
+    /// </remarks>
+    public IReadOnlyList<IFormatDetector> Detectors { get; } = [StandardDetectors.Archives];
+
+    /// <inheritdoc />
+    public IReadOnlyList<IConversionEngine> Engines { get; }
+}
+=== F:\Programming\GES\GES Projects\UtilityProjects\GLAZOV.M.CONVERTER\src\GLAZOV.M.CONVERTER.Archives\ArchivesSettings.cs ===
+using System.IO.Compression;
+using System.Text;
+
+namespace GLAZOV.M.CONVERTER.Archives;
+
+/// <summary>
+/// Settings of the archive engine. Passed to <see cref="ArchivesExtension"/> when it is created;
+/// the extension keeps a copy, so later changes of this object do not affect it.
+/// </summary>
+/// <remarks>
+/// The limits protect against archive bombs: an archive that goes over any of them is refused with an error that names the limit,
+/// never cut short.
+/// </remarks>
+public sealed class ArchivesSettings
+{
+    private int _maxEntries = 100_000;
+    private long _maxTotalBytes = 10L * 1024 * 1024 * 1024;
+    private long _maxEntryBytes = 4L * 1024 * 1024 * 1024;
+    private int _maxCompressionRatio = 500;
+    private int _zipNameCodePage = 437;
+
+    /// <summary>
+    /// The largest number of entries (files and folders) in an archive. 100 000 by default.
+    /// </summary>
+    public int MaxEntries
+    {
+        get => _maxEntries;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(value, nameof(MaxEntries));
+            _maxEntries = value;
+        }
+    }
+
+    /// <summary>
+    /// The largest total size of all entries when unpacked, in bytes. 10 GB by default.
+    /// </summary>
+    public long MaxTotalBytes
+    {
+        get => _maxTotalBytes;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(value, nameof(MaxTotalBytes));
+            _maxTotalBytes = value;
+        }
+    }
+
+    /// <summary>
+    /// The largest size of one entry when unpacked, in bytes. 4 GB by default.
+    /// </summary>
+    public long MaxEntryBytes
+    {
+        get => _maxEntryBytes;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(value, nameof(MaxEntryBytes));
+            _maxEntryBytes = value;
+        }
+    }
+
+    /// <summary>
+    /// The largest ratio of the unpacked size to the size of the input archive. It is checked once more than a megabyte has been unpacked,
+    /// so a small honest archive of zeroes is not taken for a bomb. 500 by default.
+    /// </summary>
+    public int MaxCompressionRatio
+    {
+        get => _maxCompressionRatio;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(value, nameof(MaxCompressionRatio));
+            _maxCompressionRatio = value;
+        }
+    }
+
+    /// <summary>
+    /// How hard the result (ZIP, TAR.GZ, GZip) is compressed. <see cref="CompressionLevel.Optimal"/> by default.
+    /// </summary>
+    public CompressionLevel CompressionLevel { get; set; } = CompressionLevel.Optimal;
+
+    /// <summary>
+    /// The code page of the names in a ZIP input whose entries are not marked as UTF-8. 437 (IBM437), as the format says, by default;
+    /// old archives made in Russian are usually 866 (IBM866). Names of a ZIP result are always UTF-8.
+    /// </summary>
+    public int ZipNameCodePage
+    {
+        get => _zipNameCodePage;
+        set
+        {
+            try
+            {
+                Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+                _ = Encoding.GetEncoding(value);
+            }
+            catch (Exception ex) when (ex is ArgumentException or NotSupportedException)
+            {
+                throw new ArgumentOutOfRangeException(nameof(ZipNameCodePage), value, "РљРѕРґРѕРІР°СЏ СЃС‚СЂР°РЅРёС†Р° РЅРµ РїРѕРґРґРµСЂР¶РёРІР°РµС‚СЃСЏ.");
+            }
+
+            _zipNameCodePage = value;
+        }
+    }
+
+    internal ArchivesSettings Copy()
+    {
+        return (ArchivesSettings)MemberwiseClone();
+    }
+}
+=== F:\Programming\GES\GES Projects\UtilityProjects\GLAZOV.M.CONVERTER\src\GLAZOV.M.CONVERTER.Archives\Engines\ArchiveEngine.cs ===
+using GLAZOV.M.CONVERTER.Data;
+using GLAZOV.M.CONVERTER.Extensions;
+using GLAZOV.M.CONVERTER.Formats;
+
+namespace GLAZOV.M.CONVERTER.Archives.Engines;
+
+/// <summary>
+/// Built-in archive conversion engine supporting ZIP, TAR, TAR.GZ, and GZip in every combination.
+/// </summary>
+internal sealed class ArchiveEngine(ArchivesSettings settings) : ArchiveEngineBase(settings)
+{
+    private static readonly FileFormat[] Kinds = [FileFormat.Zip, FileFormat.Tar, FileFormat.TarGz, FileFormat.Gzip];
+
+    /// <inheritdoc />
+    public override IReadOnlyList<ConversionPair> Pairs { get; } =
+        [.. Kinds.SelectMany(from => Kinds.Select(to => new ConversionPair(from, to)))];
+}
+=== F:\Programming\GES\GES Projects\UtilityProjects\GLAZOV.M.CONVERTER\src\GLAZOV.M.CONVERTER.Archives\Engines\ArchiveEngineBase.cs ===
+using GLAZOV.M.CONVERTER.Archives.Model;
+using GLAZOV.M.CONVERTER.Archives.Reading;
+using GLAZOV.M.CONVERTER.Archives.Safety;
+using GLAZOV.M.CONVERTER.Archives.Writing;
+using GLAZOV.M.CONVERTER.Data;
+using GLAZOV.M.CONVERTER.Extensions;
+using GLAZOV.M.CONVERTER.Formats;
+using GLAZOV.M.CONVERTER.IO;
+using System.IO.Compression;
+using System.Text;
+
+namespace GLAZOV.M.CONVERTER.Archives.Engines;
+
+/// <summary>
+/// Base conversion engine for streaming archive-to-archive repacking with archive-bomb protection.
+/// Entries are streamed one by one without extracting the entire archive to disk.
+/// </summary>
+public abstract class ArchiveEngineBase : IConversionEngine
+{
+    private readonly ArchivesLimits _limits;
+
+    /// <summary>
+    /// Initializes the archive engine with a copy of the specified settings.
+    /// </summary>
+    /// <param name="settings">Copied archive settings.</param>
+    protected ArchiveEngineBase(ArchivesSettings settings)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        Settings = settings;
+        _limits = ArchivesLimits.From(settings);
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+        ZipNameEncoding = Encoding.GetEncoding(settings.ZipNameCodePage);
+    }
+
+    /// <summary>
+    /// Copied settings active for this engine instance.
+    /// </summary>
+    protected ArchivesSettings Settings { get; }
+
+    /// <summary>
+    /// Encoding used for non-UTF-8 entry names in ZIP archives.
+    /// </summary>
+    protected Encoding ZipNameEncoding { get; }
+
+    /// <inheritdoc />
+    public bool SupportsOperations => false;
+
+    /// <inheritdoc />
+    public abstract IReadOnlyList<ConversionPair> Pairs { get; }
+
+    /// <inheritdoc />
+    public async Task ConvertAsync(ConversionRequest request, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        bool needsFile = RequiresSeekableFile(request.From);
+        await using InputFile? file = needsFile ? await request.EnsureInputFileAsync(cancellationToken).ConfigureAwait(false) : null;
+        CountingStream? counted = file is null ? new CountingStream(request.Input) : null;
+
+        long? inputBytes;
+        if (request.Input.CanSeek)
+        {
+            // Returns Input Length
+            inputBytes = file is null
+            ? request.Input.Length
+            : new FileInfo(file.Path).Length;
+        }
+        else
+        {
+            // Returns FileInfo Length
+            inputBytes = file is null
+            ? null
+            : new FileInfo(file.Path).Length;
+        }
+
+        ArchiveGuard guard = new(_limits, inputBytes, () => counted?.Count ?? 0);
+
+        await using IArchiveReader reader = OpenReader(request, file?.Path, counted);
+        await using IArchiveWriter writer = OpenWriter(request);
+
+        HashSet<string> seenNames = new(StringComparer.Ordinal);
+        long consumedCompressed = 0;
+
+        while (await reader.NextAsync(cancellationToken).ConfigureAwait(false) is { } item)
+        {
+            string normalizedName = EntryNames.Normalize(item.Info.Name, item.Info.IsDirectory);
+            if (!seenNames.Add(normalizedName))
+            {
+                throw new InvalidDataException($"В архиве две записи с одним именем «{normalizedName}»: такой архив не переносится, чтобы не потерять одну из них.");
+            }
+
+            ArchiveEntryInfo info = item.Info with { Name = normalizedName };
+            guard.BeginEntry(normalizedName, info.Length);
+
+            Stream? content = item.Content is null
+                ? null
+                : new GuardedReadStream(item.Content, count => guard.Unpacked(normalizedName, count));
+
+            await writer.WriteAsync(info, content, cancellationToken).ConfigureAwait(false);
+
+            consumedCompressed += item.CompressedLength ?? 0;
+            ReportProgress(request, inputBytes, counted?.Count ?? consumedCompressed);
+        }
+
+        writer.Complete();
+        request.ReportProgress(100);
+    }
+
+    /// <summary>
+    /// Determines whether the input format requires a random-access file on disk (such as ZIP, 7z, or RAR).
+    /// </summary>
+    protected virtual bool RequiresSeekableFile(FileFormat format)
+    {
+        return format.Equals(FileFormat.Zip);
+    }
+
+    /// <summary>
+    /// Opens an <see cref="IArchiveReader"/> for the request input.
+    /// </summary>
+    protected virtual IArchiveReader OpenReader(ConversionRequest request, string? filePath, Stream? countedStream)
+    {
+        if (request.From.Equals(FileFormat.Zip))
+        {
+            return OpenZipReader(filePath!);
+        }
+
+        if (request.From.Equals(FileFormat.Tar))
+        {
+            return new TarArchiveReader(countedStream!);
+        }
+
+        if (request.From.Equals(FileFormat.TarGz))
+        {
+            return new TarGzReader(new GZipStream(countedStream!, CompressionMode.Decompress));
+        }
+
+        if (request.From.Equals(FileFormat.Gzip))
+        {
+            return new SingleFileArchiveReader(
+                new GZipStream(countedStream!, CompressionMode.Decompress),
+                StripSingleArchiveExtension(request.InputPath, ".gz"),
+                DateTimeOffset.UtcNow);
+        }
+
+        // Unsupported archive format
+        throw new NotSupportedException($"Unsupported input archive format: {request.From.Name}.");
+    }
+
+    /// <summary>
+    /// Opens an <see cref="IArchiveWriter"/> for the request target.
+    /// </summary>
+    protected virtual IArchiveWriter OpenWriter(ConversionRequest request)
+    {
+        return request.To switch
+        {
+            FileFormat format when format.Equals(FileFormat.Zip) =>
+                new ZipArchiveWriter(request.Output, Settings.CompressionLevel),
+
+            FileFormat format when format.Equals(FileFormat.Tar) =>
+                new TarArchiveWriter(request.Output, request.TempFolder),
+
+            FileFormat format when format.Equals(FileFormat.TarGz) =>
+                new TarGzArchiveWriter(request.Output, Settings.CompressionLevel, request.TempFolder),
+
+            FileFormat format when format.Equals(FileFormat.Gzip) =>
+                new SingleFileArchiveWriter(
+                    new GZipStream(request.Output, Settings.CompressionLevel, leaveOpen: true),
+                    "GZip"),
+
+            _ => throw new NotSupportedException($"Unsupported target archive format: {request.To?.Name}.")
+        };
+    }
+
+
+    /// <summary>
+    /// Opens a ZIP reader and wraps format errors into <see cref="InvalidDataException"/>.
+    /// </summary>
+    protected ZipArchiveReader OpenZipReader(string path)
+    {
+        try
+        {
+            return new ZipArchiveReader(path, ZipNameEncoding);
+        }
+        catch (InvalidDataException ex)
+        {
+            throw new InvalidDataException("Файл ZIP повреждён или оборван: " + ex.Message, ex);
+        }
+    }
+
+    /// <summary>
+    /// Derives the inner entry name for single-file compressed streams (such as .gz, .bz2, or .xz) by stripping known extensions.
+    /// </summary>
+    protected static string StripSingleArchiveExtension(string? inputPath, params ReadOnlySpan<string> extensions)
+    {
+        string name = inputPath is null ? string.Empty : Path.GetFileName(inputPath);
+        foreach (string ext in extensions)
+        {
+            if (name.EndsWith(ext, StringComparison.OrdinalIgnoreCase))
+            {
+                name = name[..^ext.Length];
+                break;
+            }
+        }
+
+        return name.Length == 0 ? "data" : name;
+    }
+
+    private static void ReportProgress(ConversionRequest request, long? inputBytes, long consumed)
+    {
+        if (inputBytes is > 0)
+        {
+            request.ReportProgress((int)Math.Min(99, consumed * 100 / inputBytes.Value));
+        }
+    }
+}
+=== F:\Programming\GES\GES Projects\UtilityProjects\GLAZOV.M.CONVERTER\src\GLAZOV.M.CONVERTER.Archives\Model\ArchiveEntryInfo.cs ===
+namespace GLAZOV.M.CONVERTER.Archives.Model;
+
+/// <summary>
+/// What an entry of an archive says about itself, in the form every kind of archive can read and write.
+/// </summary>
+/// <param name="Name">Name with "/" as the separator; a folder ends with "/".</param>
+/// <param name="IsDirectory">Whether the entry is a folder.</param>
+/// <param name="Modified">Time of the last change.</param>
+/// <param name="Mode">Unix permissions where the archive carries them, otherwise <c>null</c>.</param>
+/// <param name="Length">Size of the content when unpacked, if the archive says so.</param>
+public sealed record ArchiveEntryInfo(string Name, bool IsDirectory, DateTimeOffset Modified, UnixFileMode? Mode, long? Length);
+=== F:\Programming\GES\GES Projects\UtilityProjects\GLAZOV.M.CONVERTER\src\GLAZOV.M.CONVERTER.Archives\Model\ArchiveItem.cs ===
+namespace GLAZOV.M.CONVERTER.Archives.Model;
+
+/// <summary>
+/// An entry read from an archive: its description and its content (<c>null</c> for a folder). The content is valid until the next entry is read.
+/// </summary>
+/// <param name="Info">Description.</param>
+/// <param name="Content">Content stream.</param>
+/// <param name="CompressedLength">Size of the entry inside the archive, if the archive says so; it feeds the progress.</param>
+public sealed record ArchiveItem(ArchiveEntryInfo Info, Stream? Content, long? CompressedLength = null);
+=== F:\Programming\GES\GES Projects\UtilityProjects\GLAZOV.M.CONVERTER\src\GLAZOV.M.CONVERTER.Archives\Model\IArchiveReader.cs ===
+namespace GLAZOV.M.CONVERTER.Archives.Model;
+
+/// <summary>
+/// Reads the entries of an archive one after another.
+/// </summary>
+public interface IArchiveReader : IAsyncDisposable
+{
+    /// <summary>
+    /// Returns the next entry, or <c>null</c> when there are no more. The content of the previous entry is no longer valid.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation.</param>
+    Task<ArchiveItem?> NextAsync(CancellationToken cancellationToken = default);
+}
+=== F:\Programming\GES\GES Projects\UtilityProjects\GLAZOV.M.CONVERTER\src\GLAZOV.M.CONVERTER.Archives\Model\IArchiveWriter.cs ===
+namespace GLAZOV.M.CONVERTER.Archives.Model;
+
+/// <summary>
+/// Writes the entries of an archive one after another. Disposing it finishes the archive.
+/// </summary>
+public interface IArchiveWriter : IAsyncDisposable
+{
+    /// <summary>
+    /// Writes one entry.
+    /// </summary>
+    /// <param name="info">Description of the entry; its name is already checked.</param>
+    /// <param name="content">Content to copy (read to the end), <c>null</c> for a folder.</param>
+    /// <param name="cancellationToken">Cancellation.</param>
+    Task WriteAsync(ArchiveEntryInfo info, Stream? content, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Checks that what was written makes a whole archive of this kind; called once, before disposing.
+    /// </summary>
+    void Complete();
+}
+=== F:\Programming\GES\GES Projects\UtilityProjects\GLAZOV.M.CONVERTER\src\GLAZOV.M.CONVERTER.Archives\Reading\SingleFileArchiveReader.cs ===
+using GLAZOV.M.CONVERTER.Archives.Model;
+
+namespace GLAZOV.M.CONVERTER.Archives.Reading;
+
+/// <summary>
+/// Reads a single-file compressed stream (GZip, BZip2, XZ) as an archive containing one entry.
+/// </summary>
+public sealed class SingleFileArchiveReader : IArchiveReader
+{
+    private readonly Stream _unpacked;
+    private readonly string _name;
+    private readonly DateTimeOffset _modified;
+    private bool _given;
+
+    /// <summary>
+    /// Initializes the reader.
+    /// </summary>
+    /// <param name="unpacked">Decompressed content stream.</param>
+    /// <param name="name">Entry name assigned to the single file.</param>
+    /// <param name="modified">Modification timestamp for the entry.</param>
+    public SingleFileArchiveReader(Stream unpacked, string name, DateTimeOffset modified)
+    {
+        _unpacked = unpacked;
+        _name = name;
+        _modified = modified;
+    }
+
+    /// <inheritdoc />
+    public Task<ArchiveItem?> NextAsync(CancellationToken cancellationToken = default)
+    {
+        if (_given)
+        {
+            return Task.FromResult<ArchiveItem?>(null);
+        }
+
+        _given = true;
+        return Task.FromResult<ArchiveItem?>(new ArchiveItem(new ArchiveEntryInfo(_name, false, _modified, null, null), _unpacked));
+    }
+
+    /// <inheritdoc />
+    public ValueTask DisposeAsync()
+    {
+        return _unpacked.DisposeAsync();
+    }
+}
+=== F:\Programming\GES\GES Projects\UtilityProjects\GLAZOV.M.CONVERTER\src\GLAZOV.M.CONVERTER.Archives\Reading\TarArchiveReader.cs ===
+using GLAZOV.M.CONVERTER.Archives.Model;
+using System.Formats.Tar;
+
+namespace GLAZOV.M.CONVERTER.Archives.Reading;
+
+/// <summary>
+/// Reads the entries of a TAR stream (plain or already unpacked from GZip). Links, devices and pipes are refused: they cannot be moved
+/// into another kind of archive without being lost or turned into something else.
+/// </summary>
+public sealed class TarArchiveReader : IArchiveReader
+{
+    private readonly TarReader _tar;
+
+    /// <summary>
+    /// Creates the reader.
+    /// </summary>
+    /// <param name="input">The TAR stream; it is read once, forward.</param>
+    internal TarArchiveReader(Stream input)
+    {
+        _tar = new TarReader(input, leaveOpen: true);
+    }
+
+    /// <inheritdoc />
+    public async Task<ArchiveItem?> NextAsync(CancellationToken cancellationToken = default)
+    {
+        while (true)
+        {
+            TarEntry? entry;
+            try
+            {
+                entry = await _tar.GetNextEntryAsync(copyData: false, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is InvalidDataException or EndOfStreamException or FormatException)
+            {
+                throw new InvalidDataException("Р¤Р°Р№Р» TAR РїРѕРІСЂРµР¶РґС‘РЅ РёР»Рё РѕР±РѕСЂРІР°РЅ: " + ex.Message, ex);
+            }
+
+            if (entry is null)
+            {
+                return null;
+            }
+
+            switch (entry.EntryType)
+            {
+                case TarEntryType.GlobalExtendedAttributes:
+                    continue;
+
+                case TarEntryType.Directory:
+                    return new ArchiveItem(Describe(entry, true), null);
+
+                case TarEntryType.RegularFile or TarEntryType.V7RegularFile or TarEntryType.ContiguousFile:
+                    return new ArchiveItem(Describe(entry, false), entry.DataStream ?? Stream.Null);
+
+                case TarEntryType.SymbolicLink or TarEntryType.HardLink:
+                    throw new InvalidDataException($"Р—Р°РїРёСЃСЊ В«{entry.Name}В» вЂ” СЃСЃС‹Р»РєР°: СЃСЃС‹Р»РєРё РІ Р°СЂС…РёРІР°С… РЅРµ РїРµСЂРµРЅРѕСЃСЏС‚СЃСЏ, С‡С‚РѕР±С‹ РЅРµ РїРѕС‚РµСЂСЏС‚СЊ РёС… Рё РЅРµ РІС‹Р№С‚Рё Р·Р° РїСЂРµРґРµР»С‹ РїР°РїРєРё.");
+
+                default:
+                    throw new InvalidDataException($"Р—Р°РїРёСЃСЊ В«{entry.Name}В» вЂ” РѕСЃРѕР±С‹Р№ С„Р°Р№Р» ({entry.EntryType}): С‚Р°РєРёРµ Р·Р°РїРёСЃРё РЅРµ РїРµСЂРµРЅРѕСЃСЏС‚СЃСЏ.");
+            }
+        }
+    }
+
+    private static ArchiveEntryInfo Describe(TarEntry entry, bool directory)
+    {
+        return new ArchiveEntryInfo(entry.Name, directory, entry.ModificationTime, entry.Mode, directory ? null : entry.Length);
+    }
+
+    /// <inheritdoc />
+    public ValueTask DisposeAsync()
+    {
+        return _tar.DisposeAsync();
+    }
+}
+=== F:\Programming\GES\GES Projects\UtilityProjects\GLAZOV.M.CONVERTER\src\GLAZOV.M.CONVERTER.Archives\Reading\TarGzReader.cs ===
+using GLAZOV.M.CONVERTER.Archives.Model;
+
+namespace GLAZOV.M.CONVERTER.Archives.Reading;
+
+/// <summary>
+/// Reads the entries of a TAR archive compressed with GZip.
+/// </summary>
+public sealed class TarGzReader : IArchiveReader
+{
+    private readonly Stream _unpacked;
+    private readonly TarArchiveReader _tar;
+
+    /// <summary>
+    /// Creates the reader.
+    /// </summary>
+    /// <param name="unpacked">The unpacked (TAR) stream.</param>
+    internal TarGzReader(Stream unpacked)
+    {
+        _unpacked = unpacked;
+        _tar = new TarArchiveReader(unpacked);
+    }
+
+    /// <inheritdoc />
+    public Task<ArchiveItem?> NextAsync(CancellationToken cancellationToken = default)
+    {
+        return _tar.NextAsync(cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async ValueTask DisposeAsync()
+    {
+        await _tar.DisposeAsync().ConfigureAwait(false);
+        await _unpacked.DisposeAsync().ConfigureAwait(false);
+    }
+}
+=== F:\Programming\GES\GES Projects\UtilityProjects\GLAZOV.M.CONVERTER\src\GLAZOV.M.CONVERTER.Archives\Reading\ZipArchiveReader.cs ===
+using GLAZOV.M.CONVERTER.Archives.Model;
+using System.IO.Compression;
+using System.Text;
+
+namespace GLAZOV.M.CONVERTER.Archives.Reading;
+
+/// <summary>
+/// Reads the entries of a ZIP file. The file must be readable at any place (the central directory lies at the end), so the engine gives it as a file.
+/// </summary>
+public sealed class ZipArchiveReader : IArchiveReader
+{
+    private const int SymbolicLinkType = 0xA000;
+
+    private readonly ZipArchive _zip;
+    private readonly IEnumerator<ZipArchiveEntry> _entries;
+    private Stream? _open;
+
+    /// <summary>
+    /// Opens the archive.
+    /// </summary>
+    /// <param name="path">The ZIP file.</param>
+    /// <param name="nameEncoding">Encoding of the names of entries not marked as UTF-8.</param>
+    /// <exception cref="InvalidDataException">The file is not a readable ZIP archive.</exception>
+    internal ZipArchiveReader(string path, Encoding nameEncoding)
+    {
+        FileStream file = new(path, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.Asynchronous | FileOptions.RandomAccess);
+        try
+        {
+            _zip = new ZipArchive(file, ZipArchiveMode.Read, leaveOpen: false, nameEncoding);
+            _entries = _zip.Entries.GetEnumerator();
+        }
+        catch
+        {
+            file.Dispose();
+            throw;
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<ArchiveItem?> NextAsync(CancellationToken cancellationToken = default)
+    {
+        if (_open is not null)
+        {
+            await _open.DisposeAsync().ConfigureAwait(false);
+            _open = null;
+        }
+
+        if (!_entries.MoveNext())
+        {
+            return null;
+        }
+
+        ZipArchiveEntry entry = _entries.Current;
+        bool directory = entry.FullName.EndsWith('/') || entry.FullName.EndsWith('\\');
+        if (entry.IsEncrypted)
+        {
+            throw new InvalidDataException($"Р—Р°РїРёСЃСЊ В«{entry.FullName}В» Р·Р°С€РёС„СЂРѕРІР°РЅР°: Р·Р°С€РёС„СЂРѕРІР°РЅРЅС‹Рµ Р°СЂС…РёРІС‹ РЅРµ РїРѕРґРґРµСЂР¶РёРІР°СЋС‚СЃСЏ.");
+        }
+
+        if (((entry.ExternalAttributes >> 16) & 0xF000) == SymbolicLinkType)
+        {
+            throw new InvalidDataException($"Р—Р°РїРёСЃСЊ В«{entry.FullName}В» вЂ” СЃСЃС‹Р»РєР°: СЃСЃС‹Р»РєРё РІ Р°СЂС…РёРІР°С… РЅРµ РїРµСЂРµРЅРѕСЃСЏС‚СЃСЏ, С‡С‚РѕР±С‹ РЅРµ РїРѕС‚РµСЂСЏС‚СЊ РёС… Рё РЅРµ РІС‹Р№С‚Рё Р·Р° РїСЂРµРґРµР»С‹ РїР°РїРєРё.");
+        }
+
+        int bits = (entry.ExternalAttributes >> 16) & 0xFFF;
+        UnixFileMode? mode = bits != 0 ? (UnixFileMode)bits : null;
+        ArchiveEntryInfo info = new(entry.FullName, directory, entry.LastWriteTime, mode, directory ? null : entry.Length);
+        if (directory)
+        {
+            return new ArchiveItem(info, null, entry.CompressedLength);
+        }
+
+        _open = await entry.OpenAsync(cancellationToken).ConfigureAwait(false);
+        return new ArchiveItem(info, _open, entry.CompressedLength);
+    }
+
+    /// <inheritdoc />
+    public async ValueTask DisposeAsync()
+    {
+        if (_open is not null)
+        {
+            await _open.DisposeAsync().ConfigureAwait(false);
+        }
+
+        _entries.Dispose();
+        await _zip.DisposeAsync();
+    }
+}
+=== F:\Programming\GES\GES Projects\UtilityProjects\GLAZOV.M.CONVERTER\src\GLAZOV.M.CONVERTER.Archives\Safety\ArchiveGuard.cs ===
+namespace GLAZOV.M.CONVERTER.Archives.Safety;
+
+/// <summary>
+/// Watches the limits of one conversion: the number of entries, the size of an entry, the total size and the ratio of the unpacked size
+/// to the size of the input. Every check throws <see cref="InvalidDataException"/> with the name of the limit.
+/// </summary>
+internal sealed class ArchiveGuard
+{
+    private const long RatioThreshold = 1024 * 1024;
+
+    private readonly ArchivesLimits _limits;
+    private int _entries;
+    private long _entryBytes;
+    private long _totalBytes;
+
+    /// <summary>
+    /// Creates the guard.
+    /// </summary>
+    /// <param name="limits">Copy of the limits of the settings.</param>
+    /// <param name="inputBytes">Size of the input archive for the ratio, or <c>null</c> when it is not known (the consumed size is asked then).</param>
+    /// <param name="consumed">How many bytes of the input have been read so far.</param>
+    internal ArchiveGuard(ArchivesLimits limits, long? inputBytes, Func<long> consumed)
+    {
+        _limits = limits;
+        InputBytes = inputBytes;
+        Consumed = consumed;
+    }
+
+    internal long? InputBytes { get; }
+
+    internal Func<long> Consumed { get; }
+
+    /// <summary>
+    /// Counts a new entry and checks its declared size.
+    /// </summary>
+    /// <param name="name">Name of the entry, for the message.</param>
+    /// <param name="declaredLength">Size the archive declares, if it does.</param>
+    internal void BeginEntry(string name, long? declaredLength)
+    {
+        _entries++;
+        _entryBytes = 0;
+        if (_entries > _limits.MaxEntries)
+        {
+            throw new InvalidDataException($"РђСЂС…РёРІ Р±РѕР»СЊС€Рµ РїСЂРµРґРµР»Р°: Р·Р°РїРёСЃРµР№ Р±РѕР»СЊС€Рµ {_limits.MaxEntries} (РЅР°СЃС‚СЂРѕР№РєР° MaxEntries).");
+        }
+
+        if (declaredLength > _limits.MaxEntryBytes)
+        {
+            throw new InvalidDataException($"Р—Р°РїРёСЃСЊ В«{name}В» Р±РѕР»СЊС€Рµ РїСЂРµРґРµР»Р°: {declaredLength} Р±Р°Р№С‚ РїСЂРё РїСЂРµРґРµР»Рµ {_limits.MaxEntryBytes} (РЅР°СЃС‚СЂРѕР№РєР° MaxEntryBytes).");
+        }
+    }
+
+    /// <summary>
+    /// Counts unpacked bytes of the current entry.
+    /// </summary>
+    /// <param name="name">Name of the entry, for the message.</param>
+    /// <param name="count">How many bytes were just unpacked.</param>
+    internal void Unpacked(string name, int count)
+    {
+        _entryBytes += count;
+        _totalBytes += count;
+        if (_entryBytes > _limits.MaxEntryBytes)
+        {
+            throw new InvalidDataException($"Р—Р°РїРёСЃСЊ В«{name}В» Р±РѕР»СЊС€Рµ РїСЂРµРґРµР»Р°: Р±РѕР»СЊС€Рµ {_limits.MaxEntryBytes} Р±Р°Р№С‚ (РЅР°СЃС‚СЂРѕР№РєР° MaxEntryBytes).");
+        }
+
+        if (_totalBytes > _limits.MaxTotalBytes)
+        {
+            throw new InvalidDataException($"РђСЂС…РёРІ Р±РѕР»СЊС€Рµ РїСЂРµРґРµР»Р°: СЂР°СЃРїР°РєРѕРІР°РЅРЅС‹Рµ Р·Р°РїРёСЃРё Р±РѕР»СЊС€Рµ {_limits.MaxTotalBytes} Р±Р°Р№С‚ (РЅР°СЃС‚СЂРѕР№РєР° MaxTotalBytes).");
+        }
+
+        long input = InputBytes ?? Consumed();
+        if (_totalBytes > RatioThreshold && _totalBytes > input * (long)_limits.MaxCompressionRatio)
+        {
+            throw new InvalidDataException(
+                $"РџРѕС…РѕР¶Рµ РЅР° Р°СЂС…РёРІ-Р±РѕРјР±Сѓ: СЂР°СЃРїР°РєРѕРІР°РЅРѕ {_totalBytes} Р±Р°Р№С‚ РёР· {Math.Max(input, 1)} РїСЂРё РїСЂРµРґРµР»Рµ РѕС‚РЅРѕС€РµРЅРёСЏ {_limits.MaxCompressionRatio} (РЅР°СЃС‚СЂРѕР№РєР° MaxCompressionRatio).");
+        }
+    }
+}
+=== F:\Programming\GES\GES Projects\UtilityProjects\GLAZOV.M.CONVERTER\src\GLAZOV.M.CONVERTER.Archives\Safety\ArchivesLimits.cs ===
+namespace GLAZOV.M.CONVERTER.Archives.Safety;
+
+/// <summary>
+/// The limits of <see cref="ArchivesSettings"/> as the engine reads them.
+/// </summary>
+/// <param name="MaxEntries">Most entries.</param>
+/// <param name="MaxTotalBytes">Most unpacked bytes in all.</param>
+/// <param name="MaxEntryBytes">Most unpacked bytes in one entry.</param>
+/// <param name="MaxCompressionRatio">Largest ratio of unpacked to input size.</param>
+internal sealed record ArchivesLimits(int MaxEntries, long MaxTotalBytes, long MaxEntryBytes, int MaxCompressionRatio)
+{
+    /// <summary>
+    /// Takes the limits of the settings.
+    /// </summary>
+    /// <param name="settings">The (copied) settings.</param>
+    internal static ArchivesLimits From(ArchivesSettings settings)
+    {
+        return new ArchivesLimits(settings.MaxEntries, settings.MaxTotalBytes, settings.MaxEntryBytes, settings.MaxCompressionRatio);
+    }
+}
+=== F:\Programming\GES\GES Projects\UtilityProjects\GLAZOV.M.CONVERTER\src\GLAZOV.M.CONVERTER.Archives\Safety\CountingStream.cs ===
+namespace GLAZOV.M.CONVERTER.Archives.Safety;
+
+/// <summary>
+/// Reads through another stream and counts the bytes that were read: the size of the input consumed so far, for the ratio and the progress.
+/// </summary>
+/// <param name="inner">The stream to read.</param>
+internal sealed class CountingStream(Stream inner) : Stream
+{
+    internal long Count { get; private set; }
+
+    public override bool CanRead => true;
+
+    public override bool CanSeek => false;
+
+    public override bool CanWrite => false;
+
+    public override long Length => throw new NotSupportedException();
+
+    public override long Position
+    {
+        get => throw new NotSupportedException();
+        set => throw new NotSupportedException();
+    }
+
+    public override int Read(byte[] buffer, int offset, int count)
+    {
+        int read = inner.Read(buffer, offset, count);
+        Count += read;
+        return read;
+    }
+
+    public override int Read(Span<byte> buffer)
+    {
+        int read = inner.Read(buffer);
+        Count += read;
+        return read;
+    }
+
+    public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+    {
+        int read = await inner.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
+        Count += read;
+        return read;
+    }
+
+    public override void Flush()
+    {
+    }
+
+    public override long Seek(long offset, SeekOrigin origin)
+    {
+        throw new NotSupportedException();
+    }
+
+    public override void SetLength(long value)
+    {
+        throw new NotSupportedException();
+    }
+
+    public override void Write(byte[] buffer, int offset, int count)
+    {
+        throw new NotSupportedException();
+    }
+}
+=== F:\Programming\GES\GES Projects\UtilityProjects\GLAZOV.M.CONVERTER\src\GLAZOV.M.CONVERTER.Archives\Safety\EntryNames.cs ===
+namespace GLAZOV.M.CONVERTER.Archives.Safety;
+
+/// <summary>
+/// The rules for the names of entries: a name that could leave the folder it is unpacked into is refused, never repaired.
+/// </summary>
+internal static class EntryNames
+{
+    /// <summary>
+    /// Brings a name to the form with "/" as the separator and without a leading "./", and refuses what is dangerous.
+    /// </summary>
+    /// <param name="raw">Name as the archive carries it.</param>
+    /// <param name="isDirectory">Whether the entry is a folder.</param>
+    /// <exception cref="InvalidDataException">The name is empty, absolute, has a drive letter, a parent step ("..") or a zero byte.</exception>
+    internal static string Normalize(string raw, bool isDirectory)
+    {
+        string name = raw.Replace('\\', '/');
+        while (name.StartsWith("./", StringComparison.Ordinal))
+        {
+            name = name[2..];
+        }
+
+        if (name.Length == 0 || name == ".")
+        {
+            throw new InvalidDataException("РћРїР°СЃРЅР°СЏ РёР»Рё РїСѓСЃС‚Р°СЏ Р·Р°РїРёСЃСЊ: РёРјСЏ Р·Р°РїРёСЃРё РїСѓСЃС‚Рѕ.");
+        }
+
+        if (name.StartsWith('/') || (name.Length >= 2 && name[1] == ':' && char.IsAsciiLetter(name[0])))
+        {
+            throw new InvalidDataException($"РћРїР°СЃРЅР°СЏ Р·Р°РїРёСЃСЊ: Р°Р±СЃРѕР»СЋС‚РЅС‹Р№ РїСѓС‚СЊ В«{Shown(name)}В» РЅРµ СЂР°Р·СЂРµС€С‘РЅ.");
+        }
+
+        if (name.Contains('\0'))
+        {
+            throw new InvalidDataException("РћРїР°СЃРЅР°СЏ Р·Р°РїРёСЃСЊ: РІ РёРјРµРЅРё РµСЃС‚СЊ РЅСѓР»РµРІРѕР№ СЃРёРјРІРѕР».");
+        }
+
+        if (name.Split('/').Any(part => part == ".."))
+        {
+            throw new InvalidDataException($"РћРїР°СЃРЅР°СЏ Р·Р°РїРёСЃСЊ: РїСѓС‚СЊ В«{Shown(name)}В» РІС‹С…РѕРґРёС‚ Р·Р° РїСЂРµРґРµР»С‹ РїР°РїРєРё (В«..В»).");
+        }
+
+        return isDirectory && !name.EndsWith('/') ? name + "/" : name;
+    }
+
+    private static string Shown(string name)
+    {
+        return name.Length <= 80 ? name : name[..80] + "вЂ¦";
+    }
+}
+=== F:\Programming\GES\GES Projects\UtilityProjects\GLAZOV.M.CONVERTER\src\GLAZOV.M.CONVERTER.Archives\Safety\GuardedReadStream.cs ===
+namespace GLAZOV.M.CONVERTER.Archives.Safety;
+
+/// <summary>
+/// Reads through the content of an entry and reports every chunk to the guard, which throws when a limit is gone over.
+/// </summary>
+/// <param name="inner">The content of the entry.</param>
+/// <param name="onRead">Called with the number of bytes of every read.</param>
+internal sealed class GuardedReadStream(Stream inner, Action<int> onRead) : Stream
+{
+    public override bool CanRead => true;
+
+    public override bool CanSeek => false;
+
+    public override bool CanWrite => false;
+
+    public override long Length => throw new NotSupportedException();
+
+    public override long Position
+    {
+        get => throw new NotSupportedException();
+        set => throw new NotSupportedException();
+    }
+
+    public override int Read(byte[] buffer, int offset, int count)
+    {
+        int read = inner.Read(buffer, offset, count);
+        onRead(read);
+        return read;
+    }
+
+    public override int Read(Span<byte> buffer)
+    {
+        int read = inner.Read(buffer);
+        onRead(read);
+        return read;
+    }
+
+    public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+    {
+        int read = await inner.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
+        onRead(read);
+        return read;
+    }
+
+    public override void Flush()
+    {
+    }
+
+    public override long Seek(long offset, SeekOrigin origin)
+    {
+        throw new NotSupportedException();
+    }
+
+    public override void SetLength(long value)
+    {
+        throw new NotSupportedException();
+    }
+
+    public override void Write(byte[] buffer, int offset, int count)
+    {
+        throw new NotSupportedException();
+    }
+}
+=== F:\Programming\GES\GES Projects\UtilityProjects\GLAZOV.M.CONVERTER\src\GLAZOV.M.CONVERTER.Archives\Writing\SingleFileArchiveWriter.cs ===
+using GLAZOV.M.CONVERTER.Archives.Model;
+
+namespace GLAZOV.M.CONVERTER.Archives.Writing;
+
+/// <summary>
+/// Writes a single-file compressed stream (GZip, BZip2). Refuses empty, directory-only, or multi-entry archives.
+/// </summary>
+/// <remarks>
+/// Initializes the writer.
+/// </remarks>
+/// <param name="compressor">Compressing stream wrapping the target output; disposed when the writer is disposed.</param>
+/// <param name="kind">Format display name used in error messages.</param>
+public sealed class SingleFileArchiveWriter(Stream compressor, string kind) : IArchiveWriter
+{
+    private readonly Stream _compressor = compressor;
+    private readonly string _kind = kind;
+    private int _entries;
+    private bool _file;
+
+    /// <inheritdoc />
+    public async Task WriteAsync(ArchiveEntryInfo info, Stream? content, CancellationToken cancellationToken = default)
+    {
+        _entries++;
+        if (_entries > 1)
+        {
+            throw new InvalidDataException($"Р’ {_kind} РїРѕРјРµС‰Р°РµС‚СЃСЏ РѕРґРЅР° Р·Р°РїРёСЃСЊ, Р° РІ Р°СЂС…РёРІРµ РёС… Р±РѕР»СЊС€Рµ: {_kind} СЃР¶РёРјР°РµС‚ РѕРґРёРЅ С„Р°Р№Р».");
+        }
+
+        if (content is null)
+        {
+            return;
+        }
+
+        _file = true;
+        await content.CopyToAsync(_compressor, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public void Complete()
+    {
+        if (!_file)
+        {
+            throw new InvalidDataException($"Р’ {_kind} РїРѕРјРµС‰Р°РµС‚СЃСЏ РѕРґРЅР° Р·Р°РїРёСЃСЊ-С„Р°Р№Р», Р° РІ Р°СЂС…РёРІРµ " + (_entries == 0 ? "РЅРµС‚ Р·Р°РїРёСЃРµР№." : "С‚РѕР»СЊРєРѕ РїР°РїРєР°."));
+        }
+    }
+
+    /// <inheritdoc />
+    public ValueTask DisposeAsync()
+    {
+        return _compressor.DisposeAsync();
+    }
+}
+=== F:\Programming\GES\GES Projects\UtilityProjects\GLAZOV.M.CONVERTER\src\GLAZOV.M.CONVERTER.Archives\Writing\TarArchiveWriter.cs ===
+using GLAZOV.M.CONVERTER.Archives.Model;
+using System.Formats.Tar;
+
+namespace GLAZOV.M.CONVERTER.Archives.Writing;
+
+/// <summary>
+/// Writes a TAR archive (POSIX pax: long names and any characters are fine) to a stream, entry by entry.
+/// </summary>
+/// <remarks>
+/// Creates the writer.
+/// </remarks>
+/// <param name="output">Where the archive goes; it stays open.</param>
+/// <param name="tempFolder">Folder for the entries whose size is not known before they are read.</param>
+public sealed class TarArchiveWriter(Stream output, string tempFolder) : IArchiveWriter
+{
+    private readonly TarWriter _tar = new(output, TarEntryFormat.Pax, leaveOpen: true);
+    private readonly Stream _output = output;
+    private readonly string _tempFolder = tempFolder;
+    private int _entries;
+
+    /// <inheritdoc />
+    public async Task WriteAsync(ArchiveEntryInfo info, Stream? content, CancellationToken cancellationToken = default)
+    {
+        _entries++;
+        if (content is null)
+        {
+            PaxTarEntry folder = new(TarEntryType.Directory, info.Name) { ModificationTime = info.Modified, Mode = info.Mode ?? (UnixFileMode)0b111_101_101 };
+            await _tar.WriteEntryAsync(folder, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        // TAR writes the size before the content: a stream whose size is not known goes through a temporary file first.
+        string spool = Path.Combine(_tempFolder, $"archive-{Guid.NewGuid():N}.tmp");
+        try
+        {
+            await using FileStream file = new(spool, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None, 81920, FileOptions.Asynchronous | FileOptions.DeleteOnClose);
+            await content.CopyToAsync(file, cancellationToken).ConfigureAwait(false);
+            file.Position = 0;
+            PaxTarEntry entry = new(TarEntryType.RegularFile, info.Name)
+            {
+                ModificationTime = info.Modified,
+                Mode = info.Mode ?? (UnixFileMode)0b110_100_100,
+                DataStream = file,
+            };
+            await _tar.WriteEntryAsync(entry, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            if (File.Exists(spool))
+            {
+                File.Delete(spool);
+            }
+        }
+    }
+
+    /// <inheritdoc />
+    public void Complete()
+    {
+    }
+
+    /// <inheritdoc />
+    public async ValueTask DisposeAsync()
+    {
+        await _tar.DisposeAsync().ConfigureAwait(false);
+        if (_entries == 0)
+        {
+            // TarWriter writes nothing when it has no entries; an empty TAR archive is two blocks of zeroes.
+            await _output.WriteAsync(new byte[1024]).ConfigureAwait(false);
+        }
+    }
+}
+=== F:\Programming\GES\GES Projects\UtilityProjects\GLAZOV.M.CONVERTER\src\GLAZOV.M.CONVERTER.Archives\Writing\TarGzArchiveWriter.cs ===
+using GLAZOV.M.CONVERTER.Archives.Model;
+using System.IO.Compression;
+
+namespace GLAZOV.M.CONVERTER.Archives.Writing;
+
+/// <summary>
+/// Writes a TAR archive compressed with GZip to a stream.
+/// </summary>
+public sealed class TarGzArchiveWriter : IArchiveWriter
+{
+    private readonly GZipStream _gzip;
+    private readonly TarArchiveWriter _tar;
+
+    /// <summary>
+    /// Creates the writer.
+    /// </summary>
+    /// <param name="output">Where the archive goes; it stays open.</param>
+    /// <param name="level">Compression level.</param>
+    /// <param name="tempFolder">Folder for temporary files.</param>
+    public TarGzArchiveWriter(Stream output, CompressionLevel level, string tempFolder)
+    {
+        _gzip = new GZipStream(output, level, leaveOpen: true);
+        _tar = new TarArchiveWriter(_gzip, tempFolder);
+    }
+
+    /// <inheritdoc />
+    public Task WriteAsync(ArchiveEntryInfo info, Stream? content, CancellationToken cancellationToken = default)
+    {
+        return _tar.WriteAsync(info, content, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public void Complete()
+    {
+        _tar.Complete();
+    }
+
+    /// <inheritdoc />
+    public async ValueTask DisposeAsync()
+    {
+        await _tar.DisposeAsync().ConfigureAwait(false);
+        await _gzip.DisposeAsync().ConfigureAwait(false);
+    }
+}
+=== F:\Programming\GES\GES Projects\UtilityProjects\GLAZOV.M.CONVERTER\src\GLAZOV.M.CONVERTER.Archives\Writing\ZipArchiveWriter.cs ===
+using GLAZOV.M.CONVERTER.Archives.Model;
+using System.IO.Compression;
+
+namespace GLAZOV.M.CONVERTER.Archives.Writing;
+
+/// <summary>
+/// Writes a ZIP archive to a stream, entry by entry. Names are UTF-8.
+/// </summary>
+/// <remarks>
+/// Creates the writer.
+/// </remarks>
+/// <param name="output">Where the archive goes; it stays open.</param>
+/// <param name="level">Compression level of the entries.</param>
+public sealed class ZipArchiveWriter(Stream output, CompressionLevel level) : IArchiveWriter
+{
+    private static readonly DateTimeOffset EarliestZipTime = new(1980, 1, 1, 0, 0, 0, TimeSpan.Zero);
+
+    private readonly ZipArchive _zip = new(output, ZipArchiveMode.Create, leaveOpen: true);
+    private readonly CompressionLevel _level = level;
+
+    /// <inheritdoc />
+    public async Task WriteAsync(ArchiveEntryInfo info, Stream? content, CancellationToken cancellationToken = default)
+    {
+        ZipArchiveEntry entry = _zip.CreateEntry(info.Name, _level);
+
+        // ZIP keeps the local wall-clock time without a zone.
+        DateTimeOffset local = info.Modified.ToLocalTime();
+        entry.LastWriteTime = local < EarliestZipTime ? EarliestZipTime : local;
+        UnixFileMode mode = info.Mode ?? (info.IsDirectory ? (UnixFileMode)0b111_101_101 : (UnixFileMode)0b110_100_100);
+        entry.ExternalAttributes = ((int)mode << 16) | (info.IsDirectory ? 0x10 : 0);
+        if (content is null)
+        {
+            return;
+        }
+
+        Stream target = await entry.OpenAsync(cancellationToken).ConfigureAwait(false);
+        await using (target.ConfigureAwait(false))
+        {
+            await content.CopyToAsync(target, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    /// <inheritdoc />
+    public void Complete()
+    {
+    }
+
+    /// <inheritdoc />
+    public ValueTask DisposeAsync()
+    {
+        _zip.Dispose();
+        return ValueTask.CompletedTask;
+    }
+}
+=== F:\Programming\GES\GES Projects\UtilityProjects\GLAZOV.M.CONVERTER\src\GLAZOV.M.CONVERTER.ArchivesExtra\ArchivesExtraExtension.cs ===
+using GLAZOV.M.CONVERTER.ArchivesExtra.Detection;
+using GLAZOV.M.CONVERTER.ArchivesExtra.Engines;
+using GLAZOV.M.CONVERTER.Data;
+using GLAZOV.M.CONVERTER.Extensions;
+using GLAZOV.M.CONVERTER.Formats;
+
+namespace GLAZOV.M.CONVERTER.ArchivesExtra;
+
+/// <summary>
+/// Extension "ArchivesExtra": archives of the extra kinds on SharpCompress. Input: 7z, RAR, XZ, TAR.XZ, BZip2, TAR.BZ2 (and the base kinds ZIP, TAR, TAR.GZ, GZip);
+/// result: BZip2, TAR.BZ2 and the base kinds. 7z, RAR and XZ cannot be written, so they are never a result. Plugged in with
+/// <c>ConverterSettings.Extensions</c>; works alone or together with the package of the base kinds. Needs no external program.
+/// </summary>
+public sealed class ArchivesExtraExtension : IConverterExtension
+{
+    /// <summary>
+    /// Creates the extension with default settings.
+    /// </summary>
+    public ArchivesExtraExtension()
+        : this(new ArchivesExtraSettings())
+    {
+    }
+
+    /// <summary>
+    /// Creates the extension with the given settings; their values are copied.
+    /// </summary>
+    /// <param name="settings">Settings of the engine.</param>
+    public ArchivesExtraExtension(ArchivesExtraSettings settings)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        Engines = [new ExtraArchiveEngine(settings.Copy())];
+    }
+
+    /// <inheritdoc />
+    public string Name => "ArchivesExtra";
+
+    /// <inheritdoc />
+    public IReadOnlyList<FileFormat> Formats { get; } =
+    [
+        ArchivesExtraFormats.SevenZip, ArchivesExtraFormats.Rar, ArchivesExtraFormats.Xz, ArchivesExtraFormats.TarXz, ArchivesExtraFormats.Bzip2, ArchivesExtraFormats.TarBz2,
+        FileFormat.Zip, FileFormat.Tar, FileFormat.TarGz, FileFormat.Gzip,
+    ];
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// The detector of the extra kinds and the archive detector of the standard formats (ZIP, TAR, TAR.GZ, GZip), so that the package works alone.
+    /// </remarks>
+    public IReadOnlyList<IFormatDetector> Detectors { get; } = [new ExtraArchiveDetector(), StandardDetectors.Archives];
+
+    /// <inheritdoc />
+    public IReadOnlyList<IConversionEngine> Engines { get; }
+}
+=== F:\Programming\GES\GES Projects\UtilityProjects\GLAZOV.M.CONVERTER\src\GLAZOV.M.CONVERTER.ArchivesExtra\ArchivesExtraFormatMembers.cs ===
+using GLAZOV.M.CONVERTER.Data;
+
+namespace GLAZOV.M.CONVERTER.ArchivesExtra;
+
+/// <summary>
+/// The written form <c>FileFormat.SevenZip</c> for the values of this package: after <c>using GLAZOV.M.CONVERTER.ArchivesExtra;</c>
+/// every value is read the way a member of <see cref="FileFormat"/> is. Each member returns the field of <see cref="ArchivesExtraFormats"/>.
+/// </summary>
+public static class ArchivesExtraFormatMembers
+{
+    extension(FileFormat)
+    {
+        /// <summary>Same as <see cref="ArchivesExtraFormats.SevenZip"/>.</summary>
+        public static FileFormat SevenZip => ArchivesExtraFormats.SevenZip;
+        /// <summary>Same as <see cref="ArchivesExtraFormats.Rar"/>.</summary>
+        public static FileFormat Rar => ArchivesExtraFormats.Rar;
+        /// <summary>Same as <see cref="ArchivesExtraFormats.Xz"/>.</summary>
+        public static FileFormat Xz => ArchivesExtraFormats.Xz;
+        /// <summary>Same as <see cref="ArchivesExtraFormats.TarXz"/>.</summary>
+        public static FileFormat TarXz => ArchivesExtraFormats.TarXz;
+        /// <summary>Same as <see cref="ArchivesExtraFormats.Bzip2"/>.</summary>
+        public static FileFormat Bzip2 => ArchivesExtraFormats.Bzip2;
+        /// <summary>Same as <see cref="ArchivesExtraFormats.TarBz2"/>.</summary>
+        public static FileFormat TarBz2 => ArchivesExtraFormats.TarBz2;
+    }
+}
+=== F:\Programming\GES\GES Projects\UtilityProjects\GLAZOV.M.CONVERTER\src\GLAZOV.M.CONVERTER.ArchivesExtra\ArchivesExtraFormats.cs ===
+using GLAZOV.M.CONVERTER.Data;
+
+namespace GLAZOV.M.CONVERTER.ArchivesExtra;
+
+/// <summary>
+/// The archive formats this package adds to the standard set.
+/// </summary>
+public static class ArchivesExtraFormats
+{
+    /// <summary>
+    /// 7z. Read only.
+    /// </summary>
+    public static FileFormat SevenZip { get; } = FileFormat.Create("7z", "application/x-7z-compressed", "7z");
+
+    /// <summary>
+    /// RAR (versions 4 and 5). Read only: the format cannot be written by a free library.
+    /// </summary>
+    public static FileFormat Rar { get; } = FileFormat.Create("RAR", "application/vnd.rar", "rar");
+
+    /// <summary>
+    /// XZ: one compressed file. Read only.
+    /// </summary>
+    public static FileFormat Xz { get; } = FileFormat.Create("XZ", "application/x-xz", "xz");
+
+    /// <summary>
+    /// TAR compressed with XZ. Read only.
+    /// </summary>
+    public static FileFormat TarXz { get; } = FileFormat.Create("TAR.XZ", "application/x-xz-compressed-tar", "tar.xz");
+
+    /// <summary>
+    /// BZip2: one compressed file.
+    /// </summary>
+    public static FileFormat Bzip2 { get; } = FileFormat.Create("BZip2", "application/x-bzip2", "bz2");
+
+    /// <summary>
+    /// TAR compressed with BZip2.
+    /// </summary>
+    public static FileFormat TarBz2 { get; } = FileFormat.Create("TAR.BZ2", "application/x-bzip2-compressed-tar", "tar.bz2");
+}
+=== F:\Programming\GES\GES Projects\UtilityProjects\GLAZOV.M.CONVERTER\src\GLAZOV.M.CONVERTER.ArchivesExtra\ArchivesExtraSettings.cs ===
+using System.IO.Compression;
+using System.Text;
+
+namespace GLAZOV.M.CONVERTER.ArchivesExtra;
+
+/// <summary>
+/// Settings of the extra archive engine (7z, RAR, XZ, BZip2 and the base kinds). Passed to <see cref="ArchivesExtraExtension"/> when it is created;
+/// the extension keeps a copy, so later changes of this object do not affect it.
+/// </summary>
+/// <remarks>
+/// The limits protect against archive bombs: an archive that goes over any of them is refused with an error that names the limit,
+/// never cut short.
+/// </remarks>
+public sealed class ArchivesExtraSettings
+{
+    /// <summary>
+    /// The largest number of entries (files and folders) in an archive. 100 000 by default.
+    /// </summary>
+    public int MaxEntries
+    {
+        get;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(value, nameof(MaxEntries));
+            field = value;
+        }
+    } = 100_000;
+
+    /// <summary>
+    /// The largest total size of all entries when unpacked, in bytes. 10 GB by default.
+    /// </summary>
+    public long MaxTotalBytes
+    {
+        get;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(value, nameof(MaxTotalBytes));
+            field = value;
+        }
+    } = 10L * 1024 * 1024 * 1024;
+
+    /// <summary>
+    /// The largest size of one entry when unpacked, in bytes. 4 GB by default.
+    /// </summary>
+    public long MaxEntryBytes
+    {
+        get;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(value, nameof(MaxEntryBytes));
+            field = value;
+        }
+    } = 4L * 1024 * 1024 * 1024;
+
+    /// <summary>
+    /// The largest ratio of the unpacked size to the size of the input archive. It is checked once more than a megabyte has been unpacked,
+    /// so a small honest archive of zeroes is not taken for a bomb. 500 by default.
+    /// </summary>
+    public int MaxCompressionRatio
+    {
+        get;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(value, nameof(MaxCompressionRatio));
+            field = value;
+        }
+    } = 500;
+
+    /// <summary>
+    /// How hard the result (ZIP, TAR.GZ, GZip) is compressed. <see cref="CompressionLevel.Optimal"/> by default.
+    /// </summary>
+    public CompressionLevel CompressionLevel { get; set; } = CompressionLevel.Optimal;
+
+    /// <summary>
+    /// The code page of the names in a ZIP input whose entries are not marked as UTF-8. 437 (IBM437), as the format says, by default;
+    /// old archives made in Russian are usually 866 (IBM866). Names of a ZIP result are always UTF-8.
+    /// </summary>
+    public int ZipNameCodePage
+    {
+        get;
+        set
+        {
+            try
+            {
+                Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+                _ = Encoding.GetEncoding(value);
+            }
+            catch (Exception ex) when (ex is ArgumentException or NotSupportedException)
+            {
+                throw new ArgumentOutOfRangeException(nameof(ZipNameCodePage), value, "РљРѕРґРѕРІР°СЏ СЃС‚СЂР°РЅРёС†Р° РЅРµ РїРѕРґРґРµСЂР¶РёРІР°РµС‚СЃСЏ.");
+            }
+
+            field = value;
+        }
+    } = 437;
+
+    internal ArchivesExtraSettings Copy()
+    {
+        return (ArchivesExtraSettings)MemberwiseClone();
+    }
+}
+=== F:\Programming\GES\GES Projects\UtilityProjects\GLAZOV.M.CONVERTER\src\GLAZOV.M.CONVERTER.ArchivesExtra\Detection\Bzip2Signature.cs ===
+namespace GLAZOV.M.CONVERTER.ArchivesExtra.Detection;
+
+/// <summary>
+/// BZip2: "BZh", the block size "1" to "9" and the block magic 31 41 59 26 53 59.
+/// </summary>
+internal static class Bzip2Signature
+{
+    private static readonly byte[] BlockMagic = [0x31, 0x41, 0x59, 0x26, 0x53, 0x59];
+
+    /// <summary>
+    /// True when the data starts like this format.
+    /// </summary>
+    /// <param name="head">Leading bytes of the input (the detection window).</param>
+    internal static bool Matches(ReadOnlySpan<byte> head)
+    {
+        return head.Length >= 10 && head.StartsWith("BZh"u8) && head[3] is >= (byte)'1' and <= (byte)'9' && head[4..10].SequenceEqual(BlockMagic);
+    }
+}
+=== F:\Programming\GES\GES Projects\UtilityProjects\GLAZOV.M.CONVERTER\src\GLAZOV.M.CONVERTER.ArchivesExtra\Detection\ExtraArchiveDetector.cs ===
+using GLAZOV.M.CONVERTER.Data;
+using GLAZOV.M.CONVERTER.Extensions;
+
+namespace GLAZOV.M.CONVERTER.ArchivesExtra.Detection;
+
+/// <summary>
+/// 7z, RAR, XZ, BZip2 and their TAR forms, by the signs at the start of the file. TAR.XZ and TAR.BZ2 are told from XZ and BZip2 by
+/// unpacking the first block out of the window, so a stream that cannot seek is named too.
+/// </summary>
+internal sealed class ExtraArchiveDetector : IFormatDetector
+{
+    /// <inheritdoc />
+    public int HeadLength => 4096;
+
+    /// <inheritdoc />
+    public FileFormat? Detect(ReadOnlySpan<byte> head)
+    {
+        if (TarXzSignature.Matches(head))
+        {
+            return ArchivesExtraFormats.TarXz;
+        }
+
+        if (XzSignature.Matches(head))
+        {
+            return ArchivesExtraFormats.Xz;
+        }
+
+        if (TarBz2Signature.Matches(head))
+        {
+            return ArchivesExtraFormats.TarBz2;
+        }
+
+        if (Bzip2Signature.Matches(head))
+        {
+            return ArchivesExtraFormats.Bzip2;
+        }
+
+        if (SevenZipSignature.Matches(head))
+        {
+            return ArchivesExtraFormats.SevenZip;
+        }
+
+        return RarSignature.Matches(head) ? ArchivesExtraFormats.Rar : null;
+    }
+}
+=== F:\Programming\GES\GES Projects\UtilityProjects\GLAZOV.M.CONVERTER\src\GLAZOV.M.CONVERTER.ArchivesExtra\Detection\RarSignature.cs ===
+namespace GLAZOV.M.CONVERTER.ArchivesExtra.Detection;
+
+/// <summary>
+/// RAR: "Rar!" 1A 07 00 (version 4) or "Rar!" 1A 07 01 00 (version 5).
+/// </summary>
+internal static class RarSignature
+{
+    private static readonly byte[] Version4 = [0x52, 0x61, 0x72, 0x21, 0x1A, 0x07, 0x00];
+    private static readonly byte[] Version5 = [0x52, 0x61, 0x72, 0x21, 0x1A, 0x07, 0x01, 0x00];
+
+    /// <summary>
+    /// True when the data starts like this format.
+    /// </summary>
+    /// <param name="head">Leading bytes of the input (the detection window).</param>
+    internal static bool Matches(ReadOnlySpan<byte> head)
+    {
+        return head.StartsWith(Version4) || head.StartsWith(Version5);
+    }
+}
+=== F:\Programming\GES\GES Projects\UtilityProjects\GLAZOV.M.CONVERTER\src\GLAZOV.M.CONVERTER.ArchivesExtra\Detection\SevenZipSignature.cs ===
+namespace GLAZOV.M.CONVERTER.ArchivesExtra.Detection;
+
+/// <summary>
+/// 7z: "37 7A BC AF 27 1C".
+/// </summary>
+internal static class SevenZipSignature
+{
+    private static readonly byte[] Magic = [0x37, 0x7A, 0xBC, 0xAF, 0x27, 0x1C];
+
+    /// <summary>
+    /// True when the data starts like this format.
+    /// </summary>
+    /// <param name="head">Leading bytes of the input (the detection window).</param>
+    internal static bool Matches(ReadOnlySpan<byte> head)
+    {
+        return head.StartsWith(Magic);
+    }
+}
+=== F:\Programming\GES\GES Projects\UtilityProjects\GLAZOV.M.CONVERTER\src\GLAZOV.M.CONVERTER.ArchivesExtra\Detection\TarBz2Signature.cs ===
+using SharpCompress.Compressors;
+using SharpCompress.Compressors.BZip2;
+
+namespace GLAZOV.M.CONVERTER.ArchivesExtra.Detection;
+
+/// <summary>
+/// TAR.BZ2: a BZip2 file whose first 512 unpacked bytes are a TAR header.
+/// </summary>
+internal static class TarBz2Signature
+{
+    /// <summary>
+    /// True when the data starts like this format.
+    /// </summary>
+    /// <param name="head">Leading bytes of the input (the detection window).</param>
+    internal static bool Matches(ReadOnlySpan<byte> head)
+    {
+        if (!Bzip2Signature.Matches(head))
+        {
+            return false;
+        }
+
+        try
+        {
+            using MemoryStream packed = new(head.ToArray());
+            using BZip2Stream unpacked = new(packed, CompressionMode.Decompress, false);
+            return TarProbe.Matches(unpacked);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            return false;
+        }
+    }
+}
+=== F:\Programming\GES\GES Projects\UtilityProjects\GLAZOV.M.CONVERTER\src\GLAZOV.M.CONVERTER.ArchivesExtra\Detection\TarProbe.cs ===
+using GLAZOV.M.CONVERTER.Data;
+using GLAZOV.M.CONVERTER.Formats;
+
+namespace GLAZOV.M.CONVERTER.ArchivesExtra.Detection;
+
+/// <summary>
+/// Asks the TAR detector of the Formats package whether the first block of an unpacked stream is a TAR header.
+/// </summary>
+internal static class TarProbe
+{
+    private const int BlockLength = 512;
+
+    /// <summary>
+    /// True when the first 512 bytes of the stream are a TAR header.
+    /// </summary>
+    /// <param name="unpacked">The unpacked stream, read from its start.</param>
+    internal static bool Matches(Stream unpacked)
+    {
+        byte[] block = new byte[BlockLength];
+        int total = 0;
+        int read;
+        while (total < block.Length && (read = unpacked.Read(block, total, block.Length - total)) > 0)
+        {
+            total += read;
+        }
+
+        return total == block.Length && StandardDetectors.Archives.Detect(block)?.Equals(FileFormat.Tar) == true;
+    }
+}
+=== F:\Programming\GES\GES Projects\UtilityProjects\GLAZOV.M.CONVERTER\src\GLAZOV.M.CONVERTER.ArchivesExtra\Detection\TarXzSignature.cs ===
+using GLAZOV.M.CONVERTER.Formats;
+using SharpCompress.Compressors.Xz;
+
+namespace GLAZOV.M.CONVERTER.ArchivesExtra.Detection;
+
+/// <summary>
+/// TAR.XZ: an XZ file whose first 512 unpacked bytes are a TAR header. The window holds the compressed start, which is enough
+/// because a header packs to far less than the window.
+/// </summary>
+internal static class TarXzSignature
+{
+    /// <summary>
+    /// True when the data starts like this format.
+    /// </summary>
+    /// <param name="head">Leading bytes of the input (the detection window).</param>
+    internal static bool Matches(ReadOnlySpan<byte> head)
+    {
+        if (!XzSignature.Matches(head))
+        {
+            return false;
+        }
+
+        try
+        {
+            using MemoryStream packed = new(head.ToArray());
+            using XZStream unpacked = new(packed);
+            return TarProbe.Matches(unpacked);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            return false;
+        }
+    }
+}
+=== F:\Programming\GES\GES Projects\UtilityProjects\GLAZOV.M.CONVERTER\src\GLAZOV.M.CONVERTER.ArchivesExtra\Detection\XzSignature.cs ===
+namespace GLAZOV.M.CONVERTER.ArchivesExtra.Detection;
+
+/// <summary>
+/// XZ: "FD 37 7A 58 5A 00".
+/// </summary>
+internal static class XzSignature
+{
+    internal static readonly byte[] Magic = [0xFD, 0x37, 0x7A, 0x58, 0x5A, 0x00];
+
+    /// <summary>
+    /// True when the data starts like this format.
+    /// </summary>
+    /// <param name="head">Leading bytes of the input (the detection window).</param>
+    internal static bool Matches(ReadOnlySpan<byte> head)
+    {
+        return head.StartsWith(Magic);
+    }
+}
+=== F:\Programming\GES\GES Projects\UtilityProjects\GLAZOV.M.CONVERTER\src\GLAZOV.M.CONVERTER.ArchivesExtra\Engines\ExtraArchiveEngine.cs ===
+using GLAZOV.M.CONVERTER.Archives.Engines;
+using GLAZOV.M.CONVERTER.ArchivesExtra.Reading;
+using GLAZOV.M.CONVERTER.ArchivesExtra.Writing;
+using GLAZOV.M.CONVERTER.Data;
+using GLAZOV.M.CONVERTER.Extensions;
+using GLAZOV.M.CONVERTER.Formats;
+using SharpCompress.Compressors.BZip2;
+using SharpCompress.Compressors.Xz;
+using SharpMode = SharpCompress.Compressors.CompressionMode;
+
+namespace GLAZOV.M.CONVERTER.ArchivesExtra.Engines;
+
+/// <summary>
+/// Extended archive engine powered by SharpCompress: supports 7z, RAR, XZ, TAR.XZ, BZip2, and TAR.BZ2 as inputs,
+/// and BZip2, TAR.BZ2, plus standard formats as outputs. Pairs between base formats are left to <see cref="ArchiveEngine"/>.
+/// </summary>
+internal sealed class ExtraArchiveEngine(ArchivesExtraSettings settings) : ArchiveEngineBase(settings)
+{
+    private static readonly FileFormat[] BaseFormats = [FileFormat.Zip, FileFormat.Tar, FileFormat.TarGz, FileFormat.Gzip];
+
+    private static readonly FileFormat[] Inputs =
+    [
+        .. BaseFormats,
+        ArchivesExtraFormats.SevenZip, ArchivesExtraFormats.Rar,
+        ArchivesExtraFormats.Xz, ArchivesExtraFormats.TarXz,
+        ArchivesExtraFormats.Bzip2, ArchivesExtraFormats.TarBz2,
+    ];
+
+    private static readonly FileFormat[] Outputs = [.. BaseFormats, ArchivesExtraFormats.Bzip2, ArchivesExtraFormats.TarBz2];
+
+    /// <inheritdoc />
+    public override IReadOnlyList<ConversionPair> Pairs { get; } =
+        [.. Inputs.SelectMany(from => Outputs.Where(to => !(BaseFormats.Contains(from) && BaseFormats.Contains(to))).Select(to => new ConversionPair(from, to)))];
+
+    /// <inheritdoc />
+    protected override bool RequiresSeekableFile(FileFormat format)
+    {
+        return base.RequiresSeekableFile(format)
+            || format.Equals(ArchivesExtraFormats.SevenZip)
+            || format.Equals(ArchivesExtraFormats.Rar);
+    }
+
+    /// <inheritdoc />
+    protected override IArchiveReader OpenReader(ConversionRequest request, string? filePath, Stream? countedStream)
+    {
+        FileFormat from = request.From;
+
+        if (from.Equals(ArchivesExtraFormats.SevenZip))
+        {
+            return new SharpArchiveReader(filePath!, "7z");
+        }
+
+        if (from.Equals(ArchivesExtraFormats.Rar))
+        {
+            return new SharpArchiveReader(filePath!, "RAR");
+        }
+
+        if (from.Equals(ArchivesExtraFormats.TarXz))
+        {
+            return new TarGzReader(UnpackSharp(countedStream!, static s => new XZStream(s)));
+        }
+
+        if (from.Equals(ArchivesExtraFormats.Xz))
+        {
+            return new SingleFileArchiveReader(
+                UnpackSharp(countedStream!, static s => new XZStream(s)),
+                StripSingleArchiveExtension(request.InputPath, ".xz"),
+                DateTimeOffset.UtcNow);
+        }
+
+        if (from.Equals(ArchivesExtraFormats.TarBz2))
+        {
+            return new TarGzReader(UnpackSharp(countedStream!, static s => new BZip2Stream(s, SharpMode.Decompress, decompressConcatenated: false)));
+        }
+
+        return from.Equals(ArchivesExtraFormats.Bzip2)
+            ? new SingleFileArchiveReader(
+                UnpackSharp(countedStream!, static s => new BZip2Stream(s, SharpMode.Decompress, decompressConcatenated: false)),
+                StripSingleArchiveExtension(request.InputPath, ".bz2"),
+                DateTimeOffset.UtcNow)
+            : base.OpenReader(request, filePath, countedStream);
+    }
+
+    /// <inheritdoc />
+    protected override IArchiveWriter OpenWriter(ConversionRequest request)
+    {
+        FileFormat to = request.To;
+
+        if (to.Equals(ArchivesExtraFormats.TarBz2))
+        {
+            return new TarBz2ArchiveWriter(request.Output, request.TempFolder);
+        }
+
+        return to.Equals(ArchivesExtraFormats.Bzip2)
+            ? new SingleFileArchiveWriter(
+                new BZip2Stream(new KeepOpenStream(request.Output), SharpMode.Compress, decompressConcatenated: false),
+                "BZip2")
+            : base.OpenWriter(request);
+    }
+
+    private static ForwardReadStream UnpackSharp(Stream packed, Func<Stream, Stream> factory)
+    {
+        try
+        {
+            return new ForwardReadStream(factory(packed));
+        }
+        catch (Exception ex) when (ex is not (OperationCanceledException or OutOfMemoryException))
+        {
+            throw new InvalidDataException($"Р¤Р°Р№Р» РїРѕРІСЂРµР¶РґС‘РЅ РёР»Рё РѕР±РѕСЂРІР°РЅ: {ex.Message}", ex);
+        }
+    }
+}
+=== F:\Programming\GES\GES Projects\UtilityProjects\GLAZOV.M.CONVERTER\src\GLAZOV.M.CONVERTER.ArchivesExtra\Reading\ForwardReadStream.cs ===
+namespace GLAZOV.M.CONVERTER.ArchivesExtra.Reading;
+
+/// <summary>
+/// Reads another stream forward only, through its plain synchronous read: the decompressing streams of SharpCompress do not support everything
+/// a TAR reader or a copy asks of a stream (seeking, the length, the asynchronous read of a memory block).
+/// </summary>
+/// <param name="inner">The decompressing stream.</param>
+internal sealed class ForwardReadStream(Stream inner) : Stream
+{
+    public override bool CanRead => true;
+
+    public override bool CanSeek => false;
+
+    public override bool CanWrite => false;
+
+    public override long Length => throw new NotSupportedException();
+
+    public override long Position
+    {
+        get => throw new NotSupportedException();
+        set => throw new NotSupportedException();
+    }
+
+    public override int Read(byte[] buffer, int offset, int count)
+    {
+        try
+        {
+            return inner.Read(buffer, offset, count);
+        }
+        catch (Exception ex) when (ex is not (OperationCanceledException or OutOfMemoryException))
+        {
+            throw new InvalidDataException($"Р¤Р°Р№Р» РїРѕРІСЂРµР¶РґС‘РЅ РёР»Рё РѕР±РѕСЂРІР°РЅ: {ex.Message}", ex);
+        }
+    }
+
+    public override int Read(Span<byte> buffer)
+    {
+        byte[] rented = System.Buffers.ArrayPool<byte>.Shared.Rent(buffer.Length);
+        try
+        {
+            int read = Read(rented, 0, buffer.Length);
+            rented.AsSpan(0, read).CopyTo(buffer);
+            return read;
+        }
+        finally
+        {
+            System.Buffers.ArrayPool<byte>.Shared.Return(rented);
+        }
+    }
+
+    public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return ValueTask.FromResult(Read(buffer.Span));
+    }
+
+    public override void Flush()
+    {
+    }
+
+    public override long Seek(long offset, SeekOrigin origin)
+    {
+        throw new NotSupportedException();
+    }
+
+    public override void SetLength(long value)
+    {
+        throw new NotSupportedException();
+    }
+
+    public override void Write(byte[] buffer, int offset, int count)
+    {
+        throw new NotSupportedException();
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            try
+            {
+                inner.Dispose();
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException)
+            {
+                // a decompressor of a cut file may fail while it closes; the failure was already told when it was read
+            }
+        }
+
+        base.Dispose(disposing);
+    }
+}
+=== F:\Programming\GES\GES Projects\UtilityProjects\GLAZOV.M.CONVERTER\src\GLAZOV.M.CONVERTER.ArchivesExtra\Reading\SharpArchiveReader.cs ===
+using GLAZOV.M.CONVERTER.ArchivesExtra.Model;
+using SharpCompress.Archives;
+using SharpCompress.Common;
+using SharpCompress.Readers;
+
+namespace GLAZOV.M.CONVERTER.ArchivesExtra.Reading;
+
+/// <summary>
+/// Reads the entries of a 7z or RAR file with SharpCompress. A solid archive (every 7z, a solid RAR) is read in the order its entries lie in the file,
+/// the only way to read it without unpacking its blocks again and again; a RAR that is not solid is read entry by entry. The file must be readable
+/// at any place, so the engine gives it as a file.
+/// </summary>
+internal sealed class SharpArchiveReader : IArchiveReader
+{
+    private readonly FileStream _file;
+    private readonly IArchive _archive;
+    private readonly IReader? _reader;
+    private readonly IEnumerator<IArchiveEntry>? _entries;
+    private Stream? _open;
+
+    /// <summary>
+    /// Opens the archive.
+    /// </summary>
+    /// <param name="path">The 7z or RAR file.</param>
+    /// <param name="kind">Name of the kind, for the messages.</param>
+    /// <exception cref="InvalidDataException">The file is not a readable archive of that kind.</exception>
+    internal SharpArchiveReader(string path, string kind)
+    {
+        _file = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.RandomAccess);
+        try
+        {
+            _archive = ArchiveFactory.Open(_file, new ReaderOptions { LeaveStreamOpen = true });
+            if (_archive.IsSolid || _archive.Type == ArchiveType.SevenZip)
+            {
+                _reader = _archive.ExtractAllEntries();
+            }
+            else
+            {
+                _entries = _archive.Entries.GetEnumerator();
+            }
+        }
+        catch (Exception ex) when (ex is not (InvalidDataException or OperationCanceledException))
+        {
+            _file.Dispose();
+            throw new InvalidDataException($"Р¤Р°Р№Р» {kind} РїРѕРІСЂРµР¶РґС‘РЅ РёР»Рё РЅРµ С‡РёС‚Р°РµС‚СЃСЏ: {ex.Message}", ex);
+        }
+        catch
+        {
+            _file.Dispose();
+            throw;
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<ArchiveItem?> NextAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await CloseEntryAsync().ConfigureAwait(false);
+            while (_reader is not null ? _reader.MoveToNextEntry() : _entries!.MoveNext())
+            {
+                IEntry entry = _reader is not null ? _reader.Entry : _entries!.Current;
+                // SharpCompress marks an empty file of a 7z as encrypted when the archive says so for its stream; an entry without content hides nothing.
+                if (entry.IsEncrypted && !entry.IsDirectory && entry.Size > 0)
+                {
+                    throw new InvalidDataException($"Р—Р°РїРёСЃСЊ В«{entry.Key}В» Р·Р°С€РёС„СЂРѕРІР°РЅР°: Р·Р°С€РёС„СЂРѕРІР°РЅРЅС‹Рµ Р°СЂС…РёРІС‹ РЅРµ РїРѕРґРґРµСЂР¶РёРІР°СЋС‚СЃСЏ.");
+                }
+
+                if (!string.IsNullOrEmpty(entry.LinkTarget))
+                {
+                    throw new InvalidDataException($"Р—Р°РїРёСЃСЊ В«{entry.Key}В» вЂ” СЃСЃС‹Р»РєР°: СЃСЃС‹Р»РєРё РІ Р°СЂС…РёРІР°С… РЅРµ РїРµСЂРµРЅРѕСЃСЏС‚СЃСЏ, С‡С‚РѕР±С‹ РЅРµ РїРѕС‚РµСЂСЏС‚СЊ РёС… Рё РЅРµ РІС‹Р№С‚Рё Р·Р° РїСЂРµРґРµР»С‹ РїР°РїРєРё.");
+                }
+
+                DateTimeOffset modified = entry.LastModifiedTime is { } time ? new DateTimeOffset(time) : DateTimeOffset.UtcNow;
+                ArchiveEntryInfo info = new(entry.Key ?? string.Empty, entry.IsDirectory, modified, null, entry.IsDirectory ? null : entry.Size);
+                if (entry.IsDirectory)
+                {
+                    return new ArchiveItem(info, null, entry.CompressedSize);
+                }
+
+                _open = _reader is not null
+                    ? await _reader.OpenEntryStreamAsync(cancellationToken).ConfigureAwait(false)
+                    : await _entries!.Current.OpenEntryStreamAsync(cancellationToken).ConfigureAwait(false);
+                return new ArchiveItem(info, _open, entry.CompressedSize);
+            }
+
+            return null;
+        }
+        catch (Exception ex) when (ex is not (InvalidDataException or OperationCanceledException))
+        {
+            throw new InvalidDataException($"РђСЂС…РёРІ РїРѕРІСЂРµР¶РґС‘РЅ РёР»Рё РѕР±РѕСЂРІР°РЅ: {ex.Message}", ex);
+        }
+    }
+
+    // Closing an entry reads what was left of it; on a damaged archive that fails, and the failure is the archive's, not the engine's.
+    private async Task CloseEntryAsync()
+    {
+        if (_open is not null)
+        {
+            Stream open = _open;
+            _open = null;
+            await open.DisposeAsync().ConfigureAwait(false);
+        }
+    }
+
+    /// <inheritdoc />
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            await CloseEntryAsync().ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not (OperationCanceledException or OutOfMemoryException))
+        {
+            // the conversion has already failed or is over; the entry is dropped
+        }
+        finally
+        {
+            _reader?.Dispose();
+            _entries?.Dispose();
+            _archive.Dispose();
+            await _file.DisposeAsync().ConfigureAwait(false);
+        }
+    }
+}
+=== F:\Programming\GES\GES Projects\UtilityProjects\GLAZOV.M.CONVERTER\src\GLAZOV.M.CONVERTER.ArchivesExtra\Writing\KeepOpenStream.cs ===
+namespace GLAZOV.M.CONVERTER.ArchivesExtra.Writing;
+
+/// <summary>
+/// Passes writes to another stream and does not close it when it is closed itself: a compressing stream of SharpCompress closes what it writes to.
+/// </summary>
+/// <param name="inner">The stream to write to.</param>
+internal sealed class KeepOpenStream(Stream inner) : Stream
+{
+    public override bool CanRead => false;
+
+    public override bool CanSeek => false;
+
+    public override bool CanWrite => true;
+
+    public override long Length => throw new NotSupportedException();
+
+    public override long Position
+    {
+        get => throw new NotSupportedException();
+        set => throw new NotSupportedException();
+    }
+
+    public override void Write(byte[] buffer, int offset, int count)
+    {
+        inner.Write(buffer, offset, count);
+    }
+
+    public override void Write(ReadOnlySpan<byte> buffer)
+    {
+        inner.Write(buffer);
+    }
+
+    public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
+    {
+        return inner.WriteAsync(buffer, cancellationToken);
+    }
+
+    public override void Flush()
+    {
+        inner.Flush();
+    }
+
+    public override int Read(byte[] buffer, int offset, int count)
+    {
+        throw new NotSupportedException();
+    }
+
+    public override long Seek(long offset, SeekOrigin origin)
+    {
+        throw new NotSupportedException();
+    }
+
+    public override void SetLength(long value)
+    {
+        throw new NotSupportedException();
+    }
+}
+=== F:\Programming\GES\GES Projects\UtilityProjects\GLAZOV.M.CONVERTER\src\GLAZOV.M.CONVERTER.ArchivesExtra\Writing\TarBz2ArchiveWriter.cs ===
+using GLAZOV.M.CONVERTER.ArchivesExtra.Model;
+using SharpCompress.Compressors;
+using SharpCompress.Compressors.BZip2;
+
+namespace GLAZOV.M.CONVERTER.ArchivesExtra.Writing;
+
+/// <summary>
+/// Writes a TAR archive compressed with BZip2 to a stream.
+/// </summary>
+internal sealed class TarBz2ArchiveWriter : IArchiveWriter
+{
+    private readonly BZip2Stream _bzip2;
+    private readonly TarArchiveWriter _tar;
+
+    /// <summary>
+    /// Creates the writer.
+    /// </summary>
+    /// <param name="output">Where the archive goes; it stays open.</param>
+    /// <param name="tempFolder">Folder for temporary files.</param>
+    internal TarBz2ArchiveWriter(Stream output, string tempFolder)
+    {
+        _bzip2 = new BZip2Stream(new KeepOpenStream(output), CompressionMode.Compress, false);
+        _tar = new TarArchiveWriter(_bzip2, tempFolder);
+    }
+
+    /// <inheritdoc />
+    public Task WriteAsync(ArchiveEntryInfo info, Stream? content, CancellationToken cancellationToken)
+    {
+        return _tar.WriteAsync(info, content, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public void Complete()
+    {
+        _tar.Complete();
+    }
+
+    /// <inheritdoc />
+    public async ValueTask DisposeAsync()
+    {
+        await _tar.DisposeAsync().ConfigureAwait(false);
+        await _bzip2.DisposeAsync().ConfigureAwait(false);
+    }
+}

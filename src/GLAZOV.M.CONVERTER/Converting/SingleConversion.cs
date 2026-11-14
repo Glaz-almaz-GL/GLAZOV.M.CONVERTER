@@ -1,20 +1,19 @@
-using System.Diagnostics;
 using GLAZOV.M.CONVERTER.Capabilities;
 using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Detection;
 using GLAZOV.M.CONVERTER.Engines;
 using GLAZOV.M.CONVERTER.Errors;
-using GLAZOV.M.CONVERTER.Execution;
 using GLAZOV.M.CONVERTER.Extensions;
 using GLAZOV.M.CONVERTER.IO;
 using GLAZOV.M.CONVERTER.Settings;
 using GLAZOV.M.CONVERTER.Tooling;
+using System.Diagnostics;
 
 namespace GLAZOV.M.CONVERTER.Converting;
 
 /// <summary>
-/// Конвертация одного входа: открыть вход, подтвердить тип по начальным байтам, подобрать движок и программу,
-/// открыть выход, выполнить, завершить запись. При ошибке и отмене временное удаляется, результат не остаётся.
+/// Executes a single conversion pipeline: opens input, detects format by leading bytes, selects an engine,
+/// verifies required external tools, runs the conversion, and commits the output.
 /// </summary>
 internal sealed class SingleConversion
 {
@@ -32,13 +31,8 @@ internal sealed class SingleConversion
     }
 
     /// <summary>
-    /// Выполняет конвертацию. Папка во входе — неверное использование (<see cref="ArgumentException"/>).
+    /// Converts a single file or stream source into the specified target.
     /// </summary>
-    /// <param name="source">Файл или поток.</param>
-    /// <param name="target">Файл, поток или память и формат результата.</param>
-    /// <param name="options">Дополнительные параметры.</param>
-    /// <param name="progress">Приёмник хода: 0 перед запуском движка и 100 после записи результата.</param>
-    /// <param name="cancellationToken">Отмена.</param>
     internal async Task<ConversionResult> RunAsync(
         Source source,
         Target target,
@@ -48,7 +42,7 @@ internal sealed class SingleConversion
     {
         if (source.Kind == SourceKind.Folder)
         {
-            throw new ArgumentException("Папку нельзя конвертировать как один вход: для пакета используйте пакетную конвертацию.", nameof(source));
+            throw new ArgumentException("A folder source cannot be converted as a single input; use batch conversion instead.", nameof(source));
         }
 
         Stopwatch watch = Stopwatch.StartNew();
@@ -59,59 +53,26 @@ internal sealed class SingleConversion
         IConversionEngine engine = ChooseEngine(from, target.FileFormat, callOptions);
         (ToolStatus? tool, IReadOnlyDictionary<string, ToolStatus> tools) = LocateTools(engine);
 
-        if (target.Kind == TargetKind.Folder && WritesSeveralFiles(engine, from, target.FileFormat))
-        {
-            return await RunSeveralFilesAsync(engine, input, from, target, callOptions, (tool, tools), progress, watch, cancellationToken).ConfigureAwait(false);
-        }
-
-        await using OutputSink sink = await OutputSink.OpenAsync(target, input.Name, _settings, cancellationToken: cancellationToken).ConfigureAwait(false);
+        bool multiFile = target.Kind == TargetKind.Folder && WritesSeveralFiles(engine, from, target.FileFormat);
+        await using OutputSink sink = await OutputSink.OpenAsync(target, input.Name, _settings, multiFile, cancellationToken: cancellationToken).ConfigureAwait(false);
 
         progress?.Report(new ConversionProgress(0));
         ProgressGate? gate = progress is null ? null : new ProgressGate(progress);
+
         ConversionRequest request = new(input.Stream, sink.Stream, from, target.FileFormat, callOptions, tool, _settings.TempFolder ?? Path.GetTempPath())
         {
             InputPath = input.Path,
+            OutputFolder = sink.StagingFolder,
             OnProgress = gate is null ? null : gate.Report,
             Tools = tools,
         };
+
         await RunEngineAsync(engine, request, cancellationToken).ConfigureAwait(false);
-        SinkResult written = await sink.CommitAsync(cancellationToken).ConfigureAwait(false);
-        progress?.Report(new ConversionProgress(100));
-
         watch.Stop();
-        return new ConversionResult(true, from, target.FileFormat, watch.Elapsed, written.OutputPath, written.Bytes, written.Stream, request.Reencoded, notes: request.Notes);
-    }
 
-    // The engine writes the files into a staging folder; they reach the target folder together or not at all.
-    private async Task<ConversionResult> RunSeveralFilesAsync(
-        IConversionEngine engine,
-        InputHandle input,
-        FileFormat from,
-        Target target,
-        ConversionOptions callOptions,
-        (ToolStatus? Tool, IReadOnlyDictionary<string, ToolStatus> Tools) located,
-        IProgress<ConversionProgress>? progress,
-        Stopwatch watch,
-        CancellationToken cancellationToken)
-    {
-        using MultiFileOutput output = MultiFileOutput.Open(target.Path!, _settings);
-
-        progress?.Report(new ConversionProgress(0));
-        ProgressGate? gate = progress is null ? null : new ProgressGate(progress);
-        ConversionRequest request = new(input.Stream, Stream.Null, from, target.FileFormat, callOptions, located.Tool, _settings.TempFolder ?? Path.GetTempPath())
-        {
-            InputPath = input.Path,
-            OnProgress = gate is null ? null : gate.Report,
-            Tools = located.Tools,
-            OutputFolder = output.StagingFolder,
-        };
-        await RunEngineAsync(engine, request, cancellationToken).ConfigureAwait(false);
-        cancellationToken.ThrowIfCancellationRequested();
-        IReadOnlyList<string> paths = output.Commit(engine.GetType().Name);
+        ConversionResult result = await sink.CompleteAsync(from, watch.Elapsed, request.Reencoded, request.Notes, engine.GetType().Name, cancellationToken).ConfigureAwait(false);
         progress?.Report(new ConversionProgress(100));
-
-        watch.Stop();
-        return new ConversionResult(true, from, target.FileFormat, watch.Elapsed, paths[0], null, null, request.Reencoded, paths, request.Notes);
+        return result;
     }
 
     private static bool WritesSeveralFiles(IConversionEngine engine, FileFormat from, FileFormat to)
@@ -119,7 +80,6 @@ internal sealed class SingleConversion
         return engine.Pairs.Any(pair => pair.From.Equals(from) && pair.To.Equals(to) && pair.WritesSeveralFiles);
     }
 
-    // Тип определяется по начальным байтам; имя файла — только подсказка для сообщения, доказательством не служит.
     private async Task<FileFormat> ConfirmTypeAsync(InputHandle input, CancellationToken cancellationToken)
     {
         FileFormat from = await InputDetection.DetectAsync(input, _chain, cancellationToken).ConfigureAwait(false);
@@ -135,16 +95,16 @@ internal sealed class SingleConversion
     private IConversionEngine ChooseEngine(FileFormat from, FileFormat to, ConversionOptions options)
     {
         IConversionEngine engine = _registry.Find(from, to) ?? throw Failures.UnsupportedConversion(from, to);
-        if (options.Operations.Count > 0 && !engine.SupportsOperations)
+        if (options.Operations.Any() && !engine.SupportsOperations)
         {
+            // The engine does not support the operations, but the options include them.
             throw Failures.UnsupportedOperations(from, to);
         }
 
         return engine;
     }
 
-    // Программы нужны не каждому движку: расширение без внешней программы работает на своих библиотеках.
-    // Обязательная и не найденная — отказ до запуска; необязательная передаётся как есть, с признаком «не найдена».
+
     private (ToolStatus? Tool, IReadOnlyDictionary<string, ToolStatus> Tools) LocateTools(IConversionEngine engine)
     {
         Dictionary<string, ToolStatus> tools = new(StringComparer.OrdinalIgnoreCase);
@@ -168,7 +128,6 @@ internal sealed class SingleConversion
         return (first, tools);
     }
 
-    // Любое непредвиденное исключение чужого движка становится ошибкой конвертации; свои ошибки и отмена проходят как есть.
     private static async Task RunEngineAsync(IConversionEngine engine, ConversionRequest request, CancellationToken cancellationToken)
     {
         try
@@ -178,6 +137,30 @@ internal sealed class SingleConversion
         catch (Exception ex) when (ex is not (ConversionException or OperationCanceledException))
         {
             throw Failures.EngineFailed(engine.GetType().Name, ex);
+        }
+    }
+
+    /// <summary>
+    /// Clamps engine progress values, filters out non-increasing values, and reserves 100% until output commit completes.
+    /// </summary>
+    private sealed class ProgressGate(IProgress<ConversionProgress> target)
+    {
+        private readonly Lock _lock = new();
+        private int _last;
+
+        internal void Report(int percent)
+        {
+            int value = Math.Clamp(percent, 0, 100);
+            lock (_lock)
+            {
+                if (value <= _last || value >= 100)
+                {
+                    return;
+                }
+
+                _last = value;
+                target.Report(new ConversionProgress(value));
+            }
         }
     }
 }

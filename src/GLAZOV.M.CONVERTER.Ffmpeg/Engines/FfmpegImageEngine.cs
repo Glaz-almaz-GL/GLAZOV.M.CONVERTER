@@ -2,6 +2,7 @@ using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Errors;
 using GLAZOV.M.CONVERTER.Extensions;
 using GLAZOV.M.CONVERTER.Formats;
+using GLAZOV.M.CONVERTER.Formats.Options;
 using GLAZOV.M.CONVERTER.Tooling;
 
 namespace GLAZOV.M.CONVERTER.Ffmpeg.Engines;
@@ -11,7 +12,11 @@ namespace GLAZOV.M.CONVERTER.Ffmpeg.Engines;
 /// Вход и результат идут через временные файлы: TIFF, DDS и PSD из канала не читаются, а результат всегда должен быть целым.
 /// У многокадровых входов (GIF, анимированный AVIF) берётся первый кадр, у ICO с несколькими картинками — самая большая.
 /// </summary>
-internal sealed class FfmpegImageEngine : IConversionEngine
+/// <remarks>
+/// Creates the engine.
+/// </remarks>
+/// <param name="settings">Defaults for quality and background; <c>null</c> — the default settings.</param>
+internal sealed class FfmpegImageEngine(FfmpegSettings? settings = null) : IConversionEngine
 {
     private static readonly FileFormat[] Inputs =
     [
@@ -23,16 +28,7 @@ internal sealed class FfmpegImageEngine : IConversionEngine
         FileFormat.Png, FileFormat.Jpeg, FileFormat.Webp, FileFormat.Bmp, FileFormat.Gif, FileFormat.Tiff, FileFormat.Tga, FileFormat.Avif, FileFormat.Ico,
     ];
 
-    private readonly FfmpegSettings _settings;
-
-    /// <summary>
-    /// Creates the engine.
-    /// </summary>
-    /// <param name="settings">Defaults for quality and background; <c>null</c> — the default settings.</param>
-    public FfmpegImageEngine(FfmpegSettings? settings = null)
-    {
-        _settings = settings ?? new FfmpegSettings();
-    }
+    private readonly FfmpegSettings _settings = settings ?? new FfmpegSettings();
 
     /// <inheritdoc />
     public IReadOnlyList<ToolSpec> Tools { get; } = [FfmpegTools.Ffmpeg];
@@ -45,13 +41,7 @@ internal sealed class FfmpegImageEngine : IConversionEngine
         [.. Inputs.SelectMany(from => Outputs.Select(to => new ConversionPair(from, to)))];
 
     /// <inheritdoc />
-    public bool CanConvert(FileFormat from, FileFormat to)
-    {
-        return Inputs.Contains(from) && Outputs.Contains(to);
-    }
-
-    /// <inheritdoc />
-    public async Task ConvertAsync(ConversionRequest request, CancellationToken cancellationToken)
+    public async Task ConvertAsync(ConversionRequest request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
 
@@ -68,7 +58,7 @@ internal sealed class FfmpegImageEngine : IConversionEngine
 
             IReadOnlyList<string> filters = FfmpegImageArguments.Filters(request.Options.Operations);
             ToolResult result = null!;
-            foreach (string? encoder in request.To.Equals(FileFormat.Avif) ? (IEnumerable<string?>)FfmpegImageArguments.Av1Encoders : new string?[] { null })
+            foreach (string? encoder in request.To.Equals(FileFormat.Avif) ? (IEnumerable<string?>)FfmpegImageArguments.Av1Encoders : [null])
             {
                 IReadOnlyList<string> args = FfmpegImageArguments.Build(
                     request.To, request.Options.Image?.Quality, inputPath, outputPath, filters, _settings, encoder);
@@ -107,11 +97,8 @@ internal sealed class FfmpegImageEngine : IConversionEngine
     // The last line of the output becomes the message, so the plain words go last.
     private static string Explain(FileFormat to, string output)
     {
-        if (to.Equals(FileFormat.Avif) && IsMissingEncoder(output))
-        {
-            return $"{output}\nваш FFmpeg собран без кодировщика AV1 ({string.Join(", ", FfmpegImageArguments.Av1Encoders)}), AVIF записать нельзя";
-        }
-
-        return output;
+        return to.Equals(FileFormat.Avif) && IsMissingEncoder(output)
+            ? $"{output}\nваш FFmpeg собран без кодировщика AV1 ({string.Join(", ", FfmpegImageArguments.Av1Encoders)}), AVIF записать нельзя"
+            : output;
     }
 }

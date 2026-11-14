@@ -1,4 +1,4 @@
-namespace GLAZOV.M.CONVERTER.Converting;
+namespace GLAZOV.M.CONVERTER.Formats.Options;
 
 /// <summary>
 /// Параметры качества звука для одного вызова конвертации. Все необязательные:

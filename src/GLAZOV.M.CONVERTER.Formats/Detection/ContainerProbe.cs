@@ -1,14 +1,14 @@
+using GLAZOV.M.CONVERTER.Data;
+using GLAZOV.M.CONVERTER.Formats.Detection.Documents;
 using System.Buffers.Binary;
 using System.IO.Compression;
 using System.Text;
-using GLAZOV.M.CONVERTER.Data;
 
-namespace GLAZOV.M.CONVERTER.Formats.Detection.Documents;
+namespace GLAZOV.M.CONVERTER.Formats.Detection;
 
 /// <summary>
-/// Second look at the containers of documents, for an input that can be read at any place: an archive by its central directory
-/// (at the end of the file) and a compound file by the chain of its directory sectors, wherever they lie. Never throws on short or
-/// foreign data; what cannot be read inside the budget is not guessed.
+/// Deep container inspector for seekable streams: inspects ZIP central directories (at the end of the file)
+/// and OLE2 compound file directory sector chains to identify document packages without relying on the header window.
 /// </summary>
 internal static class ContainerProbe
 {
@@ -19,7 +19,7 @@ internal static class ContainerProbe
     private const uint EndOfChain = 0xFFFFFFFE;
 
     /// <summary>
-    /// Whether the data starts like a container the probe can open.
+    /// Determines whether the leading bytes match a container format supported by this probe (ZIP or OLE2 compound file).
     /// </summary>
     /// <param name="head">Leading bytes of the input.</param>
     internal static bool IsContainer(ReadOnlySpan<byte> head)
@@ -28,22 +28,27 @@ internal static class ContainerProbe
     }
 
     /// <summary>
-    /// Returns the document format of the container, or <c>null</c>.
+    /// Asynchronously inspects the container stream and returns the identified document <see cref="FileFormat"/>, or <c>null</c>.
     /// </summary>
-    /// <param name="stream">The input; position 0 is its start.</param>
-    internal static FileFormat? Match(Stream stream)
+    /// <param name="stream">Seekable input stream positioned at the start of the container.</param>
+    /// <param name="cancellationToken">Token to cancel the inspection.</param>
+    internal static async ValueTask<FileFormat?> MatchAsync(Stream stream, CancellationToken cancellationToken = default)
     {
         try
         {
             byte[] start = new byte[MagicLength];
             stream.Position = 0;
-            int read = stream.Read(start, 0, start.Length);
+            int read = await ReadAtMostAsync(stream, start, cancellationToken).ConfigureAwait(false);
+
             if (read == start.Length && start.AsSpan().StartsWith(CompoundFile.CompoundMagic))
             {
-                return MatchCompound(stream);
+                return await MatchCompoundAsync(stream, cancellationToken).ConfigureAwait(false);
             }
 
-            return read >= ZipPackage.ZipMagic.Length && start.AsSpan().StartsWith(ZipPackage.ZipMagic) ? MatchArchive(stream) : null;
+            // Check zip magic bytes
+            return read >= ZipPackage.ZipMagic.Length && start.AsSpan().StartsWith(ZipPackage.ZipMagic)
+                ? await MatchArchiveAsync(stream, cancellationToken).ConfigureAwait(false)
+                : null;
         }
         catch (Exception ex) when (ex is InvalidDataException or IOException or NotSupportedException or ArgumentException)
         {
@@ -51,26 +56,26 @@ internal static class ContainerProbe
         }
     }
 
-    private static FileFormat? MatchArchive(Stream stream)
+    private static async ValueTask<FileFormat?> MatchArchiveAsync(Stream stream, CancellationToken cancellationToken = default)
     {
-        using ZipArchive zip = new(stream, ZipArchiveMode.Read, leaveOpen: true);
+        await using ZipArchive zip = new(stream, ZipArchiveMode.Read, leaveOpen: true);
         if (zip.Entries.Count > 0 && zip.Entries[0].FullName == OdfMimeType)
         {
-            return MatchOdf(zip.Entries[0]);
+            return await MatchOdfAsync(zip.Entries[0], cancellationToken).ConfigureAwait(false);
         }
 
         bool contentTypes = false;
         HashSet<FileFormat> mainParts = [];
         HashSet<FileFormat> folders = [];
-        foreach (ZipArchiveEntry entry in zip.Entries)
+        foreach (string entryFullName in zip.Entries.Select(entry => entry.FullName))
         {
-            contentTypes |= entry.FullName == ZipPackage.ContentTypesPart;
-            if (ZipPackage.MainPart(entry.FullName) is { } main)
+            contentTypes |= entryFullName == ZipPackage.ContentTypesPart;
+            if (ZipPackage.MainPart(entryFullName) is { } main)
             {
                 mainParts.Add(main);
             }
 
-            if (ZipPackage.Folder(entry.FullName) is { } folder)
+            if (ZipPackage.Folder(entryFullName) is { } folder)
             {
                 folders.Add(folder);
             }
@@ -79,32 +84,24 @@ internal static class ContainerProbe
         return ZipPackage.ChooseOffice(contentTypes, mainParts, folders);
     }
 
-    private static FileFormat? MatchOdf(ZipArchiveEntry entry)
+    private static async ValueTask<FileFormat?> MatchOdfAsync(ZipArchiveEntry entry, CancellationToken cancellationToken = default)
     {
         if (entry.Length > MaxOdfMimeLength)
         {
             return null;
         }
 
-        using Stream content = entry.Open();
+        await using Stream content = await entry.OpenAsync(cancellationToken).ConfigureAwait(false);
         byte[] buffer = new byte[MaxOdfMimeLength];
-        int total = 0;
-        int read;
-        while (total < buffer.Length && (read = content.Read(buffer, total, buffer.Length - total)) > 0)
-        {
-            total += read;
-        }
-
+        int total = await ReadAtMostAsync(content, buffer, cancellationToken).ConfigureAwait(false);
         return ZipPackage.OdfFormat(Encoding.ASCII.GetString(buffer, 0, total));
     }
 
-    // The header names the first directory sector; the sector allocation table (found through the header and the chain of extra
-    // table sectors) gives the next sector of the directory. Only the table sectors that are needed are read.
-    private static FileFormat? MatchCompound(Stream stream)
+    private static async ValueTask<FileFormat?> MatchCompoundAsync(Stream stream, CancellationToken cancellationToken = default)
     {
         byte[] header = new byte[CompoundFile.CompoundHeaderLength];
         stream.Position = 0;
-        if (!ReadFully(stream, header))
+        if (!await ReadFullyAsync(stream, header, cancellationToken).ConfigureAwait(false))
         {
             return null;
         }
@@ -121,17 +118,24 @@ internal static class ContainerProbe
         uint firstExtra = BinaryPrimitives.ReadUInt32LittleEndian(header.AsSpan(0x44, 4));
         uint extraCount = BinaryPrimitives.ReadUInt32LittleEndian(header.AsSpan(0x48, 4));
 
-        List<uint> tables = ReadTableSectors(stream, header, sectorSize, tableCount, firstExtra, extraCount);
+        List<uint> tables = await ReadTableSectorsAsync(stream, header, sectorSize, tableCount, firstExtra, extraCount, cancellationToken).ConfigureAwait(false);
         if (tables.Count == 0)
         {
             return null;
         }
 
-        byte[]? directory = ReadDirectory(stream, firstDirectory, sectorSize, tables);
+        byte[]? directory = await ReadDirectoryAsync(stream, firstDirectory, sectorSize, tables, cancellationToken).ConfigureAwait(false);
         return directory is null ? null : CompoundFile.MatchDirectory(directory);
     }
 
-    private static List<uint> ReadTableSectors(Stream stream, byte[] header, int sectorSize, uint tableCount, uint firstExtra, uint extraCount)
+    private static async ValueTask<List<uint>> ReadTableSectorsAsync(
+        Stream stream,
+        byte[] header,
+        int sectorSize,
+        uint tableCount,
+        uint firstExtra,
+        uint extraCount,
+        CancellationToken cancellationToken = default)
     {
         List<uint> tables = [];
         for (int i = 0; i < HeaderTableEntries && tables.Count < tableCount; i++)
@@ -144,7 +148,7 @@ internal static class ContainerProbe
         uint next = firstExtra;
         for (uint i = 0; i < extraCount && tables.Count < tableCount && next < EndOfChain; i++)
         {
-            if (!ReadSector(stream, next, sector))
+            if (!await ReadSectorAsync(stream, next, sector, cancellationToken).ConfigureAwait(false))
             {
                 break;
             }
@@ -160,7 +164,12 @@ internal static class ContainerProbe
         return tables;
     }
 
-    private static byte[]? ReadDirectory(Stream stream, uint first, int sectorSize, List<uint> tables)
+    private static async ValueTask<byte[]?> ReadDirectoryAsync(
+        Stream stream,
+        uint first,
+        int sectorSize,
+        List<uint> tables,
+        CancellationToken cancellationToken = default)
     {
         int perTable = sectorSize / 4;
         int maxSectors = Math.Max(1, CompoundFile.MaxDirectoryEntries * CompoundFile.CompoundEntryLength / sectorSize);
@@ -169,14 +178,15 @@ internal static class ContainerProbe
         using MemoryStream directory = new();
         byte[] sector = new byte[sectorSize];
         uint current = first;
+
         while (current < EndOfChain && seen.Count < maxSectors && seen.Add(current))
         {
-            if (!ReadSector(stream, current, sector))
+            if (!await ReadSectorAsync(stream, current, sector, cancellationToken).ConfigureAwait(false))
             {
                 return null;
             }
 
-            directory.Write(sector);
+            await directory.WriteAsync(sector, cancellationToken);
 
             uint tableIndex = current / (uint)perTable;
             if (tableIndex >= tables.Count)
@@ -188,7 +198,7 @@ internal static class ContainerProbe
             if (!loaded.TryGetValue(table, out byte[]? entries))
             {
                 entries = new byte[sectorSize];
-                if (!ReadSector(stream, table, entries))
+                if (!await ReadSectorAsync(stream, table, entries, cancellationToken).ConfigureAwait(false))
                 {
                     return null;
                 }
@@ -202,8 +212,7 @@ internal static class ContainerProbe
         return directory.Length == 0 ? null : directory.ToArray();
     }
 
-    // Sector n starts after the header sector, at (n + 1) << shift.
-    private static bool ReadSector(Stream stream, uint id, byte[] sector)
+    private static async ValueTask<bool> ReadSectorAsync(Stream stream, uint id, byte[] sector, CancellationToken cancellationToken = default)
     {
         if (id >= EndOfChain)
         {
@@ -217,23 +226,28 @@ internal static class ContainerProbe
         }
 
         stream.Position = offset;
-        return ReadFully(stream, sector);
+        return await ReadFullyAsync(stream, sector, cancellationToken).ConfigureAwait(false);
     }
 
-    private static bool ReadFully(Stream stream, byte[] buffer)
+    private static async ValueTask<bool> ReadFullyAsync(Stream stream, byte[] buffer, CancellationToken cancellationToken = default)
+    {
+        return await ReadAtMostAsync(stream, buffer, cancellationToken).ConfigureAwait(false) == buffer.Length;
+    }
+
+    private static async ValueTask<int> ReadAtMostAsync(Stream stream, byte[] buffer, CancellationToken cancellationToken = default)
     {
         int total = 0;
         while (total < buffer.Length)
         {
-            int read = stream.Read(buffer, total, buffer.Length - total);
+            int read = await stream.ReadAsync(buffer.AsMemory(total), cancellationToken).ConfigureAwait(false);
             if (read == 0)
             {
-                return false;
+                break;
             }
 
             total += read;
         }
 
-        return true;
+        return total;
     }
 }

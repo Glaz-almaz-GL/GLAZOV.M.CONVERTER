@@ -1,33 +1,28 @@
-using System.IO.Compression;
 using GLAZOV.M.CONVERTER.Archives.Model;
+using System.IO.Compression;
 
 namespace GLAZOV.M.CONVERTER.Archives.Writing;
 
 /// <summary>
 /// Writes a ZIP archive to a stream, entry by entry. Names are UTF-8.
 /// </summary>
-internal sealed class ZipArchiveWriter : IArchiveWriter
+/// <remarks>
+/// Creates the writer.
+/// </remarks>
+/// <param name="output">Where the archive goes; it stays open.</param>
+/// <param name="level">Compression level of the entries.</param>
+public sealed class ZipArchiveWriter(Stream output, CompressionLevel level) : IArchiveWriter
 {
     private static readonly DateTimeOffset EarliestZipTime = new(1980, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
-    private readonly ZipArchive _zip;
-    private readonly CompressionLevel _level;
-
-    /// <summary>
-    /// Creates the writer.
-    /// </summary>
-    /// <param name="output">Where the archive goes; it stays open.</param>
-    /// <param name="level">Compression level of the entries.</param>
-    internal ZipArchiveWriter(Stream output, CompressionLevel level)
-    {
-        _zip = new ZipArchive(output, ZipArchiveMode.Create, leaveOpen: true);
-        _level = level;
-    }
+    private readonly ZipArchive _zip = new(output, ZipArchiveMode.Create, leaveOpen: true);
+    private readonly CompressionLevel _level = level;
 
     /// <inheritdoc />
-    public async Task WriteAsync(ArchiveEntryInfo info, Stream? content, CancellationToken cancellationToken)
+    public async Task WriteAsync(ArchiveEntryInfo info, Stream? content, CancellationToken cancellationToken = default)
     {
         ZipArchiveEntry entry = _zip.CreateEntry(info.Name, _level);
+
         // ZIP keeps the local wall-clock time without a zone.
         DateTimeOffset local = info.Modified.ToLocalTime();
         entry.LastWriteTime = local < EarliestZipTime ? EarliestZipTime : local;

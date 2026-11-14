@@ -1,7 +1,7 @@
-using System.IO.Compression;
-using System.Xml;
 using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Formats;
+using System.IO.Compression;
+using System.Xml;
 
 namespace GLAZOV.M.CONVERTER.Office.Engines;
 
@@ -11,6 +11,9 @@ namespace GLAZOV.M.CONVERTER.Office.Engines;
 /// </summary>
 internal static class BookSize
 {
+    private const string TableNamespace = "urn:oasis:names:tc:opendocument:xmlns:table:1.0";
+    private const string OfficeNamespace = "urn:oasis:names:tc:opendocument:xmlns:office:1.0";
+
     /// <summary>
     /// The size of the largest sheet; <c>null</c> when the format is not read here or the file does not show it.
     /// </summary>
@@ -23,6 +26,7 @@ internal static class BookSize
             using ZipArchive zip = ZipFile.OpenRead(path);
             if (format.Equals(FileFormat.Xlsx))
             {
+                // XLSX
                 return MeasureXlsx(zip);
             }
 
@@ -32,6 +36,86 @@ internal static class BookSize
         {
             return null;
         }
+    }
+
+    /// <summary>
+    /// Names of the sheets of an XLSX or ODS book in their workbook order; empty when not read here.
+    /// </summary>
+    /// <param name="path">The book file.</param>
+    /// <param name="format">XLSX or ODS.</param>
+    internal static IReadOnlyList<string> SheetNames(string path, FileFormat format)
+    {
+        try
+        {
+            using ZipArchive zip = ZipFile.OpenRead(path);
+            if (format.Equals(FileFormat.Xlsx))
+            {
+                // XLSX
+                return ReadXlsxSheetNames(zip);
+            }
+
+            return format.Equals(FileFormat.Ods) ? ReadOdsSheetNames(zip) : [];
+        }
+        catch (Exception ex) when (ex is InvalidDataException or IOException or XmlException)
+        {
+            return [];
+        }
+    }
+
+    private static List<string> ReadXlsxSheetNames(ZipArchive zip)
+    {
+        ZipArchiveEntry? workbook = zip.GetEntry("xl/workbook.xml");
+        if (workbook is null)
+        {
+            return [];
+        }
+
+        List<string> names = [];
+        using XmlReader reader = XmlReader.Create(
+            workbook.Open(),
+            new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null });
+
+        while (reader.Read())
+        {
+            if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "sheet")
+            {
+                string? name = reader.GetAttribute("name");
+                if (!string.IsNullOrEmpty(name))
+                {
+                    names.Add(name);
+                }
+            }
+        }
+
+        return names;
+    }
+
+    private static List<string> ReadOdsSheetNames(ZipArchive zip)
+    {
+        ZipArchiveEntry? content = zip.GetEntry("content.xml");
+        if (content is null)
+        {
+            return [];
+        }
+
+        List<string> names = [];
+        using XmlReader reader = XmlReader.Create(
+            content.Open(),
+            new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null });
+
+        while (reader.Read())
+        {
+            if (IsTableElement(reader, "table"))
+            {
+                string? name = reader.GetAttribute("name", TableNamespace);
+                if (!string.IsNullOrEmpty(name))
+                {
+                    names.Add(name);
+                }
+            }
+        }
+
+        return names;
     }
 
     // The dimension element of each sheet names its corner cell, for example A1:C70000.
@@ -69,14 +153,13 @@ internal static class BookSize
         int column = 0;
         while (letters < last.Length && char.IsAsciiLetter(last[letters]))
         {
-            column = (column * 26) + (char.ToUpperInvariant(last[letters]) - 'A' + 1);
+            column = (column * 26) + char.ToUpperInvariant(last[letters]) - 'A' + 1;
             letters++;
         }
 
         return long.TryParse(last[letters..], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out long row) ? (row, column) : (0, 0);
     }
 
-    // Trailing empty rows are stored as one repeated row, so only rows and cells that hold a value are counted.
     private static TableShape? MeasureOds(ZipArchive zip)
     {
         ZipArchiveEntry? content = zip.GetEntry("content.xml");
@@ -85,54 +168,87 @@ internal static class BookSize
             return null;
         }
 
-        const string table = "urn:oasis:names:tc:opendocument:xmlns:table:1.0";
-        const string office = "urn:oasis:names:tc:opendocument:xmlns:office:1.0";
         long maxRows = 0;
         int maxColumns = 0;
         long row = 0;
         long sheetRows = 0;
-        using XmlReader reader = XmlReader.Create(content.Open(), new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null });
+
+        using XmlReader reader = XmlReader.Create(
+            content.Open(),
+            new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null });
+
         while (reader.Read())
         {
-            if (reader.NodeType == XmlNodeType.Element && reader.NamespaceURI == table && reader.LocalName == "table")
+            if (IsTableElement(reader, "table"))
             {
                 maxRows = Math.Max(maxRows, sheetRows);
                 row = 0;
                 sheetRows = 0;
+                continue;
             }
-            else if (reader.NodeType == XmlNodeType.Element && reader.NamespaceURI == table && reader.LocalName == "table-row")
-            {
-                long repeat = Repeat(reader.GetAttribute("number-rows-repeated", table));
-                bool empty = reader.IsEmptyElement;
-                int column = 0;
-                int widest = 0;
-                if (!empty)
-                {
-                    using XmlReader cells = reader.ReadSubtree();
-                    cells.Read();
-                    while (cells.Read())
-                    {
-                        if (cells.NodeType == XmlNodeType.Element && cells.NamespaceURI == table && (cells.LocalName == "table-cell" || cells.LocalName == "covered-table-cell"))
-                        {
-                            column += (int)Math.Min(Repeat(cells.GetAttribute("number-columns-repeated", table)), int.MaxValue / 2);
-                            if (cells.GetAttribute("value-type", office) is not null)
-                            {
-                                widest = column;
-                            }
-                        }
-                    }
-                }
 
-                row += repeat;
-                if (widest > 0)
-                {
-                    sheetRows = row;
-                    maxColumns = Math.Max(maxColumns, widest);
-                }
+            if (!IsTableElement(reader, "table-row"))
+            {
+                continue;
+            }
+
+            long repeat = Repeat(reader.GetAttribute("number-rows-repeated", TableNamespace));
+            int widest = MeasureRowWidth(reader);
+
+            row += repeat;
+            if (widest > 0)
+            {
+                sheetRows = row;
+                maxColumns = Math.Max(maxColumns, widest);
             }
         }
 
         return new TableShape(',', Math.Max(maxRows, sheetRows), maxColumns);
+    }
+
+    private static int MeasureRowWidth(XmlReader rowReader)
+    {
+        if (rowReader.IsEmptyElement)
+        {
+            return 0;
+        }
+
+        int column = 0;
+        int widest = 0;
+
+        using XmlReader cells = rowReader.ReadSubtree();
+        cells.Read();
+
+        while (cells.Read())
+        {
+            if (!IsCellElement(cells))
+            {
+                continue;
+            }
+
+            long repeated = Repeat(cells.GetAttribute("number-columns-repeated", TableNamespace));
+            column += (int)Math.Min(repeated, int.MaxValue / 2);
+
+            if (cells.GetAttribute("value-type", OfficeNamespace) is not null)
+            {
+                widest = column;
+            }
+        }
+
+        return widest;
+    }
+
+    private static bool IsTableElement(XmlReader reader, string localName)
+    {
+        return reader.NodeType == XmlNodeType.Element &&
+        reader.NamespaceURI == TableNamespace &&
+        reader.LocalName == localName;
+    }
+
+    private static bool IsCellElement(XmlReader reader)
+    {
+        return IsTableElement(reader, "table-cell") ||
+        IsTableElement(reader, "covered-table-cell");
     }
 
     private static long Repeat(string? value)

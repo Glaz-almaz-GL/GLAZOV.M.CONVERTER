@@ -1,108 +1,90 @@
+using GLAZOV.M.CONVERTER.Converting;
 using GLAZOV.M.CONVERTER.Errors;
 
 namespace GLAZOV.M.CONVERTER.Batch;
 
 /// <summary>
-/// Итог по одному входу пакета.
+/// Outcome for a single item in a batch conversion.
 /// </summary>
 public sealed class BatchItemResult
 {
-    private BatchItemResult(
-        string sourceName,
-        bool succeeded,
-        bool canceled,
-        ConversionStage? stage,
-        ConversionFailureReason? reason,
-        string? message,
-        string? outputPath,
-        IReadOnlyList<string>? outputPaths = null,
-        IReadOnlyList<string>? notes = null)
+    private BatchItemResult(string sourceName, bool canceled, ConversionResult? result, ConversionException? error)
     {
-        OutputPaths = outputPaths ?? (outputPath is null ? [] : [outputPath]);
-        Notes = notes ?? [];
         SourceName = sourceName;
-        Succeeded = succeeded;
         Canceled = canceled;
-        Stage = stage;
-        Reason = reason;
-        Message = message;
-        OutputPath = outputPath;
+        Result = result;
+        Error = error;
     }
 
-    /// <summary>
-    /// Вход выполнен: результат записан (путь — если в файл).
-    /// </summary>
-    /// <param name="sourceName">Имя входа.</param>
-    /// <param name="outputPath">Куда записан результат; пусто, если не в файл.</param>
-    /// <param name="outputPaths">Every file written for this input.</param>
-    /// <param name="notes">Lines the engine added about this input.</param>
-    internal static BatchItemResult Success(string sourceName, string? outputPath, IReadOnlyList<string>? outputPaths = null, IReadOnlyList<string>? notes = null)
+    internal static BatchItemResult Success(string sourceName, ConversionResult result)
     {
-        return new BatchItemResult(sourceName, true, false, null, null, null, outputPath, outputPaths, notes);
+        ArgumentNullException.ThrowIfNull(result);
+        return new(sourceName, canceled: false, result, error: null);
     }
 
-    /// <summary>
-    /// Вход не удался: этап, причина и сообщение берутся из ошибки конвертации.
-    /// </summary>
-    /// <param name="sourceName">Имя входа.</param>
-    /// <param name="error">Ошибка конвертации.</param>
     internal static BatchItemResult Failure(string sourceName, ConversionException error)
     {
         ArgumentNullException.ThrowIfNull(error);
-        return new BatchItemResult(sourceName, false, false, error.Stage, error.Reason, error.Message, null);
+        return new(sourceName, canceled: false, result: null, error);
     }
 
-    /// <summary>
-    /// Вход отменён: не запускался или прерван отменой.
-    /// </summary>
-    /// <param name="sourceName">Имя входа.</param>
     internal static BatchItemResult Cancelled(string sourceName)
     {
-        return new BatchItemResult(sourceName, false, true, null, null, null, null);
+        return new(sourceName, canceled: true, result: null, error: null);
     }
 
     /// <summary>
-    /// Имя входа.
+    /// Display name of the input item.
     /// </summary>
     public string SourceName { get; }
 
     /// <summary>
-    /// Удалась ли конвертация этого входа.
+    /// Whether this item converted successfully.
     /// </summary>
-    public bool Succeeded { get; }
+    public bool Succeeded => Result is not null;
 
     /// <summary>
-    /// Отменён ли этот вход.
+    /// Whether this item was skipped or interrupted due to cancellation.
     /// </summary>
     public bool Canceled { get; }
 
     /// <summary>
-    /// Этап ошибки; пусто, если ошибки не было.
+    /// Full conversion result when <see cref="Succeeded"/> is <c>true</c>; otherwise <c>null</c>.
     /// </summary>
-    public ConversionStage? Stage { get; }
+    public ConversionResult? Result { get; }
 
     /// <summary>
-    /// Причина ошибки; пусто, если ошибки не было.
+    /// Conversion error details when the item failed; otherwise <c>null</c>.
     /// </summary>
-    public ConversionFailureReason? Reason { get; }
+    public ConversionException? Error { get; }
 
     /// <summary>
-    /// Понятное сообщение об ошибке; пусто, если ошибки не было.
+    /// Stage at which the failure occurred; <c>null</c> when succeeded or canceled.
     /// </summary>
-    public string? Message { get; }
+    public ConversionStage? Stage => Error?.Stage;
 
     /// <summary>
-    /// Куда записан результат, если он записан в файл; при нескольких файлах — первый из <see cref="OutputPaths"/>.
+    /// Reason for the failure; <c>null</c> when succeeded or canceled.
     /// </summary>
-    public string? OutputPath { get; }
+    public ConversionFailureReason? Reason => Error?.Reason;
 
     /// <summary>
-    /// Every file written for this input; empty when it failed or was canceled.
+    /// Human-readable error message; <c>null</c> when succeeded or canceled.
     /// </summary>
-    public IReadOnlyList<string> OutputPaths { get; }
+    public string? Message => Error?.Message;
 
     /// <summary>
-    /// Lines the engine added about this input; empty when it failed or was canceled.
+    /// Primary output file path when written to disk; otherwise <c>null</c>.
     /// </summary>
-    public IReadOnlyList<string> Notes { get; }
+    public string? OutputPath => Result?.OutputPath;
+
+    /// <summary>
+    /// Every file written for this item; empty when failed or canceled.
+    /// </summary>
+    public IReadOnlyList<string> OutputPaths => Result?.OutputPaths ?? [];
+
+    /// <summary>
+    /// Diagnostic notes added by the engine; empty when failed or canceled.
+    /// </summary>
+    public IReadOnlyList<string> Notes => Result?.Notes ?? [];
 }

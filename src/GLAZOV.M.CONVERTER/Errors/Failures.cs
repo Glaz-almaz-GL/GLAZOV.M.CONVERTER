@@ -1,5 +1,4 @@
 using GLAZOV.M.CONVERTER.Data;
-using GLAZOV.M.CONVERTER.Detection;
 
 namespace GLAZOV.M.CONVERTER.Errors;
 
@@ -27,10 +26,10 @@ internal static class Failures
     /// <param name="actual">Что показали начальные байты.</param>
     internal static ConversionException TypeNotConfirmed(string inputName, string? expectedHint, FileFormat actual)
     {
-        var found = ReferenceEquals(actual, FileFormat.Unknown)
+        string found = ReferenceEquals(actual, FileFormat.Unknown)
             ? "тип не распознан"
             : $"это {actual.Name}";
-        var message = string.IsNullOrWhiteSpace(expectedHint)
+        string message = string.IsNullOrWhiteSpace(expectedHint)
             ? $"Тип входа «{inputName}» не подтвердился: по начальным байтам {found}."
             : $"Файл «{inputName}» не является {expectedHint}: по начальным байтам {found}.";
 
@@ -42,11 +41,13 @@ internal static class Failures
     /// </summary>
     /// <param name="from">Тип входа.</param>
     /// <param name="to">Формат результата.</param>
-    internal static ConversionException UnsupportedConversion(FileFormat from, FileFormat to) =>
-        new(
+    internal static ConversionException UnsupportedConversion(FileFormat from, FileFormat to)
+    {
+        return new(
             ConversionStage.Preparation,
             ConversionFailureReason.UnsupportedConversion,
             $"Конвертация {from.Name} → {to.Name} не поддерживается.");
+    }
 
     /// <summary>
     /// Действия (поворот, масштаб) запрошены там, где они не поддерживаются.
@@ -92,12 +93,14 @@ internal static class Failures
     /// </summary>
     /// <param name="tool">Имя программы.</param>
     /// <param name="installHint">Что установить на этой системе.</param>
-    internal static ConversionException ToolNotFound(string tool, string installHint) =>
-        new(
+    internal static ConversionException ToolNotFound(string tool, string installHint)
+    {
+        return new(
             ConversionStage.Preparation,
             ConversionFailureReason.ToolNotFound,
             $"Программа «{tool}» не найдена. {installHint}",
             toolName: tool);
+    }
 
     /// <summary>
     /// Внешняя программа завершилась с ошибкой.
@@ -107,9 +110,9 @@ internal static class Failures
     /// <param name="output">Вывод программы; сохраняются последние строки.</param>
     internal static ConversionException ToolFailed(string tool, int exitCode, string? output)
     {
-        var tail = TrimOutput(output);
-        var last = tail.Split('\n', StringSplitOptions.RemoveEmptyEntries).LastOrDefault()?.Trim();
-        var message = string.IsNullOrEmpty(last)
+        string tail = TrimOutput(output);
+        string? last = tail.Split('\n', StringSplitOptions.RemoveEmptyEntries).LastOrDefault()?.Trim();
+        string message = string.IsNullOrEmpty(last)
             ? $"Программа «{tool}» завершилась с ошибкой (код {exitCode})."
             : $"Программа «{tool}» завершилась с ошибкой (код {exitCode}): {last}";
 
@@ -126,23 +129,13 @@ internal static class Failures
     /// Файл результата уже существует, а перезапись запрещена.
     /// </summary>
     /// <param name="path">Путь к файлу; в сообщение попадает только имя.</param>
-    internal static ConversionException FileExists(string path) =>
-        new(
+    internal static ConversionException FileExists(string path)
+    {
+        return new(
             ConversionStage.Preparation,
             ConversionFailureReason.FileExists,
             $"Файл «{Path.GetFileName(path)}» уже существует; разрешите перезапись настройкой OverwriteExisting.");
-
-    /// <summary>
-    /// Вход не удалось прочитать из-за ошибки доступа.
-    /// </summary>
-    /// <param name="inputName">Имя входа.</param>
-    /// <param name="inner">Исходное исключение.</param>
-    internal static ConversionException InputUnreadable(string inputName, Exception inner) =>
-        new(
-            ConversionStage.Preparation,
-            ConversionFailureReason.InputUnreadable,
-            $"Не удалось прочитать вход «{inputName}»: {Describe(inner)}.",
-            innerException: inner);
+    }
 
     // Сообщение системы содержит полный путь (его нельзя показывать, правило «только имя файла»): причина называется своими словами,
     // а само исключение остаётся во внутренней части ошибки.
@@ -161,15 +154,31 @@ internal static class Failures
     }
 
     /// <summary>
+    /// Вход не удалось прочитать из-за ошибки доступа.
+    /// </summary>
+    /// <param name="inputName">Имя входа.</param>
+    /// <param name="inner">Исходное исключение.</param>
+    internal static ConversionException InputUnreadable(string inputName, Exception inner)
+    {
+        return new(
+            ConversionStage.Preparation,
+            ConversionFailureReason.InputUnreadable,
+            $"Не удалось прочитать вход «{inputName}»: {Describe(inner)}.",
+            innerException: inner);
+    }
+
+    /// <summary>
     /// Вход не читается по названной причине (не из исключения).
     /// </summary>
     /// <param name="inputName">Имя входа.</param>
     /// <param name="detail">Что не так.</param>
-    internal static ConversionException InputUnreadable(string inputName, string detail) =>
-        new(
+    internal static ConversionException InputUnreadable(string inputName, string detail)
+    {
+        return new(
             ConversionStage.Preparation,
             ConversionFailureReason.InputUnreadable,
             $"Вход «{inputName}» не читается: {detail}");
+    }
 
     /// <summary>
     /// The result could not be written or created. The message names the result by its file name only.
@@ -177,12 +186,14 @@ internal static class Failures
     /// <param name="name">File name of the result, or «поток».</param>
     /// <param name="inner">The system error; kept as the inner exception.</param>
     /// <param name="stage">Preparation when the output could not be opened, conversion when writing broke off.</param>
-    internal static ConversionException OutputUnwritable(string name, Exception inner, ConversionStage stage) =>
-        new(
+    internal static ConversionException OutputUnwritable(string name, Exception inner, ConversionStage stage)
+    {
+        return new(
             stage,
             ConversionFailureReason.OutputUnwritable,
             $"Не удалось записать результат «{name}»: {DescribeOutput(inner)}.",
             innerException: inner);
+    }
 
     // The system message holds the full path, so the cause is named in plain words and the exception stays inside.
     private static string DescribeOutput(Exception error)
@@ -203,8 +214,10 @@ internal static class Failures
     /// The call asks for what the result format cannot hold.
     /// </summary>
     /// <param name="message">What is wrong and what to change, in plain words.</param>
-    internal static ConversionException InvalidParameters(string message) =>
-        new(ConversionStage.Conversion, ConversionFailureReason.InvalidParameters, message);
+    internal static ConversionException InvalidParameters(string message)
+    {
+        return new(ConversionStage.Conversion, ConversionFailureReason.InvalidParameters, message);
+    }
 
     // ERROR_HANDLE_DISK_FULL (0x27) and ERROR_DISK_FULL (0x70) on Windows, ENOSPC (28) elsewhere.
     private static bool IsDiskFull(IOException error)
@@ -224,8 +237,8 @@ internal static class Failures
             return string.Empty;
         }
 
-        var lines = output.Replace("\r\n", "\n").Split('\n');
-        var tail = string.Join('\n', lines.TakeLast(ToolOutputLines)).TrimEnd();
+        string[] lines = output.Replace("\r\n", "\n").Split('\n');
+        string tail = string.Join('\n', lines.TakeLast(ToolOutputLines)).TrimEnd();
         return tail.Length <= ToolOutputChars ? tail : tail[^ToolOutputChars..];
     }
 }

@@ -1,13 +1,13 @@
+using GLAZOV.M.CONVERTER.Archives.Model;
 using System.IO.Compression;
 using System.Text;
-using GLAZOV.M.CONVERTER.Archives.Model;
 
 namespace GLAZOV.M.CONVERTER.Archives.Reading;
 
 /// <summary>
 /// Reads the entries of a ZIP file. The file must be readable at any place (the central directory lies at the end), so the engine gives it as a file.
 /// </summary>
-internal sealed class ZipArchiveReader : IArchiveReader
+public sealed class ZipArchiveReader : IArchiveReader
 {
     private const int SymbolicLinkType = 0xA000;
 
@@ -21,7 +21,7 @@ internal sealed class ZipArchiveReader : IArchiveReader
     /// <param name="path">The ZIP file.</param>
     /// <param name="nameEncoding">Encoding of the names of entries not marked as UTF-8.</param>
     /// <exception cref="InvalidDataException">The file is not a readable ZIP archive.</exception>
-    internal ZipArchiveReader(string path, Encoding nameEncoding)
+    public ZipArchiveReader(string path, Encoding nameEncoding)
     {
         FileStream file = new(path, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.Asynchronous | FileOptions.RandomAccess);
         try
@@ -37,7 +37,7 @@ internal sealed class ZipArchiveReader : IArchiveReader
     }
 
     /// <inheritdoc />
-    public async Task<ArchiveItem?> NextAsync(CancellationToken cancellationToken)
+    public async Task<ArchiveItem?> NextAsync(CancellationToken cancellationToken = default)
     {
         if (_open is not null)
         {
@@ -83,6 +83,6 @@ internal sealed class ZipArchiveReader : IArchiveReader
         }
 
         _entries.Dispose();
-        _zip.Dispose();
+        await _zip.DisposeAsync();
     }
 }

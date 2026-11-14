@@ -1,12 +1,13 @@
-using System.Text.RegularExpressions;
 using GLAZOV.M.CONVERTER.Batch;
 using GLAZOV.M.CONVERTER.Capabilities;
 using GLAZOV.M.CONVERTER.Converting;
 using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Errors;
 using GLAZOV.M.CONVERTER.Formats;
+using GLAZOV.M.CONVERTER.Formats.Options;
 using GLAZOV.M.CONVERTER.Office.Engines;
 using GLAZOV.M.CONVERTER.Settings;
+using System.Text.RegularExpressions;
 using UglyToad.PdfPig;
 
 namespace GLAZOV.M.CONVERTER.Office.Tests.Engines;
@@ -113,7 +114,7 @@ public sealed partial class LibreOfficeEngineTests : IDisposable
             await converter.ConvertAsync(
                 Source.File(Sample("docx")),
                 Target.Memory(FileFormat.Pdf),
-                new ConversionOptions { Operations = { Operation.RotateRight } }));
+                new ConversionOptions { Operations = { VisualOperations.RotateRight } }));
 
         Assert.Equal(ConversionFailureReason.UnsupportedConversion, ex.Reason);
     }

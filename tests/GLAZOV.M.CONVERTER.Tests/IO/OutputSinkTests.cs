@@ -1,3 +1,4 @@
+using GLAZOV.M.CONVERTER.Converting;
 using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Errors;
 using GLAZOV.M.CONVERTER.IO;
@@ -7,7 +8,8 @@ using GLAZOV.M.CONVERTER.Tests.Extension;
 namespace GLAZOV.M.CONVERTER.Tests.IO;
 
 /// <summary>
-/// Запись результата: файл, папка, поток, память; политика перезаписи и чистота временных файлов.
+/// Unit tests for <see cref="OutputSink"/>: file, folder, stream, and memory targets,
+/// overwrite enforcement, atomic staging commits, and temporary file cleanup.
 /// </summary>
 public sealed class OutputSinkTests : IDisposable
 {
@@ -36,6 +38,11 @@ public sealed class OutputSinkTests : IDisposable
         return Directory.GetFiles(_folder, "*.tmp", SearchOption.AllDirectories);
     }
 
+    private static ValueTask<ConversionResult> CompleteAsync(OutputSink sink, CancellationToken cancellationToken = default)
+    {
+        return sink.CompleteAsync(TestFormats.Alpha, TimeSpan.Zero, reencoded: true, notes: [], engineName: "TestEngine", cancellationToken);
+    }
+
     [Fact]
     public async Task File_WrittenViaTempAndRenamedOnCommit()
     {
@@ -44,7 +51,7 @@ public sealed class OutputSinkTests : IDisposable
         await using OutputSink sink = await OutputSink.OpenAsync(Target.File(path, TestFormats.Alpha), "in.ogg", Settings());
         await sink.Stream.WriteAsync(_payload);
         Assert.False(File.Exists(path));
-        SinkResult result = await sink.CommitAsync();
+        ConversionResult result = await CompleteAsync(sink);
 
         Assert.Equal(path, result.OutputPath);
         Assert.Equal(_payload, await File.ReadAllBytesAsync(path));
@@ -58,7 +65,7 @@ public sealed class OutputSinkTests : IDisposable
 
         await using OutputSink sink = await OutputSink.OpenAsync(Target.Folder(folder, TestFormats.Beta), "song.ogg", Settings());
         await sink.Stream.WriteAsync(_payload);
-        SinkResult result = await sink.CommitAsync();
+        ConversionResult result = await CompleteAsync(sink);
 
         Assert.Equal(Path.Combine(folder, "song.beta"), result.OutputPath);
         Assert.True(File.Exists(result.OutputPath));
@@ -87,7 +94,7 @@ public sealed class OutputSinkTests : IDisposable
 
         await using OutputSink sink = await OutputSink.OpenAsync(Target.File(path, TestFormats.Alpha), "in.ogg", Settings(overwrite: true));
         await sink.Stream.WriteAsync(_payload);
-        await sink.CommitAsync();
+        await CompleteAsync(sink);
 
         Assert.Equal(_payload, await File.ReadAllBytesAsync(path));
     }
@@ -100,7 +107,7 @@ public sealed class OutputSinkTests : IDisposable
         await sink.Stream.WriteAsync(_payload);
         await File.WriteAllBytesAsync(path, [7]);
 
-        ConversionException ex = await Assert.ThrowsAsync<ConversionException>(async () => await sink.CommitAsync());
+        ConversionException ex = await Assert.ThrowsAsync<ConversionException>(async () => await CompleteAsync(sink));
 
         Assert.Equal(ConversionFailureReason.FileExists, ex.Reason);
         Assert.Equal(new byte[] { 7 }, await File.ReadAllBytesAsync(path));
@@ -140,7 +147,7 @@ public sealed class OutputSinkTests : IDisposable
         await using OutputSink sink = await OutputSink.OpenAsync(Target.Memory(TestFormats.Alpha), "in.ogg", Settings());
         await sink.Stream.WriteAsync(_payload);
 
-        SinkResult result = await sink.CommitAsync();
+        ConversionResult result = await CompleteAsync(sink);
 
         Assert.Null(result.OutputPath);
         Assert.Equal(_payload, result.Bytes);
@@ -152,13 +159,13 @@ public sealed class OutputSinkTests : IDisposable
     [Fact]
     public async Task Stream_WithoutSeekRequirement_WritesDirectlyAndDoesNotCloseIt()
     {
-        var destination = new MemoryStream();
+        MemoryStream destination = new();
 
         await using (OutputSink sink = await OutputSink.OpenAsync(Target.Stream(destination, TestFormats.Gamma), "in.wav", Settings()))
         {
-            Assert.NotSame(destination, sink.Stream); // wrapped so that a failing write becomes a library error
+            Assert.NotSame(destination, sink.Stream);
             await sink.Stream.WriteAsync(_payload);
-            SinkResult result = await sink.CommitAsync();
+            ConversionResult result = await CompleteAsync(sink);
             Assert.Null(result.OutputPath);
         }
 
@@ -169,16 +176,16 @@ public sealed class OutputSinkTests : IDisposable
     [Fact]
     public async Task Stream_WithSeekRequirement_GoesThroughTempFile_AndCopiesOnCommit()
     {
-        var destination = new NonSeekableWriteStream();
+        NonSeekableWriteStream destination = new();
 
         await using (OutputSink sink = await OutputSink.OpenAsync(Target.Stream(destination, TestFormats.Beta), "in.ogg", Settings(), requireSeekable: true))
         {
-            Assert.True(sink.IsSeekable);
+            Assert.True(sink.Stream.CanSeek);
             await sink.Stream.WriteAsync(_payload);
-            sink.Stream.Position = 2; // перемотка нужна WAV для правки заголовка
+            sink.Stream.Position = 2;
             sink.Stream.WriteByte(99);
             Assert.Empty(destination.Written);
-            await sink.CommitAsync();
+            await CompleteAsync(sink);
         }
 
         Assert.Equal(new byte[] { 1, 2, 99, 4, 5, 6, 7, 8 }, destination.Written);
@@ -188,7 +195,7 @@ public sealed class OutputSinkTests : IDisposable
     [Fact]
     public async Task Stream_WithSeekRequirement_Abort_WritesNothingAndLeavesNoTemp()
     {
-        var destination = new NonSeekableWriteStream();
+        NonSeekableWriteStream destination = new();
         OutputSink sink = await OutputSink.OpenAsync(Target.Stream(destination, TestFormats.Beta), "in.ogg", Settings(), requireSeekable: true);
         await sink.Stream.WriteAsync(_payload);
 
@@ -201,7 +208,7 @@ public sealed class OutputSinkTests : IDisposable
     [Fact]
     public async Task Cancelled_BeforeOpen_ThrowsOperationCanceled()
     {
-        using var cts = new CancellationTokenSource();
+        using CancellationTokenSource cts = new();
         await cts.CancelAsync();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
@@ -211,7 +218,7 @@ public sealed class OutputSinkTests : IDisposable
     [Fact]
     public async Task ReadOnlyOutputStream_IsAUsageError()
     {
-        var readOnly = new MemoryStream([], writable: false);
+        MemoryStream readOnly = new([], writable: false);
 
         await Assert.ThrowsAsync<ArgumentException>(async () =>
             await OutputSink.OpenAsync(Target.Stream(readOnly, TestFormats.Alpha), "in.ogg", Settings()));
@@ -223,11 +230,11 @@ public sealed class OutputSinkTests : IDisposable
         FileFormat custom = FileFormat.Create("CUSTOM", "application/x-test-custom", "cust");
         string folder = Path.Combine(_folder, "custom-out");
 
-        await using OutputSink sink = await OutputSink.OpenAsync(Target.Folder(folder, custom), "песня.wav", Settings());
+        await using OutputSink sink = await OutputSink.OpenAsync(Target.Folder(folder, custom), "song.wav", Settings());
         await sink.Stream.WriteAsync(_payload);
-        SinkResult result = await sink.CommitAsync();
+        ConversionResult result = await CompleteAsync(sink);
 
-        Assert.Equal(Path.Combine(folder, "песня.cust"), result.OutputPath);
+        Assert.Equal(Path.Combine(folder, "song.cust"), result.OutputPath);
     }
 
     private sealed class NonSeekableWriteStream : Stream
@@ -268,7 +275,6 @@ public sealed class OutputSinkTests : IDisposable
         {
             throw new NotSupportedException();
         }
-
         public override void Write(byte[] buffer, int offset, int count)
         {
             _written.Write(buffer, offset, count);

@@ -50,7 +50,7 @@ public sealed class OutputFailureTests : IDisposable
     public async Task ParentThatIsAFile_CannotBeCreated_AtPreparation_WithTheFileNameOnly()
     {
         string blocker = Path.Combine(_folder, "файл-вместо-папки");
-        File.WriteAllText(blocker, "x");
+        await File.WriteAllTextAsync(blocker, "x");
         string target = Path.Combine(blocker, "вложенная", "результат.beta");
 
         ConversionException ex = await Assert.ThrowsAsync<ConversionException>(() =>
@@ -67,7 +67,7 @@ public sealed class OutputFailureTests : IDisposable
     public async Task ReadOnlyFileToOverwrite_IsOutputUnwritable_AtConversion_AndNoTempFileStays()
     {
         string target = Path.Combine(_folder, "готово.beta");
-        File.WriteAllText(target, "старое");
+        await File.WriteAllTextAsync(target, "старое");
         File.SetAttributes(target, FileAttributes.ReadOnly);
         Converter converter = With(new ConverterSettings { OverwriteExisting = true });
 
@@ -77,7 +77,7 @@ public sealed class OutputFailureTests : IDisposable
         Assert.Equal(ConversionFailureReason.OutputUnwritable, ex.Reason);
         Assert.Equal(ConversionStage.Conversion, ex.Stage);
         Assert.Contains("нет доступа", ex.Message);
-        Assert.Equal("старое", File.ReadAllText(target));
+        Assert.Equal("старое", await File.ReadAllTextAsync(target));
         Assert.Empty(Directory.GetFiles(_folder, ".*.tmp"));
     }
 
@@ -108,7 +108,7 @@ public sealed class OutputFailureTests : IDisposable
 
         Assert.Equal(ConversionFailureReason.OutputUnwritable, ex.Reason);
         Assert.Equal(ConversionStage.Conversion, ex.Stage);
-        Assert.Contains("поток", ex.Message);
+        Assert.Contains("stream", ex.Message);
         Assert.IsType<IOException>(ex.InnerException);
     }
 
@@ -130,7 +130,7 @@ public sealed class OutputFailureTests : IDisposable
     {
         await using FailingTarget target = new(new IOException("диск полон"));
         string input = Path.Combine(_folder, "большой.alpha");
-        File.WriteAllBytes(input, TestFormats.Sample(TestFormats.Alpha, 4 * 1024 * 1024));
+        await File.WriteAllBytesAsync(input, TestFormats.Sample(TestFormats.Alpha, 4 * 1024 * 1024));
 
         // The first write fails in the middle of a long copy.
         ConversionException ex = await Assert.ThrowsAsync<ConversionException>(() =>
@@ -153,12 +153,12 @@ public sealed class OutputFailureTests : IDisposable
     {
         string folder = Path.Combine(_folder, "вход");
         Directory.CreateDirectory(folder);
-        File.WriteAllBytes(Path.Combine(folder, "а.alpha"), TestFormats.Sample(TestFormats.Alpha, 10));
-        File.WriteAllBytes(Path.Combine(folder, "б.alpha"), TestFormats.Sample(TestFormats.Alpha, 20));
+        await File.WriteAllBytesAsync(Path.Combine(folder, "а.alpha"), TestFormats.Sample(TestFormats.Alpha, 10));
+        await File.WriteAllBytesAsync(Path.Combine(folder, "б.alpha"), TestFormats.Sample(TestFormats.Alpha, 20));
         string target = Path.Combine(_folder, "выход");
         Directory.CreateDirectory(target);
         string blocked = Path.Combine(target, "а.beta");
-        File.WriteAllText(blocked, "старое");
+        await File.WriteAllTextAsync(blocked, "старое");
         File.SetAttributes(blocked, FileAttributes.ReadOnly);
         Converter converter = With(new ConverterSettings { OverwriteExisting = true, MaxParallelTasks = 1 });
 

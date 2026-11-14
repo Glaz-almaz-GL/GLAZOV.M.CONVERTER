@@ -1,10 +1,10 @@
-using System.Text;
 using GLAZOV.M.CONVERTER.Converting;
 using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Errors;
 using GLAZOV.M.CONVERTER.Formats;
 using GLAZOV.M.CONVERTER.Office.Engines;
 using GLAZOV.M.CONVERTER.Settings;
+using System.Text;
 
 namespace GLAZOV.M.CONVERTER.Office.Tests.Engines;
 
@@ -71,11 +71,11 @@ public sealed class TableEngineTests : IDisposable
     {
         ConversionResult result = await Make().ConvertAsync(Source.File(Book(extension)), Target.Folder(Out, FileFormat.Csv));
 
-        string[] names = [.. result.OutputPaths.Select(p => Path.GetFileName(p)!).Order(StringComparer.Ordinal)];
+        string[] names = [.. result.OutputPaths.Select(p => Path.GetFileName(p)).Order(StringComparer.Ordinal)];
         Assert.Equal(["sample-book-Alpha.csv", "sample-book-Zeta.csv", "sample-book-Итог.csv"], names);
         Assert.Equal(names, Directory.GetFiles(Out).Select(Path.GetFileName).Order(StringComparer.Ordinal));
-        Assert.Equal("a1", Utf8(File.ReadAllBytes(Path.Combine(Out, "sample-book-Alpha.csv"))).Trim());
-        Assert.Contains("\"a,b \"\"q\"\"\"", Utf8(File.ReadAllBytes(Path.Combine(Out, "sample-book-Итог.csv"))));
+        Assert.Equal("a1", Utf8(await File.ReadAllBytesAsync(Path.Combine(Out, "sample-book-Alpha.csv"))).Trim());
+        Assert.Contains("\"a,b \"\"q\"\"\"", Utf8(await File.ReadAllBytesAsync(Path.Combine(Out, "sample-book-Итог.csv"))));
         Assert.Contains(Path.Combine(Path.GetFullPath(Out), "sample-book-Итог.csv"), result.OutputPaths);
         Assert.Empty(LeftInWork());
     }
@@ -86,7 +86,7 @@ public sealed class TableEngineTests : IDisposable
         ConversionResult result = await Make().ConvertAsync(Source.File(Book("xlsx")), Target.Folder(Out, FileFormat.Tsv));
 
         Assert.All(result.OutputPaths, path => Assert.EndsWith(".tsv", path, StringComparison.Ordinal));
-        Assert.Contains("Имя\t", Utf8(File.ReadAllBytes(Path.Combine(Out, "sample-book-Итог.tsv"))));
+        Assert.Contains("Имя\t", Utf8(await File.ReadAllBytesAsync(Path.Combine(Out, "sample-book-Итог.tsv"))));
     }
 
     [OfficeFact]
@@ -96,7 +96,7 @@ public sealed class TableEngineTests : IDisposable
 
         ConversionResult result = await Make().ConvertAsync(Source.File(Book("xlsx")), Target.File(output, FileFormat.Csv));
 
-        byte[] bytes = File.ReadAllBytes(output);
+        byte[] bytes = await File.ReadAllBytesAsync(output);
         Assert.True(bytes.AsSpan().StartsWith(Encoding.UTF8.GetPreamble()));
         Assert.StartsWith("Имя,", Utf8(bytes));
         Assert.Equal([output], result.OutputPaths);
@@ -130,7 +130,7 @@ public sealed class TableEngineTests : IDisposable
     public async Task Book_ExistingFileInTheFolder_IsNotOverwritten_AndNoSheetIsWritten()
     {
         Directory.CreateDirectory(Out);
-        File.WriteAllText(Path.Combine(Out, "sample-book-Zeta.csv"), "mine");
+        await File.WriteAllTextAsync(Path.Combine(Out, "sample-book-Zeta.csv"), "mine");
 
         ConversionException error = await Assert.ThrowsAsync<ConversionException>(
             () => Make().ConvertAsync(Source.File(Book("xlsx")), Target.Folder(Out, FileFormat.Csv)));
@@ -159,7 +159,7 @@ public sealed class TableEngineTests : IDisposable
 
         await Make(new OfficeSettings { CsvDelimiter = ';', CsvOutputEncoding = "windows-1251" }).ConvertAsync(Source.File(source), Target.File(output, FileFormat.Csv));
 
-        Assert.Equal(Cp1251.GetBytes(text), File.ReadAllBytes(output));
+        Assert.Equal(Cp1251.GetBytes(text), await File.ReadAllBytesAsync(output));
     }
 
     [OfficeFact]
@@ -196,8 +196,8 @@ public sealed class TableEngineTests : IDisposable
         await Make().ConvertAsync(Source.File(source), Target.File(tsv, FileFormat.Tsv));
         await Make().ConvertAsync(Source.File(tsv), Target.File(csv, FileFormat.Csv));
 
-        Assert.Equal("a\tb\r\nx,y\t2\r\n3\t4", Utf8(File.ReadAllBytes(tsv)).Trim());
-        Assert.Equal("a,b\r\n\"x,y\",2\r\n3,4", Utf8(File.ReadAllBytes(csv)).Trim());
+        Assert.Equal("a\tb\r\nx,y\t2\r\n3\t4", Utf8(await File.ReadAllBytesAsync(tsv)).Trim());
+        Assert.Equal("a,b\r\n\"x,y\",2\r\n3,4", Utf8(await File.ReadAllBytesAsync(csv)).Trim());
     }
 
     [OfficeFact]
@@ -257,7 +257,7 @@ public sealed class TableEngineTests : IDisposable
 
         await Make().ConvertAsync(Source.File(source), Target.File(pdf, FileFormat.Pdf));
 
-        Assert.StartsWith("%PDF", Encoding.ASCII.GetString(File.ReadAllBytes(pdf), 0, 4), StringComparison.Ordinal);
+        Assert.StartsWith("%PDF", Encoding.ASCII.GetString(await File.ReadAllBytesAsync(pdf), 0, 4), StringComparison.Ordinal);
         Assert.Empty(LeftInWork());
     }
 

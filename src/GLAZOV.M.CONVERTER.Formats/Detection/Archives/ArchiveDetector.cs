@@ -23,9 +23,10 @@ internal sealed class ArchiveDetector() : FamilyDetector(
     }
 
     /// <inheritdoc />
-    public FileFormat? Detect(Stream input)
+    /// <inheritdoc />
+    public async ValueTask<FileFormat?> DetectAsync(Stream input, CancellationToken cancellationToken = default)
     {
-        if (ContainerProbe.Match(input) is not null)
+        if (await ContainerProbe.MatchAsync(input, cancellationToken).ConfigureAwait(false) is not null)
         {
             return null;
         }
@@ -33,7 +34,7 @@ internal sealed class ArchiveDetector() : FamilyDetector(
         try
         {
             input.Position = 0;
-            using System.IO.Compression.ZipArchive zip = new(input, System.IO.Compression.ZipArchiveMode.Read, leaveOpen: true);
+            await using System.IO.Compression.ZipArchive zip = new(input, System.IO.Compression.ZipArchiveMode.Read, leaveOpen: true);
             return zip.Entries.Count > 0 ? FileFormat.Zip : null;
         }
         catch (Exception ex) when (ex is InvalidDataException or IOException or NotSupportedException or ArgumentException)

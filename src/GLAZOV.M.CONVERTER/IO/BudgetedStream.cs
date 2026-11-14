@@ -1,7 +1,7 @@
 namespace GLAZOV.M.CONVERTER.IO;
 
 /// <summary>
-/// Read-only view of a seekable stream from a given offset on that counts the bytes read and refuses to read past a budget.
+/// Read-only view of a seekable stream from a given offset that counts bytes read and refuses to read past a budget.
 /// </summary>
 internal sealed class BudgetedStream : Stream
 {
@@ -39,13 +39,20 @@ internal sealed class BudgetedStream : Stream
     public override int Read(Span<byte> buffer)
     {
         int read = _inner.Read(buffer);
-        _spent += read;
-        if (_spent > _limit)
-        {
-            throw new ProbeLimitException(_limit);
-        }
-
+        AccountBytes(read);
         return read;
+    }
+
+    public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+    {
+        int read = await _inner.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
+        AccountBytes(read);
+        return read;
+    }
+
+    public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+    {
+        return ReadAsync(buffer.AsMemory(offset, count), cancellationToken).AsTask();
     }
 
     public override long Seek(long offset, SeekOrigin origin)
@@ -77,5 +84,14 @@ internal sealed class BudgetedStream : Stream
     public override void Write(byte[] buffer, int offset, int count)
     {
         throw new NotSupportedException();
+    }
+
+    private void AccountBytes(int read)
+    {
+        _spent += read;
+        if (_spent > _limit)
+        {
+            throw new ProbeLimitException(_limit);
+        }
     }
 }

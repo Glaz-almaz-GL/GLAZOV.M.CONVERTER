@@ -6,20 +6,20 @@ using GLAZOV.M.CONVERTER.Settings;
 namespace GLAZOV.M.CONVERTER.Detection;
 
 /// <summary>
-/// Ряд определителей формата: метки всех расширений в порядке подключения, затем второй взгляд на контейнер
-/// (<see cref="IStreamFormatDetector"/>, только на входе с перемоткой и только если метки ничего не назвали), затем определители
-/// по содержимому (<see cref="IFormatDetector.ByContent"/>); побеждает первый, кто назвал формат; никто — <see cref="FileFormat.Unknown"/>.
-/// Один и тот же экземпляр определителя учитывается один раз; определители по содержимому спрашиваются в порядке подключения, поэтому тот, что берёт
-/// почти всё (текст), подключается последним.
-/// Начало входа — окно определения, но не короче, чем просят определители.
+/// Ordered pipeline of format detectors: fast header signatures first, followed by deep stream container inspectors
+/// (on seekable inputs only), and finally heuristic content detectors.
 /// </summary>
 internal sealed class DetectorChain
 {
     /// <summary>
-    /// Budget of bytes the second look of one detector may read in all. A fixed value, not a setting: the structures of a real document are far smaller,
-    /// and a larger value would only let a forged header make the library read and keep more.
+    /// Maximum number of bytes a stream detector may read during structural inspection.
     /// </summary>
     internal const long DefaultInspectBudget = 16L * 1024 * 1024;
+
+    /// <summary>
+    /// Number of leading bytes read to satisfy every registered detector.
+    /// </summary>
+    internal int HeadLength { get; }
 
     private readonly IFormatDetector[] _labels;
     private readonly IStreamFormatDetector[] _inspectors;
@@ -46,31 +46,22 @@ internal sealed class DetectorChain
     }
 
     /// <summary>
-    /// Сколько начальных байтов читать, чтобы хватило каждому определителю.
+    /// Synchronously detects the format using only the leading byte buffer (header and content detectors).
     /// </summary>
-    internal int HeadLength { get; }
-
-    /// <summary>
-    /// Определяет формат по началу данных: метки, затем определители по содержимому (второй взгляд не работает без входа).
-    /// </summary>
-    /// <param name="head">Начальные байты входа.</param>
     internal FileFormat Detect(ReadOnlySpan<byte> head)
     {
         return MatchLabels(head) ?? MatchContent(head) ?? FileFormat.Unknown;
     }
 
     /// <summary>
-    /// Определяет формат по входу: метки, второй взгляд, определители по содержимому.
+    /// Detects the format asynchronously using leading bytes and, when supported, deep stream inspection.
     /// </summary>
-    /// <param name="head">Начальные байты входа.</param>
-    /// <param name="handle">Открытый вход; без перемотки второй взгляд пропускается.</param>
-    /// <param name="cancellationToken">Отмена.</param>
-    internal async Task<FileFormat> DetectAsync(ReadOnlyMemory<byte> head, InputHandle handle, CancellationToken cancellationToken)
+    internal async ValueTask<FileFormat> DetectAsync(ReadOnlyMemory<byte> head, InputHandle handle, CancellationToken cancellationToken)
     {
         FileFormat? found = MatchLabels(head.Span);
-        if (found is null && handle.CanProbe && _inspectors.Any(d => d.CanInspect(head.Span)))
+        if (found is null && handle.CanProbe && HasMatchingInspector(head.Span))
         {
-            found = await Task.Run(() => Inspect(head.Span, handle), cancellationToken).ConfigureAwait(false);
+            found = await InspectAsync(head, handle, cancellationToken).ConfigureAwait(false);
         }
 
         return found ?? MatchContent(head.Span) ?? FileFormat.Unknown;
@@ -104,17 +95,33 @@ internal sealed class DetectorChain
         return null;
     }
 
-    // Each inspector reads on its own view of the input, at most the budget in all; what it cannot read it does not claim.
-    private FileFormat? Inspect(ReadOnlySpan<byte> headSpan, InputHandle handle)
+    private bool HasMatchingInspector(ReadOnlySpan<byte> head)
     {
         foreach (IStreamFormatDetector detector in _inspectors)
         {
-            if (!detector.CanInspect(headSpan))
+            if (detector.CanInspect(head))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private async ValueTask<FileFormat?> InspectAsync(ReadOnlyMemory<byte> head, InputHandle handle, CancellationToken cancellationToken)
+    {
+        foreach (IStreamFormatDetector detector in _inspectors)
+        {
+            if (!detector.CanInspect(head.Span))
             {
                 continue;
             }
 
-            FileFormat? found = handle.Probe(_inspectBudget, stream => Ask(detector, stream));
+            FileFormat? found = await handle.ProbeAsync(
+                _inspectBudget,
+                (stream, ct) => AskAsync(detector, stream, ct),
+                cancellationToken).ConfigureAwait(false);
+
             if (found is not null)
             {
                 return found;
@@ -124,11 +131,11 @@ internal sealed class DetectorChain
         return null;
     }
 
-    private static FileFormat? Ask(IStreamFormatDetector detector, Stream stream)
+    private static async ValueTask<FileFormat?> AskAsync(IStreamFormatDetector detector, Stream stream, CancellationToken cancellationToken)
     {
         try
         {
-            return detector.Detect(stream);
+            return await detector.DetectAsync(stream, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is IOException or InvalidDataException)
         {

@@ -1,0 +1,809 @@
+﻿=== F:\Programming\GES\GES Projects\UtilityProjects\GLAZOV.M.CONVERTER\tests\GLAZOV.M.CONVERTER.Tests\Batch\BatchReportTests.cs ===
+using GLAZOV.M.CONVERTER.Batch;
+using GLAZOV.M.CONVERTER.Data;
+using GLAZOV.M.CONVERTER.Errors;
+using GLAZOV.M.CONVERTER.Tests.Extension;
+
+namespace GLAZOV.M.CONVERTER.Tests.Batch;
+
+/// <summary>
+/// РћС‚С‡С‘С‚ РїР°РєРµС‚Р°: РїРѕРґСЃС‡С‘С‚, СЃРѕРіР»Р°СЃРѕРІР°РЅРЅРѕСЃС‚СЊ, РІРѕР·РІСЂР°С‚ РЅРµСѓРґР°С‡РЅС‹С… РІС…РѕРґРѕРІ РїРѕ РїРѕСЂСЏРґРєСѓ вЂ” РЅР° Р·Р°РїРёСЃСЏС…, СЃРѕР±СЂР°РЅРЅС‹С… С„Р°Р±СЂРёРєР°РјРё.
+/// </summary>
+public class BatchReportTests
+{
+    // 10 РІС…РѕРґРѕРІ: 0вЂ“5 СѓРґР°Р»РёСЃСЊ, 6, 7, 8 вЂ” РѕС€РёР±РєРё, 9 вЂ” РѕС‚РјРµРЅС‘РЅ.
+    private static (BatchReport Report, Source[] Sources) Ten()
+    {
+        Source[] sources = Enumerable.Range(0, 10).Select(i => Source.File($"f{i}.alpha")).ToArray();
+        List<BatchItemResult> items = [];
+        for (int i = 0; i < 6; i++)
+        {
+            items.Add(BatchItemResult.Success($"f{i}.alpha", $"out{i}.beta"));
+        }
+
+        items.Add(BatchItemResult.Failure("f6.alpha", Failures.TypeNotConfirmed("f6.alpha", "ALPHA", FileFormat.Unknown)));
+        items.Add(BatchItemResult.Failure("f7.alpha", Failures.ToolFailed("faketool", 1, "СЃР»РѕРјР°Р»РѕСЃСЊ")));
+        items.Add(BatchItemResult.Failure("f8.alpha", Failures.FileExists("out8.beta")));
+        items.Add(BatchItemResult.Cancelled("f9.alpha"));
+
+        return (new BatchReport(items, sources), sources);
+    }
+
+    [Fact]
+    public void Counts_AreCorrect_AndTheirSumIsTotal()
+    {
+        BatchReport report = Ten().Report;
+
+        Assert.Equal(10, report.Total);
+        Assert.Equal(6, report.Succeeded);
+        Assert.Equal(3, report.Failed);
+        Assert.Equal(1, report.Canceled);
+        Assert.Equal(report.Total, report.Succeeded + report.Failed + report.Canceled);
+    }
+
+    [Fact]
+    public void FailedSources_AreExactlyTheFailedOnes_InInputOrder_WithoutTheCancelled()
+    {
+        (BatchReport report, Source[] sources) = Ten();
+
+        IReadOnlyList<Source> failed = report.FailedSources();
+
+        Assert.Equal(3, failed.Count);
+        Assert.Same(sources[6], failed[0]);
+        Assert.Same(sources[7], failed[1]);
+        Assert.Same(sources[8], failed[2]);
+    }
+
+    [Fact]
+    public void Success_KeepsNameAndOutputPath_WithoutErrorFields()
+    {
+        BatchItemResult item = Ten().Report.Items[2];
+
+        Assert.True(item.Succeeded);
+        Assert.False(item.Canceled);
+        Assert.Equal("f2.alpha", item.SourceName);
+        Assert.Equal("out2.beta", item.OutputPath);
+        Assert.Null(item.Stage);
+        Assert.Null(item.Reason);
+        Assert.Null(item.Message);
+    }
+
+    [Fact]
+    public void Failure_TakesStageReasonAndMessageFromTheError()
+    {
+        BatchItemResult item = Ten().Report.Items[7];
+
+        Assert.False(item.Succeeded);
+        Assert.False(item.Canceled);
+        Assert.Equal(ConversionStage.Conversion, item.Stage);
+        Assert.Equal(ConversionFailureReason.ToolFailed, item.Reason);
+        Assert.Contains("faketool", item.Message);
+        Assert.Null(item.OutputPath);
+    }
+
+    [Fact]
+    public void Cancelled_IsNeitherSuccessNorFailure()
+    {
+        BatchItemResult item = Ten().Report.Items[9];
+
+        Assert.True(item.Canceled);
+        Assert.False(item.Succeeded);
+        Assert.Null(item.Reason);
+    }
+
+    [Fact]
+    public void EmptyReport_HasZeroEverywhere_AndNoFailedSources()
+    {
+        BatchReport report = new([], []);
+
+        Assert.Equal(0, report.Total);
+        Assert.Equal(0, report.Succeeded);
+        Assert.Equal(0, report.Failed);
+        Assert.Equal(0, report.Canceled);
+        Assert.Empty(report.FailedSources());
+    }
+
+    [Fact]
+    public void ItemsAndSourcesOfDifferentCount_AreAUsageError()
+    {
+        Assert.Throws<ArgumentException>(() => new BatchReport([BatchItemResult.Success("a", null)], []));
+        Assert.Throws<ArgumentNullException>(() => new BatchReport(null!, []));
+        Assert.Throws<ArgumentNullException>(() => BatchItemResult.Failure("a", null!));
+    }
+}
+=== F:\Programming\GES\GES Projects\UtilityProjects\GLAZOV.M.CONVERTER\tests\GLAZOV.M.CONVERTER.Tests\Converting\SingleConversionTests.cs ===
+using System.Text;
+using GLAZOV.M.CONVERTER.Converting;
+using GLAZOV.M.CONVERTER.Data;
+using GLAZOV.M.CONVERTER.Engines;
+using GLAZOV.M.CONVERTER.Extensions;
+using GLAZOV.M.CONVERTER.Errors;
+using GLAZOV.M.CONVERTER.Settings;
+using GLAZOV.M.CONVERTER.Tests.Extension;
+using GLAZOV.M.CONVERTER.Tooling;
+
+namespace GLAZOV.M.CONVERTER.Tests.Converting;
+
+/// <summary>
+/// РљРѕРЅРІРµСЂС‚Р°С†РёСЏ РѕРґРЅРѕРіРѕ РІС…РѕРґР° РЅР° РїРѕРґСЃС‚Р°РІРЅРѕРј РґРІРёР¶РєРµ: РїРѕСЂСЏРґРѕРє С€Р°РіРѕРІ, С‚РёРї РїРѕ СЃРѕРґРµСЂР¶РёРјРѕРјСѓ, РѕС€РёР±РєРё РґРѕ Р·Р°РїРёСЃРё,
+/// С‡РёСЃС‚РѕС‚Р° РїРѕСЃР»Рµ РѕС€РёР±РѕРє Рё РѕС‚РјРµРЅС‹. РќР°СЃС‚РѕСЏС‰РёР№ FFmpeg вЂ” РІ С‚РµСЃС‚Р°С… РґРІРёР¶РєР°; Р·РґРµСЃСЊ РґРІРёР¶РѕРє СѓРїСЂР°РІР»СЏРµРј.
+/// </summary>
+public sealed class SingleConversionTests : IDisposable
+{
+    private readonly string _folder = Path.Combine(Path.GetTempPath(), "convtests-" + Guid.NewGuid().ToString("N"));
+    private readonly string _tempFolder;
+    private readonly string _toolFile;
+
+    public SingleConversionTests()
+    {
+        Directory.CreateDirectory(_folder);
+        _tempFolder = Path.Combine(_folder, "tmp");
+        Directory.CreateDirectory(_tempFolder);
+        _toolFile = Path.Combine(_folder, OperatingSystem.IsWindows() ? "faketool.exe" : "faketool");
+        File.WriteAllBytes(_toolFile, [0]);
+        if (!OperatingSystem.IsWindows())
+        {
+            File.SetUnixFileMode(_toolFile, UnixFileMode.UserRead | UnixFileMode.UserExecute);
+        }
+    }
+
+    public void Dispose()
+    {
+        Directory.Delete(_folder, recursive: true);
+    }
+
+    private string Put(string name, byte[] data)
+    {
+        string path = Path.Combine(_folder, name);
+        File.WriteAllBytes(path, data);
+        return path;
+    }
+
+    private Converter Make(FakeEngine engine, bool overwrite = false)
+    {
+        ConverterSettings settings = new()
+        {
+            TempFolder = _tempFolder,
+            OverwriteExisting = overwrite,
+            ToolPaths = { ["faketool"] = _toolFile },
+        };
+        settings.Extensions.Add(TestExtensions.Create());
+        return new Converter(settings, new EngineRegistry([engine]), null);
+    }
+
+    private string[] Leftovers()
+    {
+        return Directory.GetFiles(_folder, "*.tmp", SearchOption.AllDirectories)
+            .Concat(Directory.GetFiles(_tempFolder))
+            .ToArray();
+    }
+
+    [Fact]
+    public async Task FileToFile_ReportsTypeFormatPathAndDuration_AndWritesTheEngineOutput()
+    {
+        FakeEngine engine = new();
+        string input = Put("РїРµСЃРЅСЏ.alpha", TestFormats.Sample(TestFormats.Alpha));
+        string output = Path.Combine(_folder, "out", "РїРµСЃРЅСЏ.beta");
+
+        ConversionResult result = await Make(engine).ConvertAsync(Source.File(input), Target.File(output, TestFormats.Beta));
+
+        Assert.True(result.Succeeded);
+        Assert.Same(TestFormats.Alpha, result.SourceType);
+        Assert.Same(TestFormats.Beta, result.TargetFormat);
+        Assert.Equal(output, result.OutputPath);
+        Assert.Null(result.Bytes);
+        Assert.True(result.Duration >= TimeSpan.Zero);
+        Assert.Equal(FakeEngine.Wrap(TestFormats.Sample(TestFormats.Alpha)), await File.ReadAllBytesAsync(output));
+        Assert.Empty(Leftovers());
+    }
+
+    [Fact]
+    public async Task StreamToStream_WorksWithoutSeek_AndLeavesStreamsOpen()
+    {
+        FakeEngine engine = new();
+        byte[] data = TestFormats.Sample(TestFormats.Alpha);
+        using NonSeekable input = new(data);
+        using MemoryStream output = new();
+
+        ConversionResult result = await Make(engine).ConvertAsync(Source.Stream(input), Target.Stream(output, TestFormats.Beta));
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(FakeEngine.Wrap(data), output.ToArray());
+        Assert.False(input.Disposed);
+        Assert.True(output.CanWrite);
+    }
+
+    [Fact]
+    public async Task FileToMemory_GivesBytesAndReadableStream()
+    {
+        FakeEngine engine = new();
+        string input = Put("a.alpha", TestFormats.Sample(TestFormats.Alpha, 200));
+
+        ConversionResult result = await Make(engine).ConvertAsync(Source.File(input), Target.Memory(TestFormats.Beta));
+
+        Assert.Equal(FakeEngine.Wrap(TestFormats.Sample(TestFormats.Alpha, 200)), result.Bytes);
+        Assert.NotNull(result.Stream);
+        Assert.Null(result.OutputPath);
+    }
+
+    [Fact]
+    public async Task TheTypeIsDecidedByContent_NotByTheExtension()
+    {
+        FakeEngine engine = new();
+        string lying = Put("СЌС‚Рѕ-gamma.gamma", TestFormats.Sample(TestFormats.Alpha));
+
+        ConversionResult result = await Make(engine).ConvertAsync(Source.File(lying), Target.Memory(TestFormats.Beta));
+
+        Assert.Same(TestFormats.Alpha, result.SourceType);
+    }
+
+    [Fact]
+    public async Task OptionsAndSettings_ReachTheEngine()
+    {
+        FakeEngine engine = new();
+        string input = Put("a.alpha", TestFormats.Sample(TestFormats.Alpha));
+        AudioOptions audio = new() { Bitrate = 64_000 };
+
+        await Make(engine).ConvertAsync(Source.File(input), Target.Memory(TestFormats.Beta), new ConversionOptions { Audio = audio });
+
+        Assert.Same(audio, engine.Last!.Options!.Audio);
+        Assert.Same(TestFormats.Beta, engine.Last.To);
+        Assert.Equal(_tempFolder, engine.Last.TempFolder);
+        Assert.Equal(_toolFile, engine.Last.Tool!.Path);
+    }
+
+    [Fact]
+    public async Task Progress_ReportsZeroBeforeAndHundredAfter()
+    {
+        FakeEngine engine = new();
+        string input = Put("a.alpha", TestFormats.Sample(TestFormats.Alpha));
+        List<double> reports = [];
+
+        await Make(engine).ConvertAsync(
+            Source.File(input),
+            Target.Memory(TestFormats.Beta),
+            progress: new Inline<ConversionProgress>(p => reports.Add(p.Percent)));
+
+        Assert.Equal([0d, 100d], reports);
+    }
+
+    [Theory]
+    [InlineData("РјСѓСЃРѕСЂ.alpha", "РњРЈРЎРћР  ")]
+    [InlineData("РїСѓСЃС‚Рѕ.beta", "")]
+    public async Task UnrecognizedContent_IsTypeNotConfirmed_NothingIsWritten(string name, string content)
+    {
+        FakeEngine engine = new();
+        string input = Put(name, Encoding.UTF8.GetBytes(content));
+        string output = Path.Combine(_folder, "out.beta");
+
+        ConversionException ex = await Assert.ThrowsAsync<ConversionException>(async () =>
+            await Make(engine).ConvertAsync(Source.File(input), Target.File(output, TestFormats.Beta)));
+
+        Assert.Equal(ConversionStage.Detection, ex.Stage);
+        Assert.Equal(ConversionFailureReason.TypeNotConfirmed, ex.Reason);
+        Assert.Contains(name, ex.Message);
+        Assert.Contains("С‚РёРї РЅРµ СЂР°СЃРїРѕР·РЅР°РЅ", ex.Message);
+        Assert.Equal(0, engine.Calls);
+        Assert.False(File.Exists(output));
+        Assert.Empty(Leftovers());
+    }
+
+    [Fact]
+    public async Task ConversionTheEngineCannotDo_IsUnsupportedConversion()
+    {
+        FakeEngine engine = new();
+        string wav = Put("a.beta", TestFormats.Sample(TestFormats.Beta));
+
+        ConversionException ex = await Assert.ThrowsAsync<ConversionException>(async () =>
+            await Make(engine).ConvertAsync(Source.File(wav), Target.Memory(TestFormats.Beta)));
+
+        Assert.Equal(ConversionStage.Preparation, ex.Stage);
+        Assert.Equal(ConversionFailureReason.UnsupportedConversion, ex.Reason);
+        Assert.Contains("BETA в†’ BETA", ex.Message);
+        Assert.Equal(0, engine.Calls);
+    }
+
+    [Fact]
+    public async Task ImageOperations_AreNotSupportedYet_AndNothingIsWritten()
+    {
+        FakeEngine engine = new();
+        string input = Put("a.alpha", TestFormats.Sample(TestFormats.Alpha));
+        string output = Path.Combine(_folder, "o.beta");
+
+        ConversionException ex = await Assert.ThrowsAsync<ConversionException>(async () =>
+            await Make(engine).ConvertAsync(
+                Source.File(input),
+                Target.File(output, TestFormats.Beta),
+                new ConversionOptions { Operations = { Operation.RotateRight } }));
+
+        Assert.Equal(ConversionFailureReason.UnsupportedConversion, ex.Reason);
+        Assert.Contains("Р”РµР№СЃС‚РІРёСЏ РЅРµ РїРѕРґРґРµСЂР¶РёРІР°СЋС‚СЃСЏ РґР»СЏ", ex.Message);
+        Assert.EndsWith("в†’ BETA.", ex.Message);
+        Assert.False(File.Exists(output));
+        Assert.Equal(0, engine.Calls);
+    }
+
+    [Fact]
+    public async Task MissingTool_IsToolNotFoundWithHint_BeforeAnyOutputExists()
+    {
+        FakeEngine engine = new("РЅРµС‚-С‚Р°РєРѕР№-РїСЂРѕРіСЂР°РјРјС‹");
+        string input = Put("a.alpha", TestFormats.Sample(TestFormats.Alpha));
+        string output = Path.Combine(_folder, "o.beta");
+
+        ConversionException ex = await Assert.ThrowsAsync<ConversionException>(async () =>
+            await Make(engine).ConvertAsync(Source.File(input), Target.File(output, TestFormats.Beta)));
+
+        Assert.Equal(ConversionFailureReason.ToolNotFound, ex.Reason);
+        Assert.Equal("РЅРµС‚-С‚Р°РєРѕР№-РїСЂРѕРіСЂР°РјРјС‹", ex.ToolName);
+        Assert.Contains("PATH", ex.Message);
+        Assert.False(File.Exists(output));
+        Assert.Empty(Leftovers());
+    }
+
+    [Fact]
+    public async Task ExistingOutput_WithoutOverwrite_IsFileExists_AndTheEngineIsNotRun()
+    {
+        FakeEngine engine = new();
+        string input = Put("a.alpha", TestFormats.Sample(TestFormats.Alpha));
+        string output = Put("o.beta", [1, 2, 3]);
+
+        ConversionException ex = await Assert.ThrowsAsync<ConversionException>(async () =>
+            await Make(engine).ConvertAsync(Source.File(input), Target.File(output, TestFormats.Beta)));
+
+        Assert.Equal(ConversionFailureReason.FileExists, ex.Reason);
+        Assert.Equal(0, engine.Calls);
+        Assert.Equal(new byte[] { 1, 2, 3 }, await File.ReadAllBytesAsync(output));
+    }
+
+    [Fact]
+    public async Task EngineFailure_PropagatesAndLeavesNoResultAndNoTempFiles()
+    {
+        FakeEngine engine = new() { Fail = Failures.ToolFailed("faketool", 9, "С‡С‚Рѕ-С‚Рѕ СЃР»РѕРјР°Р»РѕСЃСЊ") };
+        string input = Put("a.alpha", TestFormats.Sample(TestFormats.Alpha));
+        string output = Path.Combine(_folder, "o.beta");
+
+        ConversionException ex = await Assert.ThrowsAsync<ConversionException>(async () =>
+            await Make(engine).ConvertAsync(Source.File(input), Target.File(output, TestFormats.Beta)));
+
+        Assert.Equal(ConversionFailureReason.ToolFailed, ex.Reason);
+        Assert.Equal(9, ex.ToolExitCode);
+        Assert.False(File.Exists(output));
+        Assert.Empty(Leftovers());
+    }
+
+    [Fact]
+    public async Task Cancellation_ThrowsOperationCanceled_AndLeavesNothing()
+    {
+        FakeEngine engine = new() { WaitForCancel = true };
+        string input = Put("a.alpha", TestFormats.Sample(TestFormats.Alpha));
+        string output = Path.Combine(_folder, "o.beta");
+        using CancellationTokenSource cts = new();
+
+        Task<ConversionResult> run = Make(engine).ConvertAsync(Source.File(input), Target.File(output, TestFormats.Beta), cancellationToken: cts.Token);
+        await engine.Started.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        await cts.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await run);
+        Assert.False(File.Exists(output));
+        Assert.Empty(Leftovers());
+    }
+
+    [Fact]
+    public async Task MissingInputFile_IsInputUnreadable()
+    {
+        FakeEngine engine = new();
+
+        ConversionException ex = await Assert.ThrowsAsync<ConversionException>(async () =>
+            await Make(engine).ConvertAsync(Source.File(Path.Combine(_folder, "РЅРµС‚.alpha")), Target.Memory(TestFormats.Beta)));
+
+        Assert.Equal(ConversionFailureReason.InputUnreadable, ex.Reason);
+    }
+
+    [Fact]
+    public async Task FolderAsInput_IsAUsageError()
+    {
+        FakeEngine engine = new();
+
+        await Assert.ThrowsAsync<ArgumentException>(async () =>
+            await Make(engine).ConvertAsync(Source.Folder(_folder), Target.Memory(TestFormats.Beta)));
+    }
+
+    [Fact]
+    public async Task NullArguments_AreUsageErrors()
+    {
+        Converter converter = Make(new FakeEngine());
+
+        await Assert.ThrowsAsync<ArgumentNullException>(async () => await converter.ConvertAsync(null!, Target.Memory(TestFormats.Beta)));
+        await Assert.ThrowsAsync<ArgumentNullException>(async () => await converter.ConvertAsync(Source.File("a"), null!));
+    }
+
+    // РџРѕРґСЃС‚Р°РІРЅРѕР№ РґРІРёР¶РѕРє: СѓРјРµРµС‚ С‚РѕР»СЊРєРѕ ALPHA в†’ BETA; В«СЂРµР·СѓР»СЊС‚Р°С‚В» вЂ” РІС…РѕРґ, РѕР±С‘СЂРЅСѓС‚С‹Р№ РјР°СЂРєРµСЂРѕРј; СѓРїСЂР°РІР»СЏРµРјС‹Рµ СЃР±РѕР№ Рё РѕР¶РёРґР°РЅРёРµ РѕС‚РјРµРЅС‹.
+    private sealed class FakeEngine(string toolName = "faketool") : IConversionEngine
+    {
+        public int Calls { get; private set; }
+
+        public ConversionRequest? Last { get; private set; }
+
+        public ConversionException? Fail { get; init; }
+
+        public bool WaitForCancel { get; init; }
+
+        public bool Operations { get; init; }
+
+        public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public IReadOnlyList<ToolSpec> Tools { get; } = [new ToolSpec(toolName)];
+
+        public bool SupportsOperations => Operations;
+
+        public IReadOnlyList<ConversionPair> Pairs { get; } = [new(TestFormats.Alpha, TestFormats.Beta)];
+
+        public static byte[] Wrap(byte[] input)
+        {
+            return [.. Encoding.ASCII.GetBytes("Р”Р’РР–РћРљ:"), .. input];
+        }
+
+        public bool CanConvert(FileFormat from, FileFormat to)
+        {
+            return from.Equals(TestFormats.Alpha) && to.Equals(TestFormats.Beta);
+        }
+
+        public async Task ConvertAsync(ConversionRequest request, CancellationToken cancellationToken)
+        {
+            Calls++;
+            Last = request;
+            Started.TrySetResult();
+
+            using MemoryStream copy = new();
+            await request.Input.CopyToAsync(copy, cancellationToken);
+            await request.Output.WriteAsync(Wrap(copy.ToArray()), cancellationToken);
+
+            if (WaitForCancel)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(30), cancellationToken);
+            }
+
+            if (Fail is not null)
+            {
+                throw Fail;
+            }
+        }
+    }
+
+    private sealed class Inline<T>(Action<T> action) : IProgress<T>
+    {
+        public void Report(T value)
+        {
+            action(value);
+        }
+    }
+
+    private sealed class NonSeekable(byte[] data) : Stream
+    {
+        private readonly MemoryStream _inner = new(data);
+
+        public bool Disposed { get; private set; }
+
+        public override bool CanRead => true;
+
+        public override bool CanSeek => false;
+
+        public override bool CanWrite => false;
+
+        public override long Length => throw new NotSupportedException();
+
+        public override long Position
+        {
+            get => throw new NotSupportedException();
+            set => throw new NotSupportedException();
+        }
+
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            return _inner.Read(buffer, offset, Math.Min(count, 100));
+        }
+
+        public override void Flush()
+        {
+        }
+
+        public override long Seek(long offset, SeekOrigin origin)
+        {
+            throw new NotSupportedException();
+        }
+
+        public override void SetLength(long value)
+        {
+            throw new NotSupportedException();
+        }
+
+        public override void Write(byte[] buffer, int offset, int count)
+        {
+            throw new NotSupportedException();
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            Disposed = true;
+            base.Dispose(disposing);
+        }
+    }
+}
+=== F:\Programming\GES\GES Projects\UtilityProjects\GLAZOV.M.CONVERTER\tests\GLAZOV.M.CONVERTER.Tests\IO\OutputSinkTests.cs ===
+using GLAZOV.M.CONVERTER.Data;
+using GLAZOV.M.CONVERTER.Errors;
+using GLAZOV.M.CONVERTER.IO;
+using GLAZOV.M.CONVERTER.Settings;
+using GLAZOV.M.CONVERTER.Tests.Extension;
+
+namespace GLAZOV.M.CONVERTER.Tests.IO;
+
+/// <summary>
+/// Р—Р°РїРёСЃСЊ СЂРµР·СѓР»СЊС‚Р°С‚Р°: С„Р°Р№Р», РїР°РїРєР°, РїРѕС‚РѕРє, РїР°РјСЏС‚СЊ; РїРѕР»РёС‚РёРєР° РїРµСЂРµР·Р°РїРёСЃРё Рё С‡РёСЃС‚РѕС‚Р° РІСЂРµРјРµРЅРЅС‹С… С„Р°Р№Р»РѕРІ.
+/// </summary>
+public sealed class OutputSinkTests : IDisposable
+{
+    private readonly string _folder = Path.Combine(Path.GetTempPath(), "convtests-" + Guid.NewGuid().ToString("N"));
+    private readonly byte[] _payload = [1, 2, 3, 4, 5, 6, 7, 8];
+
+    public OutputSinkTests()
+    {
+        Directory.CreateDirectory(_folder);
+    }
+
+    public void Dispose()
+    {
+        Directory.Delete(_folder, recursive: true);
+    }
+
+    private ConverterSettingsSnapshot Settings(bool overwrite = false)
+    {
+        string temp = Path.Combine(_folder, "tmp");
+        Directory.CreateDirectory(temp);
+        return ConverterSettingsSnapshot.Create(new ConverterSettings { OverwriteExisting = overwrite, TempFolder = temp });
+    }
+
+    private string[] Leftovers()
+    {
+        return Directory.GetFiles(_folder, "*.tmp", SearchOption.AllDirectories);
+    }
+
+    [Fact]
+    public async Task File_WrittenViaTempAndRenamedOnCommit()
+    {
+        string path = Path.Combine(_folder, "out", "a.alpha");
+
+        await using OutputSink sink = await OutputSink.OpenAsync(Target.File(path, TestFormats.Alpha), "in.ogg", Settings());
+        await sink.Stream.WriteAsync(_payload);
+        Assert.False(File.Exists(path));
+        var result = await sink.CompleteAsync();
+
+        Assert.Equal(path, result.OutputPath);
+        Assert.Equal(_payload, await File.ReadAllBytesAsync(path));
+        Assert.Empty(Leftovers());
+    }
+
+    [Fact]
+    public async Task Folder_NameIsInputNameWithFormatExtension()
+    {
+        string folder = Path.Combine(_folder, "ready");
+
+        await using OutputSink sink = await OutputSink.OpenAsync(Target.Folder(folder, TestFormats.Beta), "song.ogg", Settings());
+        await sink.Stream.WriteAsync(_payload);
+        var result = await sink.CompleteAsync();
+
+        Assert.Equal(Path.Combine(folder, "song.beta"), result.OutputPath);
+        Assert.True(File.Exists(result.OutputPath));
+    }
+
+    [Fact]
+    public async Task ExistingFile_WithoutOverwrite_IsFileExistsBeforeAnyWork()
+    {
+        string path = Path.Combine(_folder, "exists.alpha");
+        await File.WriteAllBytesAsync(path, [9]);
+
+        ConversionException ex = await Assert.ThrowsAsync<ConversionException>(async () =>
+            await OutputSink.OpenAsync(Target.File(path, TestFormats.Alpha), "in.ogg", Settings()));
+
+        Assert.Equal(ConversionStage.Preparation, ex.Stage);
+        Assert.Equal(ConversionFailureReason.FileExists, ex.Reason);
+        Assert.Equal("\t"u8.ToArray(), await File.ReadAllBytesAsync(path));
+        Assert.Empty(Leftovers());
+    }
+
+    [Fact]
+    public async Task ExistingFile_WithOverwrite_IsReplaced()
+    {
+        string path = Path.Combine(_folder, "exists.alpha");
+        await File.WriteAllBytesAsync(path, [9]);
+
+        await using OutputSink sink = await OutputSink.OpenAsync(Target.File(path, TestFormats.Alpha), "in.ogg", Settings(overwrite: true));
+        await sink.Stream.WriteAsync(_payload);
+        await sink.CommitAsync();
+
+        Assert.Equal(_payload, await File.ReadAllBytesAsync(path));
+    }
+
+    [Fact]
+    public async Task FileAppearingDuringWork_WithoutOverwrite_IsFileExistsOnCommit_AndNothingIsLeft()
+    {
+        string path = Path.Combine(_folder, "race.alpha");
+        OutputSink sink = await OutputSink.OpenAsync(Target.File(path, TestFormats.Alpha), "in.ogg", Settings());
+        await sink.Stream.WriteAsync(_payload);
+        await File.WriteAllBytesAsync(path, [7]);
+
+        ConversionException ex = await Assert.ThrowsAsync<ConversionException>(async () => await sink.CommitAsync());
+
+        Assert.Equal(ConversionFailureReason.FileExists, ex.Reason);
+        Assert.Equal(new byte[] { 7 }, await File.ReadAllBytesAsync(path));
+        Assert.Empty(Leftovers());
+    }
+
+    [Fact]
+    public async Task Abort_RemovesTempFile_AndLeavesNoResult()
+    {
+        string path = Path.Combine(_folder, "aborted.alpha");
+        OutputSink sink = await OutputSink.OpenAsync(Target.File(path, TestFormats.Alpha), "in.ogg", Settings());
+        await sink.Stream.WriteAsync(_payload);
+        Assert.Single(Leftovers());
+
+        await sink.AbortAsync();
+
+        Assert.False(File.Exists(path));
+        Assert.Empty(Leftovers());
+    }
+
+    [Fact]
+    public async Task DisposeWithoutCommit_IsAbort()
+    {
+        string path = Path.Combine(_folder, "forgotten.alpha");
+        await using (OutputSink sink = await OutputSink.OpenAsync(Target.File(path, TestFormats.Alpha), "in.ogg", Settings()))
+        {
+            await sink.Stream.WriteAsync(_payload);
+        }
+
+        Assert.False(File.Exists(path));
+        Assert.Empty(Leftovers());
+    }
+
+    [Fact]
+    public async Task Memory_AfterCommit_GivesBytesAndReadableStream()
+    {
+        await using OutputSink sink = await OutputSink.OpenAsync(Target.Memory(TestFormats.Alpha), "in.ogg", Settings());
+        await sink.Stream.WriteAsync(_payload);
+
+        SinkResult result = await sink.CommitAsync();
+
+        Assert.Null(result.OutputPath);
+        Assert.Equal(_payload, result.Bytes);
+        Assert.NotNull(result.Stream);
+        Assert.Equal(0, result.Stream.Position);
+        Assert.Equal(_payload.Length, result.Stream.Length);
+    }
+
+    [Fact]
+    public async Task Stream_WithoutSeekRequirement_WritesDirectlyAndDoesNotCloseIt()
+    {
+        MemoryStream destination = new();
+
+        await using (OutputSink sink = await OutputSink.OpenAsync(Target.Stream(destination, TestFormats.Gamma), "in.wav", Settings()))
+        {
+            Assert.NotSame(destination, sink.Stream); // wrapped so that a failing write becomes a library error
+            await sink.Stream.WriteAsync(_payload);
+            SinkResult result = await sink.CommitAsync();
+            Assert.Null(result.OutputPath);
+        }
+
+        Assert.True(destination.CanWrite);
+        Assert.Equal(_payload, destination.ToArray());
+    }
+
+    [Fact]
+    public async Task Stream_WithSeekRequirement_GoesThroughTempFile_AndCopiesOnCommit()
+    {
+        NonSeekableWriteStream destination = new();
+
+        await using (OutputSink sink = await OutputSink.OpenAsync(Target.Stream(destination, TestFormats.Beta), "in.ogg", Settings(), requireSeekable: true))
+        {
+            Assert.True(sink.IsSeekable);
+            await sink.Stream.WriteAsync(_payload);
+            sink.Stream.Position = 2; // РїРµСЂРµРјРѕС‚РєР° РЅСѓР¶РЅР° WAV РґР»СЏ РїСЂР°РІРєРё Р·Р°РіРѕР»РѕРІРєР°
+            sink.Stream.WriteByte(99);
+            Assert.Empty(destination.Written);
+            await sink.CommitAsync();
+        }
+
+        Assert.Equal(new byte[] { 1, 2, 99, 4, 5, 6, 7, 8 }, destination.Written);
+        Assert.Empty(Leftovers());
+    }
+
+    [Fact]
+    public async Task Stream_WithSeekRequirement_Abort_WritesNothingAndLeavesNoTemp()
+    {
+        NonSeekableWriteStream destination = new();
+        OutputSink sink = await OutputSink.OpenAsync(Target.Stream(destination, TestFormats.Beta), "in.ogg", Settings(), requireSeekable: true);
+        await sink.Stream.WriteAsync(_payload);
+
+        await sink.AbortAsync();
+
+        Assert.Empty(destination.Written);
+        Assert.Empty(Leftovers());
+    }
+
+    [Fact]
+    public async Task Cancelled_BeforeOpen_ThrowsOperationCanceled()
+    {
+        using CancellationTokenSource cts = new();
+        await cts.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+            await OutputSink.OpenAsync(Target.Memory(TestFormats.Alpha), "in.ogg", Settings(), cancellationToken: cts.Token));
+    }
+
+    [Fact]
+    public async Task ReadOnlyOutputStream_IsAUsageError()
+    {
+        MemoryStream readOnly = new([], writable: false);
+
+        await Assert.ThrowsAsync<ArgumentException>(async () =>
+            await OutputSink.OpenAsync(Target.Stream(readOnly, TestFormats.Alpha), "in.ogg", Settings()));
+    }
+
+    [Fact]
+    public async Task Folder_CustomFormat_NameUsesItsOwnExtension()
+    {
+        FileFormat custom = FileFormat.Create("CUSTOM", "application/x-test-custom", "cust");
+        string folder = Path.Combine(_folder, "custom-out");
+
+        await using OutputSink sink = await OutputSink.OpenAsync(Target.Folder(folder, custom), "РїРµСЃРЅСЏ.wav", Settings());
+        await sink.Stream.WriteAsync(_payload);
+        SinkResult result = await sink.CommitAsync();
+
+        Assert.Equal(Path.Combine(folder, "РїРµСЃРЅСЏ.cust"), result.OutputPath);
+    }
+
+    private sealed class NonSeekableWriteStream : Stream
+    {
+        private readonly MemoryStream _written = new();
+
+        public byte[] Written => _written.ToArray();
+
+        public override bool CanRead => false;
+
+        public override bool CanSeek => false;
+
+        public override bool CanWrite => true;
+
+        public override long Length => throw new NotSupportedException();
+
+        public override long Position
+        {
+            get => throw new NotSupportedException();
+            set => throw new NotSupportedException();
+        }
+
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            throw new NotSupportedException();
+        }
+
+        public override void Flush()
+        {
+        }
+
+        public override long Seek(long offset, SeekOrigin origin)
+        {
+            throw new NotSupportedException();
+        }
+
+        public override void SetLength(long value)
+        {
+            throw new NotSupportedException();
+        }
+
+        public override void Write(byte[] buffer, int offset, int count)
+        {
+            _written.Write(buffer, offset, count);
+        }
+    }
+}

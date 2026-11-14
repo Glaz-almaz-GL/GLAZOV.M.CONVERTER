@@ -31,5 +31,5 @@ public interface IConversionEngine
     /// </summary>
     /// <param name="request">Вход, выход и параметры.</param>
     /// <param name="cancellationToken">Отмена.</param>
-    Task ConvertAsync(ConversionRequest request, CancellationToken cancellationToken);
+    Task ConvertAsync(ConversionRequest request, CancellationToken cancellationToken = default);
 }

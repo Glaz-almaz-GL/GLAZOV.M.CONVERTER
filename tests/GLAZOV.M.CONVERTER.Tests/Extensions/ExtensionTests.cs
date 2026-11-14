@@ -1,14 +1,14 @@
-using System.Text;
 using GLAZOV.M.CONVERTER.Batch;
 using GLAZOV.M.CONVERTER.Capabilities;
 using GLAZOV.M.CONVERTER.Converting;
 using GLAZOV.M.CONVERTER.Data;
-using GLAZOV.M.CONVERTER.Detection;
 using GLAZOV.M.CONVERTER.Errors;
 using GLAZOV.M.CONVERTER.Extensions;
 using GLAZOV.M.CONVERTER.Formats;
+using GLAZOV.M.CONVERTER.Formats.Options;
 using GLAZOV.M.CONVERTER.Settings;
 using GLAZOV.M.CONVERTER.Tests.Extension;
+using System.Text;
 
 namespace GLAZOV.M.CONVERTER.Tests.Extensions;
 
@@ -125,7 +125,7 @@ public sealed class ExtensionTests : IDisposable
     {
         LambdaEngine engine = AlphaToBeta();
         ConfigurableExtension greedy = new("жадное", [new PatternDetector("ID3"u8.ToArray(), Alpha)], [engine]);
-        string mp3 = Put("a.mp3", File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Samples", "sample-id3.mp3")));
+        string mp3 = Put("a.mp3", await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "Samples", "sample-id3.mp3")));
 
         // The Formats extension is connected first: a file with the ID3 tag is MP3; the later extension "greedy" does not take it; no engine knows MP3 → JPEG.
         Assert.Same(FileFormat.Mp3, await With(new FormatsExtension(), greedy).DetectAsync(Source.File(mp3)));
@@ -225,7 +225,7 @@ public sealed class ExtensionTests : IDisposable
         string input = Put("x.dat", AlphaFile());
         LambdaEngine plain = AlphaToBeta();
         LambdaEngine capable = AlphaToBeta(supportsOperations: true);
-        ConversionOptions options = new() { Operations = { Operation.RotateRight } };
+        ConversionOptions options = new() { Operations = { VisualOperations.RotateRight } };
 
         ConversionException refused = await Assert.ThrowsAsync<ConversionException>(async () =>
             await With(TestExtensions.Create(plain)).ConvertAsync(Source.File(input), Target.Memory(Beta), options));

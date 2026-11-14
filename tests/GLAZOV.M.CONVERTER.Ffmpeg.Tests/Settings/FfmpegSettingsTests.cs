@@ -1,8 +1,9 @@
-using System.Drawing;
 using GLAZOV.M.CONVERTER.Converting;
 using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Ffmpeg.Engines;
 using GLAZOV.M.CONVERTER.Formats;
+using GLAZOV.M.CONVERTER.Formats.Options;
+using System.Drawing;
 
 namespace GLAZOV.M.CONVERTER.Ffmpeg.Tests.Settings;
 
@@ -21,7 +22,9 @@ public class FfmpegSettingsTests
 
     private static IReadOnlyList<string> Video(FileFormat to, FfmpegSettings? settings, VideoOptions? video = null, AudioOptions? audio = null)
     {
-        return FfmpegVideoArguments.Build(to, video, audio, "in.bin", "out.bin", settings: settings);
+        ConversionOptions options = new() { Video = video, Audio = audio };
+        return FfmpegVideoArguments.Build(to, options, "in.mp4", "out.mp4", settings: settings);
+
     }
 
     [Fact]

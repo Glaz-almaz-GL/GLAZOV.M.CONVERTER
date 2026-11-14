@@ -1,9 +1,8 @@
-using DetectorChain = GLAZOV.M.CONVERTER.Detection.DetectorChain;
-using System.IO.Compression;
 using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Formats.Detection;
-using GLAZOV.M.CONVERTER.Formats.Detection.Documents;
 using GLAZOV.M.CONVERTER.IO;
+using System.IO.Compression;
+using DetectorChain = GLAZOV.M.CONVERTER.Detection.DetectorChain;
 
 namespace GLAZOV.M.CONVERTER.Formats.Tests.Detection;
 
@@ -57,11 +56,11 @@ public sealed class ContainerProbeTests
     [InlineData("sample.xlsx", "XLSX")]
     [InlineData("sample.pptx", "PPTX")]
     [InlineData("sample.odt", "ODT")]
-    public void Match_RealSamples_AreNamed(string file, string name)
+    public async Task Match_RealSamples_AreNamed(string file, string name)
     {
         using MemoryStream stream = new(Sample(file));
 
-        Assert.Equal(name, ContainerProbe.Match(stream)?.Name);
+        Assert.Equal(name, (await ContainerProbe.MatchAsync(stream))?.Name);
     }
 
     [Fact]

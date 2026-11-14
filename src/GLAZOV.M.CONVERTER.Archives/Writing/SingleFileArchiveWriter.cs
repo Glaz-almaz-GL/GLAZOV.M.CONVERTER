@@ -1,30 +1,24 @@
-using GLAZOV.M.CONVERTER.ArchivesExtra.Model;
+using GLAZOV.M.CONVERTER.Archives.Model;
 
-namespace GLAZOV.M.CONVERTER.ArchivesExtra.Writing;
+namespace GLAZOV.M.CONVERTER.Archives.Writing;
 
 /// <summary>
-/// Writes a compressed file (GZip, BZip2): it holds exactly one file, so an archive with more entries (or with none, or with a folder only) cannot be put into it.
+/// Writes a single-file compressed stream (GZip, BZip2). Refuses empty, directory-only, or multi-entry archives.
 /// </summary>
-internal sealed class SingleFileArchiveWriter : IArchiveWriter
+/// <remarks>
+/// Initializes the writer.
+/// </remarks>
+/// <param name="compressor">Compressing stream wrapping the target output; disposed when the writer is disposed.</param>
+/// <param name="kind">Format display name used in error messages.</param>
+public sealed class SingleFileArchiveWriter(Stream compressor, string kind) : IArchiveWriter
 {
-    private readonly Stream _compressor;
-    private readonly string _kind;
+    private readonly Stream _compressor = compressor;
+    private readonly string _kind = kind;
     private int _entries;
     private bool _file;
 
-    /// <summary>
-    /// Creates the writer.
-    /// </summary>
-    /// <param name="compressor">The compressing stream the file goes through; disposing the writer finishes it.</param>
-    /// <param name="kind">Name of the kind, for the messages.</param>
-    internal SingleFileArchiveWriter(Stream compressor, string kind)
-    {
-        _compressor = compressor;
-        _kind = kind;
-    }
-
     /// <inheritdoc />
-    public async Task WriteAsync(ArchiveEntryInfo info, Stream? content, CancellationToken cancellationToken)
+    public async Task WriteAsync(ArchiveEntryInfo info, Stream? content, CancellationToken cancellationToken = default)
     {
         _entries++;
         if (_entries > 1)

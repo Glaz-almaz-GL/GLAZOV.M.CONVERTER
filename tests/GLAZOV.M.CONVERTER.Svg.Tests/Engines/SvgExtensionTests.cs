@@ -1,12 +1,13 @@
-using System.Text;
 using GLAZOV.M.CONVERTER.Capabilities;
 using GLAZOV.M.CONVERTER.Converting;
 using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Errors;
 using GLAZOV.M.CONVERTER.Extensions;
 using GLAZOV.M.CONVERTER.Formats;
+using GLAZOV.M.CONVERTER.Formats.Options;
 using GLAZOV.M.CONVERTER.Settings;
 using SkiaSharp;
+using System.Text;
 
 namespace GLAZOV.M.CONVERTER.Svg.Tests.Engines;
 
@@ -188,7 +189,7 @@ public sealed class SvgExtensionTests : IDisposable
     [Fact]
     public async Task RotateRight_TurnsTheImageClockwise()
     {
-        ConversionOptions options = new() { Operations = { Operation.RotateRight } };
+        ConversionOptions options = new() { Operations = { VisualOperations.RotateRight } };
 
         using SKBitmap png = await RenderAsync(Svg(), Sample("shapes.svg"), FileFormat.Png, options);
 
@@ -200,7 +201,7 @@ public sealed class SvgExtensionTests : IDisposable
     [Fact]
     public async Task ScaleUp_IsRedrawnSharp_NotStretchedPixels()
     {
-        ConversionOptions options = new() { Operations = { Operation.ScalePercent(1000) } };
+        ConversionOptions options = new() { Operations = { VisualOperations.ScalePercent(1000) } };
 
         using SKBitmap png = await RenderAsync(Svg(), Sample("shapes.svg"), FileFormat.Png, options);
 
@@ -213,7 +214,7 @@ public sealed class SvgExtensionTests : IDisposable
     [Fact]
     public async Task ScaleDown_HalvesTheSize()
     {
-        ConversionOptions options = new() { Operations = { Operation.ScalePercent(50) } };
+        ConversionOptions options = new() { Operations = { VisualOperations.ScalePercent(50) } };
 
         using SKBitmap png = await RenderAsync(Svg(), Sample("shapes.svg"), FileFormat.Png, options);
 
@@ -256,7 +257,7 @@ public sealed class SvgExtensionTests : IDisposable
     public async Task ExternalImageFile_AndNetworkAddress_AreNotLoaded()
     {
         string png = Path.Combine(_folder, "outside.png");
-        File.WriteAllBytes(png, RedSquarePng());
+        await File.WriteAllBytesAsync(png, RedSquarePng());
         string svg = Put("external.svg", $"""
             <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="50" height="50">
               <image width="50" height="50" xlink:href="{new Uri(png).AbsoluteUri}"/>
@@ -287,7 +288,7 @@ public sealed class SvgExtensionTests : IDisposable
     public async Task ExternalXmlEntity_IsNotRead()
     {
         string secret = Path.Combine(_folder, "secret.txt");
-        File.WriteAllText(secret, "SECRET SECRET SECRET");
+        await File.WriteAllTextAsync(secret, "SECRET SECRET SECRET");
         string svg = Put("entity.svg", $"""
             <?xml version="1.0"?>
             <!DOCTYPE svg [<!ENTITY leak SYSTEM "{new Uri(secret).AbsoluteUri}">]>

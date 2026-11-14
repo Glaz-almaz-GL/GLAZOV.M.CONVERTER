@@ -1,5 +1,4 @@
 using GLAZOV.M.CONVERTER.Converting;
-using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Extensions;
 using GLAZOV.M.CONVERTER.IO;
 using GLAZOV.M.CONVERTER.Tests.Extension;
@@ -32,7 +31,7 @@ public sealed class InputFileTests : IDisposable
     public async Task WithAPath_ReturnsThePathItself_AndKeepsTheFileOnDispose()
     {
         string path = Path.Combine(_folder, "real.bin");
-        File.WriteAllBytes(path, [1, 2, 3]);
+        await File.WriteAllBytesAsync(path, [1, 2, 3]);
 
         InputFile file = await InputFile.EnsureAsync(Request(new MemoryStream(), path), CancellationToken.None);
         await file.DisposeAsync();

@@ -1,16 +1,14 @@
-using System.Globalization;
 using GLAZOV.M.CONVERTER.Capabilities;
 using GLAZOV.M.CONVERTER.Converting;
 using GLAZOV.M.CONVERTER.Data;
-using GLAZOV.M.CONVERTER.Detection;
-using GLAZOV.M.CONVERTER.Engines;
 using GLAZOV.M.CONVERTER.Errors;
 using GLAZOV.M.CONVERTER.Extensions;
 using GLAZOV.M.CONVERTER.Ffmpeg.Engines;
-using GLAZOV.M.CONVERTER.Ffmpeg.Progress;
 using GLAZOV.M.CONVERTER.Formats;
+using GLAZOV.M.CONVERTER.Formats.Options;
 using GLAZOV.M.CONVERTER.Settings;
 using GLAZOV.M.CONVERTER.Tooling;
+using System.Globalization;
 
 namespace GLAZOV.M.CONVERTER.Ffmpeg.Tests.Engines;
 
@@ -109,27 +107,30 @@ public sealed class FfmpegImageEngineTests : IDisposable
         return data;
     }
 
-    public static IEnumerable<object[]> Pairs()
+    public static TheoryData<string, string, string> Pairs()
     {
+        TheoryData<string, string, string> data = [];
         foreach ((string file, FileFormat format) in Inputs)
         {
             foreach ((FileFormat to, string _) in Outputs)
             {
-                yield return new object[] { file, format.Name, to.Name };
+                data.Add(file, format.Name, to.Name);
             }
         }
+
+        return data;
     }
 
     [Fact]
     public void Pairs_AreNinety_AndReadOnlyFormatsAreNeverResults()
     {
         Assert.Equal(90, _engine.Pairs.Count);
-        Assert.All(_engine.Pairs, p => Assert.True(_engine.CanConvert(p.From, p.To)));
-        Assert.False(_engine.CanConvert(FileFormat.Png, FileFormat.Dds));
-        Assert.False(_engine.CanConvert(FileFormat.Png, FileFormat.Psd));
-        Assert.False(_engine.CanConvert(FileFormat.Tga, FileFormat.Png));
-        Assert.False(_engine.CanConvert(FileFormat.Svg, FileFormat.Png));
-        Assert.False(_engine.CanConvert(FileFormat.Mp3, FileFormat.Png));
+        Assert.Equal(90, _engine.Pairs.Distinct().Count());
+        Assert.DoesNotContain(new ConversionPair(FileFormat.Png, FileFormat.Dds), _engine.Pairs);
+        Assert.DoesNotContain(new ConversionPair(FileFormat.Png, FileFormat.Psd), _engine.Pairs);
+        Assert.DoesNotContain(new ConversionPair(FileFormat.Tga, FileFormat.Png), _engine.Pairs);
+        Assert.DoesNotContain(new ConversionPair(FileFormat.Svg, FileFormat.Png), _engine.Pairs);
+        Assert.DoesNotContain(new ConversionPair(FileFormat.Mp3, FileFormat.Png), _engine.Pairs);
         Assert.Equal("ffmpeg", Assert.Single(_engine.Tools).Name);
     }
 

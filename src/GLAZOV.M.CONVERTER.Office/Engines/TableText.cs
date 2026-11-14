@@ -1,7 +1,7 @@
-using System.Text;
 using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Errors;
 using GLAZOV.M.CONVERTER.Formats;
+using System.Text;
 
 namespace GLAZOV.M.CONVERTER.Office.Engines;
 
@@ -38,92 +38,52 @@ internal static class TableText
     }
 
     /// <summary>
-    /// The separator to read with: the tab for TSV, the one of the settings for text, and for CSV the one of the settings
-    /// when the first row has it outside quotes, otherwise a semicolon or a comma that the first row has.
+    /// The separator to read with: the tab for TSV, the one of the settings for text, and for CSV the one of the
+    /// settings when the first row has it outside quotes, otherwise a semicolon or a comma that the first row has.
     /// </summary>
     internal static char Choose(string firstRecord, FileFormat from, char configured, char quote)
     {
         if (from.Equals(FileFormat.Tsv))
         {
+            // TSG detected
             return '\t';
         }
 
-        if (!from.Equals(FileFormat.Csv))
-        {
-            return configured;
-        }
-
-        foreach (char candidate in new[] { configured, ';', ',' }.Distinct())
-        {
-            if (candidate != quote && CountOutsideQuotes(firstRecord, candidate, quote) > 0)
-            {
-                return candidate;
-            }
-        }
-
-        return configured;
+        return !from.Equals(FileFormat.Csv)
+            ? configured
+            : new[] { configured, ';', ',' }
+            .Distinct()
+            .Where(candidate => candidate != quote && CountOutsideQuotes(firstRecord, candidate, quote) > 0)
+            .DefaultIfEmpty(configured)
+            .First();
     }
+
 
     /// <summary>
     /// Rows and the widest row of a text read with the given separator and quote.
     /// </summary>
-    internal static async Task<TableShape> MeasureAsync(string path, char delimiter, char quote, CancellationToken cancellationToken)
+    internal static async Task<TableShape> MeasureAsync(
+     string path,
+     char delimiter,
+     char quote,
+     CancellationToken cancellationToken = default)
     {
-        using StreamReader reader = new(path, new UTF8Encoding(false), detectEncodingFromByteOrderMarks: false, BufferSize);
-        char[] buffer = new char[BufferSize];
-        long rows = 0;
-        int columns = 0;
-        int fields = 1;
-        bool inQuotes = false;
-        bool pending = false;
-        bool lastWasCarriageReturn = false;
+        using StreamReader reader = new(
+            path,
+            new UTF8Encoding(false),
+            detectEncodingFromByteOrderMarks: false,
+            BufferSize);
 
+        char[] buffer = new char[BufferSize];
+        MeasureState state = new(delimiter, quote);
         int read;
+
         while ((read = await reader.ReadAsync(buffer.AsMemory(), cancellationToken).ConfigureAwait(false)) > 0)
         {
-            for (int i = 0; i < read; i++)
-            {
-                char c = buffer[i];
-                if (lastWasCarriageReturn)
-                {
-                    lastWasCarriageReturn = false;
-                    if (c == '\n')
-                    {
-                        continue;
-                    }
-                }
-
-                if (c == quote)
-                {
-                    inQuotes = !inQuotes;
-                    pending = true;
-                }
-                else if (!inQuotes && (c == '\n' || c == '\r'))
-                {
-                    rows++;
-                    columns = Math.Max(columns, fields);
-                    fields = 1;
-                    pending = false;
-                    lastWasCarriageReturn = c == '\r';
-                }
-                else
-                {
-                    pending = true;
-                    if (!inQuotes && c == delimiter)
-                    {
-                        fields++;
-                    }
-                }
-            }
+            state.ProcessChunk(buffer.AsSpan(0, read));
         }
 
-        if (pending)
-        {
-            rows++;
-            columns = Math.Max(columns, fields);
-        }
-
-        return new TableShape(delimiter, rows, columns);
+        return state.ToTableShape();
     }
 
     private static async Task<char> ChooseDelimiterAsync(string path, FileFormat from, OfficeSettings settings, CancellationToken cancellationToken)
@@ -197,4 +157,82 @@ internal static class TableText
             await writer.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
         }
     }
+
+    private struct MeasureState(char delimiter, char quote)
+    {
+        private long _rows = 0;
+        private int _columns = 0;
+        private int _fields = 1;
+        private bool _inQuotes = false;
+        private bool _pending = false;
+        private bool _lastWasCarriageReturn = false;
+
+        public void ProcessChunk(ReadOnlySpan<char> chunk)
+        {
+            foreach (char c in chunk)
+            {
+                ProcessChar(c);
+            }
+        }
+
+        private void ProcessChar(char c)
+        {
+            if (ShouldSkipLineFeed(c))
+            {
+                return;
+            }
+
+            if (c == quote)
+            {
+                _inQuotes = !_inQuotes;
+                _pending = true;
+                return;
+            }
+
+            if (!_inQuotes && IsLineBreak(c))
+            {
+                CompleteRow(c == '\r');
+                return;
+            }
+
+            _pending = true;
+            if (!_inQuotes && c == delimiter)
+            {
+                _fields++;
+            }
+        }
+
+        private bool ShouldSkipLineFeed(char c)
+        {
+            if (!_lastWasCarriageReturn)
+            {
+                return false;
+            }
+
+            _lastWasCarriageReturn = false;
+            return c == '\n';
+        }
+
+        private static bool IsLineBreak(char c)
+        {
+            return c is '\n' or '\r';
+        }
+
+        private void CompleteRow(bool isCarriageReturn)
+        {
+            _rows++;
+            _columns = Math.Max(_columns, _fields);
+            _fields = 1;
+            _pending = false;
+            _lastWasCarriageReturn = isCarriageReturn;
+        }
+
+        public readonly TableShape ToTableShape()
+        {
+            long finalRows = _pending ? _rows + 1 : _rows;
+            int finalColumns = _pending ? Math.Max(_columns, _fields) : _columns;
+            return new TableShape(delimiter, finalRows, finalColumns);
+        }
+    }
+
 }

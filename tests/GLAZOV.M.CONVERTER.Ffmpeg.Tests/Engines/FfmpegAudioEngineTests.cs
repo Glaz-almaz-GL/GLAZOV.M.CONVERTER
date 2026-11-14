@@ -1,13 +1,11 @@
 using GLAZOV.M.CONVERTER.Capabilities;
 using GLAZOV.M.CONVERTER.Converting;
 using GLAZOV.M.CONVERTER.Data;
-using GLAZOV.M.CONVERTER.Detection;
-using GLAZOV.M.CONVERTER.Engines;
 using GLAZOV.M.CONVERTER.Errors;
 using GLAZOV.M.CONVERTER.Extensions;
 using GLAZOV.M.CONVERTER.Ffmpeg.Engines;
-using GLAZOV.M.CONVERTER.Ffmpeg.Progress;
 using GLAZOV.M.CONVERTER.Formats;
+using GLAZOV.M.CONVERTER.Formats.Options;
 using GLAZOV.M.CONVERTER.Settings;
 using GLAZOV.M.CONVERTER.Tooling;
 
@@ -65,18 +63,23 @@ public sealed class FfmpegAudioEngineTests : IDisposable
         Assert.Equal(string.Empty, result.ErrorOutput);
     }
 
-    public static IEnumerable<object[]> Pairs()
+    public static TheoryData<string, string> Pairs()
     {
         string[] samples = ["sample-id3.mp3", "sample.wav", "sample-vorbis.ogg", "sample-opus.ogg", "sample.flac", "sample.m4a"];
         string[] targets = ["MP3", "WAV", "OGG", "FLAC", "M4A"];
+
+        TheoryData<string, string> data = [];
         foreach (string sample in samples)
         {
             foreach (string target in targets)
             {
-                yield return new object[] { sample, target };
+                data.Add(sample, target);
             }
         }
+
+        return data;
     }
+
 
     [ExternalTheory]
     [MemberData(nameof(Pairs))]
@@ -211,13 +214,13 @@ public sealed class FfmpegAudioEngineTests : IDisposable
     }
 
     [Fact]
-    public void Pairs_AreFifty_AndCanConvertMatchesThem()
+    public void Pairs_AreFifty_AndContainNoUnsupportedTargets()
     {
         // 25 audio to audio and 25 video (five containers) to audio.
         Assert.Equal(50, _engine.Pairs.Count);
-        Assert.All(_engine.Pairs, p => Assert.True(_engine.CanConvert(p.From, p.To)));
-        Assert.False(_engine.CanConvert(FileFormat.Mp3, FileFormat.Jpeg));
-        Assert.False(_engine.CanConvert(FileFormat.Unknown, FileFormat.Mp3));
+        Assert.Equal(50, _engine.Pairs.Distinct().Count());
+        Assert.DoesNotContain(new ConversionPair(FileFormat.Mp3, FileFormat.Jpeg), _engine.Pairs);
+        Assert.DoesNotContain(new ConversionPair(FileFormat.Unknown, FileFormat.Mp3), _engine.Pairs);
         Assert.Equal("ffmpeg", Assert.Single(_engine.Tools).Name);
     }
 }

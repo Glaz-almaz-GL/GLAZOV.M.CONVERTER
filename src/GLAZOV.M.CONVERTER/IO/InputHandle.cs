@@ -8,7 +8,6 @@ internal sealed class InputHandle : IAsyncDisposable
 {
     private readonly Stream _inner;
     private readonly bool _ownsInner;
-    private readonly bool _canRewind;
     private readonly long _startPosition;
     private readonly ReaderStream _reader;
 
@@ -23,8 +22,8 @@ internal sealed class InputHandle : IAsyncDisposable
         Path = path;
         _inner = inner;
         _ownsInner = ownsInner;
-        _canRewind = inner.CanSeek;
-        _startPosition = _canRewind ? inner.Position : 0;
+        CanProbe = inner.CanSeek;
+        _startPosition = CanProbe ? inner.Position : 0;
         _reader = new ReaderStream(this);
     }
 
@@ -44,6 +43,11 @@ internal sealed class InputHandle : IAsyncDisposable
     internal Stream Stream => _reader;
 
     /// <summary>
+    /// Whether the input can be read at any place (a stream that can seek, a file): only then <see cref="ProbeAsync{T}"/> works.
+    /// </summary>
+    internal bool CanProbe { get; }
+
+    /// <summary>
     /// Возвращает первые байты входа, не потребляя их: после просмотра <see cref="Stream"/> читается с начала.
     /// Если вход короче, возвращается сколько есть.
     /// </summary>
@@ -53,37 +57,35 @@ internal sealed class InputHandle : IAsyncDisposable
     {
         ArgumentOutOfRangeException.ThrowIfNegative(count);
 
-        return _canRewind
+        return CanProbe
             ? HeadFromSeekableAsync(count, cancellationToken)
             : HeadFromBufferedAsync(count, cancellationToken);
     }
 
     /// <summary>
-    /// Whether the input can be read at any place (a stream that can seek, a file): only then <see cref="Probe{T}"/> works.
-    /// </summary>
-    internal bool CanProbe => _canRewind;
-
-    /// <summary>
-    /// Runs a read of the structure of the input at any place and puts the read position back. The reads are counted against the limit.
+    /// Runs an asynchronous structural inspection of the input within a byte read budget and restores the original
+    /// stream position.
     /// </summary>
     /// <param name="limit">How many bytes the work may read in all.</param>
     /// <param name="work">The reader; it gets a view whose position 0 is the start of the input.</param>
-    internal T Probe<T>(long limit, Func<Stream, T> work)
+    /// <param name="cancellationToken">Cancellation token.</param>
+    internal async ValueTask<T> ProbeAsync<T>(long limit, Func<Stream, CancellationToken, ValueTask<T>> work, CancellationToken cancellationToken = default)
     {
-        if (!_canRewind)
+        if (!CanProbe)
         {
             throw new InvalidOperationException("The input cannot be read at any place.");
         }
 
         try
         {
-            return work(new BudgetedStream(_inner, _startPosition, limit));
+            return await work(new BudgetedStream(_inner, _startPosition, limit), cancellationToken).ConfigureAwait(false);
         }
         finally
         {
             _inner.Position = _startPosition;
         }
     }
+
 
     // Поток умеет искать: читаем и возвращаем позицию, где она была.
     private async ValueTask<ReadOnlyMemory<byte>> HeadFromSeekableAsync(int count, CancellationToken cancellationToken)
@@ -152,7 +154,7 @@ internal sealed class InputHandle : IAsyncDisposable
     private int ReadCore(Span<byte> destination)
     {
         _readStarted = true;
-        if (!_canRewind && _replayOffset < _bufferLength)
+        if (!CanProbe && _replayOffset < _bufferLength)
         {
             int count = Math.Min(destination.Length, _bufferLength - _replayOffset);
             _buffer.AsSpan(_replayOffset, count).CopyTo(destination);
@@ -166,7 +168,7 @@ internal sealed class InputHandle : IAsyncDisposable
     private ValueTask<int> ReadCoreAsync(Memory<byte> destination, CancellationToken cancellationToken)
     {
         _readStarted = true;
-        if (!_canRewind && _replayOffset < _bufferLength)
+        if (!CanProbe && _replayOffset < _bufferLength)
         {
             int count = Math.Min(destination.Length, _bufferLength - _replayOffset);
             _buffer.AsMemory(_replayOffset, count).CopyTo(destination);

@@ -1,4 +1,5 @@
 using GLAZOV.M.CONVERTER.Batch;
+using GLAZOV.M.CONVERTER.Converting;
 using GLAZOV.M.CONVERTER.Data;
 using GLAZOV.M.CONVERTER.Errors;
 using GLAZOV.M.CONVERTER.Tests.Extension;
@@ -6,22 +7,30 @@ using GLAZOV.M.CONVERTER.Tests.Extension;
 namespace GLAZOV.M.CONVERTER.Tests.Batch;
 
 /// <summary>
-/// Отчёт пакета: подсчёт, согласованность, возврат неудачных входов по порядку — на записях, собранных фабриками.
+/// Unit tests for <see cref="BatchReport"/>: item counting, outcome consistency, and failed source ordering.
 /// </summary>
 public class BatchReportTests
 {
-    // 10 входов: 0–5 удались, 6, 7, 8 — ошибки, 9 — отменён.
+    private static ConversionResult DummyResult(string? outputPath)
+    {
+        return new ConversionResult(true, TestFormats.Alpha, TestFormats.Beta, TimeSpan.Zero)
+        {
+            OutputPath = outputPath
+        };
+    }
+
+    // 10 inputs: 0-5 succeeded, 6-8 failed, 9 canceled.
     private static (BatchReport Report, Source[] Sources) Ten()
     {
-        Source[] sources = Enumerable.Range(0, 10).Select(i => Source.File($"f{i}.alpha")).ToArray();
+        Source[] sources = [.. Enumerable.Range(0, 10).Select(i => Source.File($"f{i}.alpha"))];
         List<BatchItemResult> items = [];
         for (int i = 0; i < 6; i++)
         {
-            items.Add(BatchItemResult.Success($"f{i}.alpha", $"out{i}.beta"));
+            items.Add(BatchItemResult.Success($"f{i}.alpha", DummyResult($"out{i}.beta")));
         }
 
         items.Add(BatchItemResult.Failure("f6.alpha", Failures.TypeNotConfirmed("f6.alpha", "ALPHA", FileFormat.Unknown)));
-        items.Add(BatchItemResult.Failure("f7.alpha", Failures.ToolFailed("faketool", 1, "сломалось")));
+        items.Add(BatchItemResult.Failure("f7.alpha", Failures.ToolFailed("faketool", 1, "broken")));
         items.Add(BatchItemResult.Failure("f8.alpha", Failures.FileExists("out8.beta")));
         items.Add(BatchItemResult.Cancelled("f9.alpha"));
 
@@ -105,7 +114,7 @@ public class BatchReportTests
     [Fact]
     public void ItemsAndSourcesOfDifferentCount_AreAUsageError()
     {
-        Assert.Throws<ArgumentException>(() => new BatchReport([BatchItemResult.Success("a", null)], []));
+        Assert.Throws<ArgumentException>(() => new BatchReport([BatchItemResult.Success("a", DummyResult(null))], []));
         Assert.Throws<ArgumentNullException>(() => new BatchReport(null!, []));
         Assert.Throws<ArgumentNullException>(() => BatchItemResult.Failure("a", null!));
     }

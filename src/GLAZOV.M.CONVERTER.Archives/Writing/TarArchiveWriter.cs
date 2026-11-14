@@ -1,32 +1,25 @@
-using System.Formats.Tar;
 using GLAZOV.M.CONVERTER.Archives.Model;
+using System.Formats.Tar;
 
 namespace GLAZOV.M.CONVERTER.Archives.Writing;
 
 /// <summary>
 /// Writes a TAR archive (POSIX pax: long names and any characters are fine) to a stream, entry by entry.
 /// </summary>
-internal sealed class TarArchiveWriter : IArchiveWriter
+/// <remarks>
+/// Creates the writer.
+/// </remarks>
+/// <param name="output">Where the archive goes; it stays open.</param>
+/// <param name="tempFolder">Folder for the entries whose size is not known before they are read.</param>
+public sealed class TarArchiveWriter(Stream output, string tempFolder) : IArchiveWriter
 {
-    private readonly TarWriter _tar;
-    private readonly Stream _output;
-    private readonly string _tempFolder;
+    private readonly TarWriter _tar = new(output, TarEntryFormat.Pax, leaveOpen: true);
+    private readonly Stream _output = output;
+    private readonly string _tempFolder = tempFolder;
     private int _entries;
 
-    /// <summary>
-    /// Creates the writer.
-    /// </summary>
-    /// <param name="output">Where the archive goes; it stays open.</param>
-    /// <param name="tempFolder">Folder for the entries whose size is not known before they are read.</param>
-    internal TarArchiveWriter(Stream output, string tempFolder)
-    {
-        _tar = new TarWriter(output, TarEntryFormat.Pax, leaveOpen: true);
-        _output = output;
-        _tempFolder = tempFolder;
-    }
-
     /// <inheritdoc />
-    public async Task WriteAsync(ArchiveEntryInfo info, Stream? content, CancellationToken cancellationToken)
+    public async Task WriteAsync(ArchiveEntryInfo info, Stream? content, CancellationToken cancellationToken = default)
     {
         _entries++;
         if (content is null)
@@ -40,18 +33,16 @@ internal sealed class TarArchiveWriter : IArchiveWriter
         string spool = Path.Combine(_tempFolder, $"archive-{Guid.NewGuid():N}.tmp");
         try
         {
-            await using (FileStream file = new(spool, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None, 81920, FileOptions.Asynchronous | FileOptions.DeleteOnClose))
+            await using FileStream file = new(spool, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None, 81920, FileOptions.Asynchronous | FileOptions.DeleteOnClose);
+            await content.CopyToAsync(file, cancellationToken).ConfigureAwait(false);
+            file.Position = 0;
+            PaxTarEntry entry = new(TarEntryType.RegularFile, info.Name)
             {
-                await content.CopyToAsync(file, cancellationToken).ConfigureAwait(false);
-                file.Position = 0;
-                PaxTarEntry entry = new(TarEntryType.RegularFile, info.Name)
-                {
-                    ModificationTime = info.Modified,
-                    Mode = info.Mode ?? (UnixFileMode)0b110_100_100,
-                    DataStream = file,
-                };
-                await _tar.WriteEntryAsync(entry, cancellationToken).ConfigureAwait(false);
-            }
+                ModificationTime = info.Modified,
+                Mode = info.Mode ?? (UnixFileMode)0b110_100_100,
+                DataStream = file,
+            };
+            await _tar.WriteEntryAsync(entry, cancellationToken).ConfigureAwait(false);
         }
         finally
         {

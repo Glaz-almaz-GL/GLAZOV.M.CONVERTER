@@ -1,4 +1,4 @@
-using GLAZOV.M.CONVERTER.Converting;
+using GLAZOV.M.CONVERTER.Formats.Options;
 using GLAZOV.M.CONVERTER.Svg.Rendering;
 using SkiaSharp;
 
@@ -23,7 +23,7 @@ public class RasterPlanTests
     [Fact]
     public void RotateRight_SwapsSides_AndMovesTopLeftToTopRight()
     {
-        RasterPlan plan = RasterPlan.Build(SKRect.Create(120, 80), [Operation.RotateRight], NoLimit);
+        RasterPlan plan = RasterPlan.Build(SKRect.Create(120, 80), [VisualOperations.RotateRight], NoLimit);
 
         Assert.Equal((80, 120), (plan.Width, plan.Height));
         Assert.Equal(new SKPoint(80, 0), plan.Matrix.MapPoint(0, 0));
@@ -33,8 +33,8 @@ public class RasterPlanTests
     [Fact]
     public void ScalePercent_RoundsDown_AndNeverBelowOnePixel()
     {
-        RasterPlan half = RasterPlan.Build(SKRect.Create(101, 51), [Operation.ScalePercent(50)], NoLimit);
-        RasterPlan tiny = RasterPlan.Build(SKRect.Create(10, 10), [Operation.ScalePercent(1)], NoLimit);
+        RasterPlan half = RasterPlan.Build(SKRect.Create(101, 51), [VisualOperations.ScalePercent(50)], NoLimit);
+        RasterPlan tiny = RasterPlan.Build(SKRect.Create(10, 10), [VisualOperations.ScalePercent(1)], NoLimit);
 
         Assert.Equal((50, 25), (half.Width, half.Height));
         Assert.Equal((1, 1), (tiny.Width, tiny.Height));
@@ -45,7 +45,7 @@ public class RasterPlanTests
     {
         RasterPlan plan = RasterPlan.Build(
             SKRect.Create(200, 100),
-            [Operation.ScalePercent(50), Operation.RotateRight, Operation.ScalePercent(200)],
+            [VisualOperations.ScalePercent(50), VisualOperations.RotateRight, VisualOperations.ScalePercent(200)],
             NoLimit);
 
         Assert.Equal((100, 200), (plan.Width, plan.Height));
@@ -65,7 +65,7 @@ public class RasterPlanTests
     public void ResultAboveMaxPixels_IsRejected_WithTheSettingName()
     {
         InvalidDataException ex = Assert.Throws<InvalidDataException>(() =>
-            RasterPlan.Build(SKRect.Create(100, 100), [Operation.ScalePercent(200)], maxPixels: 30_000));
+            RasterPlan.Build(SKRect.Create(100, 100), [VisualOperations.ScalePercent(200)], maxPixels: 30_000));
 
         Assert.Contains("MaxPixels", ex.Message);
     }
@@ -82,6 +82,6 @@ public class RasterPlanTests
     public void EnormousScale_IsRejected_BeforeOverflow()
     {
         Assert.Throws<InvalidDataException>(() =>
-            RasterPlan.Build(SKRect.Create(1_000_000, 1), [Operation.ScalePercent(int.MaxValue)], NoLimit));
+            RasterPlan.Build(SKRect.Create(1_000_000, 1), [VisualOperations.ScalePercent(int.MaxValue)], NoLimit));
     }
 }

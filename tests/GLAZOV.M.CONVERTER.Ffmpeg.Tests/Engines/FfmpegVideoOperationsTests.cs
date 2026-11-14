@@ -1,13 +1,11 @@
 using GLAZOV.M.CONVERTER.Capabilities;
 using GLAZOV.M.CONVERTER.Converting;
 using GLAZOV.M.CONVERTER.Data;
-using GLAZOV.M.CONVERTER.Detection;
-using GLAZOV.M.CONVERTER.Engines;
 using GLAZOV.M.CONVERTER.Errors;
 using GLAZOV.M.CONVERTER.Extensions;
 using GLAZOV.M.CONVERTER.Ffmpeg.Engines;
-using GLAZOV.M.CONVERTER.Ffmpeg.Progress;
 using GLAZOV.M.CONVERTER.Formats;
+using GLAZOV.M.CONVERTER.Formats.Options;
 using GLAZOV.M.CONVERTER.Settings;
 using GLAZOV.M.CONVERTER.Tooling;
 
@@ -82,10 +80,10 @@ public sealed class FfmpegVideoOperationsTests : IClassFixture<VideoSourcesFixtu
         return rgb[at] > 200 && rgb[at + 1] < 90 && rgb[at + 2] < 90;
     }
 
-    private static ConversionOptions With(params Operation[] operations)
+    private static ConversionOptions With(params IConversionOperation[] operations)
     {
         ConversionOptions options = new();
-        foreach (Operation operation in operations)
+        foreach (IConversionOperation operation in operations)
         {
             options.Operations.Add(operation);
         }
@@ -124,10 +122,10 @@ public sealed class FfmpegVideoOperationsTests : IClassFixture<VideoSourcesFixtu
     [InlineData("rotate,rotate", "640x480")]
     public async Task Sizes_FollowTheActionsInOrder_RoundedDownToEven(string actions, string expected)
     {
-        Operation[] operations = [.. actions.Split(',').Select(a => a switch
+        IConversionOperation[] operations = [.. actions.Split(',').Select(a => a switch
         {
-            "rotate" => Operation.RotateRight,
-            _ => Operation.ScalePercent(int.Parse(a["scale".Length..])),
+            "rotate" => VisualOperations.RotateRight,
+            _ => VisualOperations.ScalePercent(int.Parse(a["scale".Length..])),
         })];
 
         string path = await ConvertAsync(_fixture.Rich("mp4"), FileFormat.Mp4, With(operations));
@@ -140,7 +138,7 @@ public sealed class FfmpegVideoOperationsTests : IClassFixture<VideoSourcesFixtu
     {
         string source = await MarkedSourceAsync();
 
-        string path = await ConvertAsync(source, FileFormat.Mp4, With(Operation.RotateRight));
+        string path = await ConvertAsync(source, FileFormat.Mp4, With(VisualOperations.RotateRight));
 
         (int width, int height, byte[] rgb) = await FirstFrameAsync(path);
         Assert.Equal((480, 640), (width, height));
@@ -151,7 +149,7 @@ public sealed class FfmpegVideoOperationsTests : IClassFixture<VideoSourcesFixtu
     [ExternalFact]
     public async Task ScaleBeforeRotate_AndFrameSizeOfTheSettings_GoFirst()
     {
-        ConversionOptions options = With(Operation.RotateRight);
+        ConversionOptions options = With(VisualOperations.RotateRight);
         options.Video = new VideoOptions { Width = 320 };
 
         string path = await ConvertAsync(_fixture.Rich("mp4"), FileFormat.Mp4, options);
@@ -165,7 +163,7 @@ public sealed class FfmpegVideoOperationsTests : IClassFixture<VideoSourcesFixtu
     {
         foreach (FileFormat to in new[] { FileFormat.Mkv, FileFormat.Webm, FileFormat.Mov, FileFormat.Avi })
         {
-            string path = await ConvertAsync(_fixture.Rich("mp4"), to, With(Operation.RotateRight, Operation.ScalePercent(50)));
+            string path = await ConvertAsync(_fixture.Rich("mp4"), to, With(VisualOperations.RotateRight, VisualOperations.ScalePercent(50)));
 
             Assert.Equal("240x320", await SizeAsync(path));
         }
@@ -175,7 +173,7 @@ public sealed class FfmpegVideoOperationsTests : IClassFixture<VideoSourcesFixtu
     public async Task ThroughTheConverter_VideoToVideoWithActions_Works_AndVideoToSoundStillRefuses()
     {
         Converter converter = FfmpegConverter.Create();
-        ConversionOptions options = With(Operation.ScalePercent(50));
+        ConversionOptions options = With(VisualOperations.ScalePercent(50));
 
         ConversionResult result = await converter.ConvertAsync(Source.File(_fixture.Rich("mkv")), Target.Memory(FileFormat.Mp4), options);
         ConversionException refused = await Assert.ThrowsAsync<ConversionException>(() =>
